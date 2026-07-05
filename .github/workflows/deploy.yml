@@ -16,7 +16,6 @@ jobs:
           host: srv961648.hstgr.cloud
           username: cristi
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
           script: |
             set -e
 
