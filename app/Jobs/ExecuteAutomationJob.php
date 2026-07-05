@@ -75,7 +75,7 @@ class ExecuteAutomationJob implements ShouldQueue
         );
 
         // 4. Spedisci sul canale configurato
-        $this->sendViaChannel($automation->channel, $recipient, $compiledMessage, $pratica);
+        $this->sendViaChannel($automation->channel, $recipient, $compiledMessage, $pratica, $documentLinks);
 
         Log::info('ExecuteAutomationJob: eseguito con successo', [
             'pratica_id'    => $pratica->id,
@@ -247,10 +247,11 @@ class ExecuteAutomationJob implements ShouldQueue
         string $channel,
         array $recipient,
         string $compiledMessage,
-        Pratica $pratica
+        Pratica $pratica,
+        array $documentLinks
     ): void {
         if (in_array($channel, ['email', 'both'], true)) {
-            $this->sendEmail($recipient, $compiledMessage, $pratica);
+            $this->sendEmail($recipient, $compiledMessage, $pratica, $documentLinks);
         }
 
         if (in_array($channel, ['whatsapp', 'both'], true)) {
@@ -258,7 +259,7 @@ class ExecuteAutomationJob implements ShouldQueue
         }
     }
 
-    private function sendEmail(array $recipient, string $compiledMessage, Pratica $pratica): void
+    private function sendEmail(array $recipient, string $compiledMessage, Pratica $pratica, array $documentLinks): void
     {
         if (! $recipient['email']) {
             Log::warning('ExecuteAutomationJob: email vuota, invio saltato', [
