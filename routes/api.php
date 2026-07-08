@@ -2,12 +2,18 @@
 
 use App\Http\Controllers\AllegatoController;
 use App\Http\Controllers\PraticaNotaController;
+use App\Http\Controllers\WhatsappWebhookController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
+
+// Webhook interno chiamato dal microservizio open-wa (autenticato via secret condiviso, non da un utente).
+Route::post('/whatsapp/webhook', [WhatsappWebhookController::class, 'handle'])
+    ->middleware('whatsapp.service')
+    ->name('api.whatsapp.webhook');
 
 Route::middleware('auth:sanctum')->group(function () {
     // Allegati: upload (legato alla pratica)

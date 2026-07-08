@@ -40,4 +40,9 @@ return [
         'model' => env('ANTHROPIC_MODEL', 'claude-3-5-haiku-20241022'),
     ],
 
+    'whatsapp' => [
+        'url'    => env('WHATSAPP_SERVICE_URL', 'http://127.0.0.1:3002'),
+        'secret' => env('WHATSAPP_SERVICE_SECRET'),
+    ],
+
 ];
