@@ -70,11 +70,6 @@ jobs:
             echo "==> Activating release…"
             ln -nfs "$NEW_RELEASE" "$CURRENT"
 
-            echo "==> Restarting whatsapp-service and reverb…"
-            pm2 startOrRestart "$CURRENT/whatsapp-service/ecosystem.config.js" --update-env
-            pm2 startOrRestart "$CURRENT/ecosystem.reverb.config.js" --update-env
-            pm2 save
-
             php artisan config:clear
             php artisan view:clear
             php artisan route:clear
@@ -84,6 +79,11 @@ jobs:
             php artisan view:cache
             php artisan storage:link
             php artisan queue:restart
+
+            echo "==> Restarting whatsapp-service and reverb…"
+            pm2 startOrRestart "$CURRENT/whatsapp-service/ecosystem.config.js" --update-env
+            pm2 startOrRestart "$CURRENT/ecosystem.reverb.config.cjs" --update-env
+            pm2 save
 
             echo "==> Cleaning old releases (keep 5)…"
             ls -dt "$RELEASES"/* | tail -n +6 | xargs -d "\n" rm -rf
