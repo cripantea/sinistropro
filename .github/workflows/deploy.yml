@@ -33,6 +33,7 @@ jobs:
             [ -d "$PERSISTENT/storage/framework/sessions" ] || mkdir -p "$PERSISTENT/storage/framework/sessions"
             [ -d "$PERSISTENT/storage/framework/views" ]    || mkdir -p "$PERSISTENT/storage/framework/views"
             [ -d "$PERSISTENT/storage/logs" ]               || mkdir -p "$PERSISTENT/storage/logs"
+            [ -d "$PERSISTENT/whatsapp-sessions" ]          || mkdir -p "$PERSISTENT/whatsapp-sessions"
 
             mkdir "$NEW_RELEASE"
             git clone --depth 1 --branch main git@github.com:cripantea/sinistropro.git "$NEW_RELEASE"
@@ -49,10 +50,18 @@ jobs:
             echo "==> Building assets…"
             npm run build
 
+            echo "==> Installing whatsapp-service dependencies…"
+            cd "$NEW_RELEASE/whatsapp-service"
+            npm ci --omit=dev --prefer-offline
+            cd "$NEW_RELEASE"
+
             echo "==> Updating symlinks…"
             rm -rf "$NEW_RELEASE/storage"
             ln -nfs "$PERSISTENT/storage" "$NEW_RELEASE/storage"
             ln -nfs "$BASE/.env" "$NEW_RELEASE/.env"
+            rm -rf "$NEW_RELEASE/whatsapp-service/.sessions"
+            ln -nfs "$PERSISTENT/whatsapp-sessions" "$NEW_RELEASE/whatsapp-service/.sessions"
+            ln -nfs "$BASE/whatsapp-service.env" "$NEW_RELEASE/whatsapp-service/.env"
 
             echo "==> Running migrations…"
             php artisan clear-compiled
@@ -60,6 +69,11 @@ jobs:
 
             echo "==> Activating release…"
             ln -nfs "$NEW_RELEASE" "$CURRENT"
+
+            echo "==> Restarting whatsapp-service…"
+            pm2 startOrRestart "$CURRENT/whatsapp-service/ecosystem.config.js" --update-env
+            pm2 save
+
             php artisan config:clear
             php artisan view:clear
             php artisan route:clear
