@@ -86,6 +86,6 @@ jobs:
             pm2 save
 
             echo "==> Cleaning old releases (keep 5)…"
-            ls -dt "$RELEASES"/* | tail -n +6 | xargs -d "\n" rm -rf
+            ls -dt "$RELEASES"/* | tail -n +6 | xargs -d "\n" rm -rf || echo "WARN: pulizia vecchie release incompleta (permessi?), non blocco il deploy"
 
             echo "==> Deployed: $RELEASE_NAME"
