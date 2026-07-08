@@ -40,6 +40,14 @@ jobs:
             mkdir -p "$NEW_RELEASE/bootstrap/cache"
             chmod -R 775 "$NEW_RELEASE/bootstrap/cache"
 
+            echo "==> Updating symlinks…"
+            rm -rf "$NEW_RELEASE/storage"
+            ln -nfs "$PERSISTENT/storage" "$NEW_RELEASE/storage"
+            ln -nfs "$BASE/.env" "$NEW_RELEASE/.env"
+            rm -rf "$NEW_RELEASE/whatsapp-service/.sessions"
+            ln -nfs "$PERSISTENT/whatsapp-sessions" "$NEW_RELEASE/whatsapp-service/.sessions"
+            ln -nfs "$BASE/whatsapp-service.env" "$NEW_RELEASE/whatsapp-service/.env"
+
             echo "==> Composer install…"
             cd "$NEW_RELEASE"
             composer install --prefer-dist --no-scripts --no-dev -q -o
@@ -55,14 +63,6 @@ jobs:
             npm ci --omit=dev --prefer-offline
             cd "$NEW_RELEASE"
 
-            echo "==> Updating symlinks…"
-            rm -rf "$NEW_RELEASE/storage"
-            ln -nfs "$PERSISTENT/storage" "$NEW_RELEASE/storage"
-            ln -nfs "$BASE/.env" "$NEW_RELEASE/.env"
-            rm -rf "$NEW_RELEASE/whatsapp-service/.sessions"
-            ln -nfs "$PERSISTENT/whatsapp-sessions" "$NEW_RELEASE/whatsapp-service/.sessions"
-            ln -nfs "$BASE/whatsapp-service.env" "$NEW_RELEASE/whatsapp-service/.env"
-
             echo "==> Running migrations…"
             php artisan clear-compiled
             php artisan migrate --force
@@ -70,8 +70,9 @@ jobs:
             echo "==> Activating release…"
             ln -nfs "$NEW_RELEASE" "$CURRENT"
 
-            echo "==> Restarting whatsapp-service…"
+            echo "==> Restarting whatsapp-service and reverb…"
             pm2 startOrRestart "$CURRENT/whatsapp-service/ecosystem.config.js" --update-env
+            pm2 startOrRestart "$CURRENT/ecosystem.reverb.config.js" --update-env
             pm2 save
 
             php artisan config:clear
