@@ -19,38 +19,58 @@ class WhatsappSessionController extends Controller
         $tenantId = auth()->user()->tenant_id;
 
         $session = WhatsappSession::where('tenant_id', $tenantId)->first();
-        $status = $this->resolveStatus($session);
+        [$status, $qrCode] = $this->reconcileStatus($tenantId, $session);
 
         return Inertia::render('Whatsapp/Index', [
             'session' => [
                 'status'      => $status,
                 'phoneNumber' => $session?->phone_number,
-                'qrCode'      => $status === 'qr' ? $session?->qr_code : null,
+                'qrCode'      => $status === 'qr' ? $qrCode : null,
             ],
         ]);
     }
 
     /**
-     * Se il servizio si è bloccato/riavviato mentre la sessione era ancora in
-     * fase di pairing (QR/starting), la riga in DB può restare "congelata" su
-     * quello stato pur non avendo più un processo reale dietro. Un QR non
-     * aggiornato da un po' non è più valido: lo trattiamo come disconnesso
-     * invece di mostrare in eterno un codice morto.
+     * Il database riflette solo l'ultimo evento ricevuto via webhook: se il
+     * microservizio si riavvia (deploy, crash) senza passare da un evento di
+     * disconnessione pulito, la riga puó restare "congelata" su uno stato
+     * (es. connected/qr) che non corrisponde più a nessun processo reale.
+     * Per evitare di mostrare uno stato inventato (e magari nascondere il
+     * bottone "Connetti" quando servirebbe), interroghiamo lo stato live del
+     * servizio ad ogni caricamento pagina e, se diverge dal DB, ci fidiamo
+     * di quello reale e correggiamo la riga.
+     *
+     * @return array{0: string, 1: ?string}
      */
-    private function resolveStatus(?WhatsappSession $session): string
+    private function reconcileStatus(int $tenantId, ?WhatsappSession $session): array
     {
-        if (! $session) {
-            return 'disconnected';
+        $dbStatus = $session?->status ?? 'disconnected';
+
+        try {
+            $live = $this->client->status($tenantId);
+        } catch (\Throwable $e) {
+            // Servizio irraggiungibile: meglio fidarsi dell'ultimo stato noto
+            // che rompere la pagina.
+            return [$dbStatus, $session?->qr_code];
         }
 
-        $isPairing = in_array($session->status, ['starting', 'qr'], true);
-        $stale = ($session->last_event_at ?? $session->updated_at)?->diffInMinutes(now()) >= 3;
-
-        if ($isPairing && $stale) {
-            return 'disconnected';
+        $liveStatus = strtolower((string) ($live['status'] ?? ''));
+        $validStatuses = ['disconnected', 'starting', 'qr', 'connected'];
+        if (! in_array($liveStatus, $validStatuses, true)) {
+            $liveStatus = 'disconnected';
         }
 
-        return $session->status;
+        if ($liveStatus !== $dbStatus) {
+            $session = WhatsappSession::updateOrCreate(
+                ['tenant_id' => $tenantId],
+                [
+                    'status'  => $liveStatus,
+                    'qr_code' => $liveStatus === 'qr' ? ($live['qr'] ?? null) : null,
+                ]
+            );
+        }
+
+        return [$liveStatus, $live['qr'] ?? $session?->qr_code];
     }
 
     public function start(): RedirectResponse
