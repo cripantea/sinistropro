@@ -26,8 +26,8 @@ router.post('/sessions/:tenantId/messages', async (req, res) => {
     return res.status(400).json({ error: 'to e message sono obbligatori' });
   }
   try {
-    await sessionManager.sendMessage(req.params.tenantId, to, message);
-    res.json({ ok: true });
+    const result = await sessionManager.sendMessage(req.params.tenantId, to, message);
+    res.json({ ok: true, id: result?.key?.id ?? null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

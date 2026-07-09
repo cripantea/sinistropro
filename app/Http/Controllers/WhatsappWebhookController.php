@@ -155,7 +155,14 @@ class WhatsappWebhookController extends Controller
         $conversation->save();
 
         $this->broadcast($tenantId, 'message', [
-            'conversationId' => $conversation->id,
+            'conversation' => [
+                'id'                  => $conversation->id,
+                'phoneNumber'         => $conversation->phone_number,
+                'contactName'         => $conversation->contact_name,
+                'lastMessagePreview'  => $conversation->last_message_preview,
+                'lastMessageAt'       => $conversation->last_message_at?->toIso8601String(),
+                'unreadCount'         => $conversation->unread_count,
+            ],
             'message' => [
                 'id'        => $whatsappMessage->id,
                 'direction' => 'inbound',

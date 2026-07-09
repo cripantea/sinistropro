@@ -11,33 +11,50 @@
       </div>
     </Transition>
 
-    <div class="py-6 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Connesso: lista chat + conversazione -->
+    <div v-if="status === 'connected'" class="h-[calc(100vh-3.5rem)] flex flex-col">
+      <div class="flex items-center justify-between gap-3 px-4 py-2 bg-green-50 border-b border-green-100 shrink-0">
+        <p class="text-xs text-green-700">
+          <span class="inline-block w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
+          Connesso — {{ phoneNumber ? `+${phoneNumber}` : '—' }}
+        </p>
+        <button
+          v-if="isTenantAdmin"
+          @click="stop"
+          :disabled="processing"
+          class="text-xs text-red-600 hover:underline disabled:opacity-60"
+        >
+          Disconnetti
+        </button>
+      </div>
+
+      <div class="flex-1 flex min-h-0">
+        <div class="w-80 border-r border-gray-200 bg-white shrink-0 min-h-0">
+          <ConversationList
+            :conversations="conversations"
+            :selected-id="selectedConversationId"
+            @select="selectConversation"
+          />
+        </div>
+        <div class="flex-1 min-h-0">
+          <MessageThread
+            :conversation="selectedConversation"
+            :messages="messages"
+            :loading="messagesLoading"
+            :sending="sending"
+            :send-error="sendError"
+            @send="sendMessage"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Altri stati: card centrata -->
+    <div v-else class="py-6 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
 
-        <!-- Connesso -->
-        <div v-if="status === 'connected'">
-          <div class="w-14 h-14 mx-auto rounded-full bg-green-100 flex items-center justify-center mb-4">
-            <svg class="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-            </svg>
-          </div>
-          <h3 class="text-lg font-semibold text-gray-800">WhatsApp connesso</h3>
-          <p class="text-sm text-gray-500 mt-1">
-            Numero collegato: <span class="font-medium text-gray-700">{{ phoneNumber ?? '—' }}</span>
-          </p>
-
-          <button
-            v-if="isTenantAdmin"
-            @click="stop"
-            :disabled="processing"
-            class="mt-6 text-sm text-red-600 border border-red-200 hover:bg-red-50 px-4 py-2 rounded-lg transition disabled:opacity-60"
-          >
-            Disconnetti
-          </button>
-        </div>
-
         <!-- QR da scansionare -->
-        <div v-else-if="status === 'qr' && qrCode">
+        <div v-if="status === 'qr' && qrCode">
           <h3 class="text-lg font-semibold text-gray-800 mb-1">Scansiona il QR code</h3>
           <p class="text-sm text-gray-500 mb-4">
             Apri WhatsApp sul telefono del numero da collegare → Impostazioni → Dispositivi collegati → Collega un dispositivo.
@@ -85,10 +102,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import axios from 'axios'
 import { router, usePage } from '@inertiajs/vue3'
 import { useEcho } from '@laravel/echo-vue'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import ConversationList from '@/Components/Whatsapp/ConversationList.vue'
+import type { ConversationSummary } from '@/Components/Whatsapp/ConversationList.vue'
+import MessageThread from '@/Components/Whatsapp/MessageThread.vue'
+import type { Message } from '@/Components/Whatsapp/MessageThread.vue'
 import type { PageProps } from '@/types'
 
 interface SessionProps {
@@ -109,6 +131,77 @@ const phoneNumber = ref(props.session.phoneNumber)
 const qrCode      = ref(props.session.qrCode)
 const processing  = ref(false)
 
+// ── Conversazioni + messaggi ────────────────────────────────────────────────
+const conversations         = ref<ConversationSummary[]>([])
+const selectedConversationId = ref<number | null>(null)
+const messages               = ref<Message[]>([])
+const messagesLoading        = ref(false)
+const sending                = ref(false)
+const sendError               = ref<string | null>(null)
+
+const selectedConversation = computed(
+  () => conversations.value.find((c) => c.id === selectedConversationId.value) ?? null
+)
+
+async function loadConversations() {
+  const { data } = await axios.get(route('whatsapp.conversations.index'))
+  conversations.value = data.conversations
+}
+
+async function selectConversation(id: number) {
+  selectedConversationId.value = id
+  messagesLoading.value = true
+  const conv = conversations.value.find((c) => c.id === id)
+  if (conv) conv.unreadCount = 0
+  try {
+    const { data } = await axios.get(route('whatsapp.conversations.messages', id))
+    messages.value = data.messages
+  } finally {
+    messagesLoading.value = false
+  }
+}
+
+async function sendMessage(body: string) {
+  if (!selectedConversationId.value) return
+  sending.value = true
+  sendError.value = null
+  try {
+    const { data } = await axios.post(route('whatsapp.conversations.store', selectedConversationId.value), { body })
+    messages.value.push(data.message)
+    const conv = conversations.value.find((c) => c.id === selectedConversationId.value)
+    if (conv) {
+      conv.lastMessagePreview = body.slice(0, 200)
+      conv.lastMessageAt = data.message.createdAt
+    }
+  } catch {
+    sendError.value = 'Invio non riuscito. Riprova.'
+  } finally {
+    sending.value = false
+  }
+}
+
+function upsertConversation(summary: ConversationSummary, isOpen: boolean) {
+  const existing = conversations.value.find((c) => c.id === summary.id)
+  const merged = { ...summary, unreadCount: isOpen ? 0 : summary.unreadCount }
+  if (existing) {
+    Object.assign(existing, merged)
+  } else {
+    conversations.value.unshift(merged)
+  }
+  conversations.value.sort((a, b) => {
+    if (!a.lastMessageAt) return 1
+    if (!b.lastMessageAt) return -1
+    return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+  })
+}
+
+watch(status, (value) => {
+  if (value === 'connected' && conversations.value.length === 0) {
+    loadConversations()
+  }
+}, { immediate: true })
+
+// ── Realtime ─────────────────────────────────────────────────────────────
 if (tenantId.value) {
   const channel = `whatsapp.${tenantId.value}`
 
@@ -136,6 +229,22 @@ if (tenantId.value) {
     status.value = 'disconnected'
     phoneNumber.value = null
     qrCode.value = null
+    conversations.value = []
+    selectedConversationId.value = null
+    messages.value = []
+  })
+
+  useEcho<{ conversation: ConversationSummary; message: Message }>(channel, '.message', (e) => {
+    const isOpen = selectedConversationId.value === e.conversation.id
+    upsertConversation(e.conversation, isOpen)
+    if (isOpen) {
+      messages.value.push(e.message)
+    }
+  })
+
+  useEcho<{ messageId: number; status: string }>(channel, '.ack', (e) => {
+    const m = messages.value.find((msg) => msg.id === e.messageId)
+    if (m) m.status = e.status
   })
 }
 

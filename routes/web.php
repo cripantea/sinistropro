@@ -9,6 +9,7 @@ use App\Http\Controllers\PraticaController;
 use App\Http\Controllers\PraticaNotaController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TeamController;
+use App\Http\Controllers\WhatsappConversationController;
 use App\Http\Controllers\WhatsappSessionController;
 use App\Http\Controllers\Superadmin\AutomationController;
 use App\Http\Controllers\Superadmin\DocumentCategoryController;
@@ -70,6 +71,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/whatsapp', [WhatsappSessionController::class, 'index'])->name('whatsapp.index');
     Route::post('/whatsapp/start', [WhatsappSessionController::class, 'start'])->name('whatsapp.start');
     Route::post('/whatsapp/stop', [WhatsappSessionController::class, 'stop'])->name('whatsapp.stop');
+
+    Route::get('/whatsapp/conversations', [WhatsappConversationController::class, 'index'])->name('whatsapp.conversations.index');
+    Route::get('/whatsapp/conversations/{conversation}/messages', [WhatsappConversationController::class, 'messages'])->name('whatsapp.conversations.messages');
+    Route::post('/whatsapp/conversations/{conversation}/messages', [WhatsappConversationController::class, 'store'])->name('whatsapp.conversations.store');
 });
 
 // --- Audit Log (solo tenant-admin) ---
