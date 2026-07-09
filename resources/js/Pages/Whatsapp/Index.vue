@@ -4,15 +4,15 @@
       <h2 class="text-xl font-semibold text-gray-800 leading-tight">WhatsApp</h2>
     </template>
 
-    <!-- Flash -->
-    <Transition enter-active-class="transition" enter-from-class="opacity-0" leave-active-class="transition" leave-to-class="opacity-0">
-      <div v-if="flash?.success" class="bg-green-50 border-l-4 border-green-500 px-4 py-3 text-sm text-green-800 mx-4 mt-4 rounded">
-        {{ flash.success }}
-      </div>
-    </Transition>
-
     <!-- Connesso: lista chat + conversazione -->
     <div v-if="status === 'connected'" class="h-[calc(100vh-3.5rem)] flex flex-col">
+      <!-- Flash -->
+      <Transition enter-active-class="transition" enter-from-class="opacity-0" leave-active-class="transition" leave-to-class="opacity-0">
+        <div v-if="flash?.success" class="bg-green-50 border-l-4 border-green-500 px-4 py-3 text-sm text-green-800 mx-4 mt-4 rounded shrink-0">
+          {{ flash.success }}
+        </div>
+      </Transition>
+
       <div class="flex items-center justify-between gap-3 px-4 py-2 bg-green-50 border-b border-green-100 shrink-0">
         <p class="text-xs text-green-700">
           <span class="inline-block w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
@@ -50,7 +50,14 @@
     </div>
 
     <!-- Altri stati: card centrata -->
-    <div v-else class="py-6 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div v-else>
+      <Transition enter-active-class="transition" enter-from-class="opacity-0" leave-active-class="transition" leave-to-class="opacity-0">
+        <div v-if="flash?.success" class="bg-green-50 border-l-4 border-green-500 px-4 py-3 text-sm text-green-800 mx-4 mt-4 rounded">
+          {{ flash.success }}
+        </div>
+      </Transition>
+
+    <div class="py-6 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
 
         <!-- QR da scansionare -->
@@ -97,6 +104,7 @@
         </div>
 
       </div>
+    </div>
     </div>
   </AuthenticatedLayout>
 </template>
