@@ -1,10 +1,11 @@
 const path = require('path');
 const fs = require('fs');
-const { create } = require('@open-wa/wa-automate');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('baileys');
+const QRCode = require('qrcode');
 const config = require('./config');
 const { notifyLaravel } = require('./webhookClient');
 
-// tenantId -> { client, status: 'STARTING'|'QR'|'CONNECTED', qr }
+// tenantId -> { sock, status: 'STARTING'|'QR'|'CONNECTED', qr, saveCreds }
 const sessions = new Map();
 
 function statusOf(tenantId) {
@@ -13,28 +14,30 @@ function statusOf(tenantId) {
   return { status: state.status, qr: state.qr || null };
 }
 
-function toChatId(rawNumber) {
+function toJid(rawNumber) {
   const digits = String(rawNumber).replace(/\D/g, '');
-  return `${digits}@c.us`;
+  return `${digits}@s.whatsapp.net`;
 }
 
-function registerListeners(tenantId, state) {
-  const { client } = state;
+function fromJid(jid) {
+  return String(jid || '').replace(/\D/g, '');
+}
 
-  client.onMessage(async (message) => {
-    await notifyLaravel(tenantId, 'message', { message });
-  });
+function extractText(message) {
+  if (!message) return null;
+  return message.conversation
+    ?? message.extendedTextMessage?.text
+    ?? message.imageMessage?.caption
+    ?? message.videoMessage?.caption
+    ?? null;
+}
 
-  client.onAck(async (ack) => {
-    await notifyLaravel(tenantId, 'ack', { ack });
-  });
-
-  client.onStateChanged((waState) => {
-    notifyLaravel(tenantId, 'state', { state: waState });
-    if (waState === 'CONFLICT' || waState === 'UNPAIRED' || waState === 'UNLAUNCHED') {
-      client.forceRefocus();
-    }
-  });
+function extractMediaType(message) {
+  if (!message) return null;
+  const keys = Object.keys(message);
+  const mediaKey = keys.find((k) => k.endsWith('Message') && k !== 'extendedTextMessage');
+  if (!mediaKey || mediaKey === 'conversation') return null;
+  return mediaKey.replace(/Message$/, '');
 }
 
 async function startSession(tenantId) {
@@ -43,47 +46,92 @@ async function startSession(tenantId) {
     return existing;
   }
 
-  const state = { client: null, status: 'STARTING', qr: null };
-  sessions.set(tenantId, state);
-
-  const sessionDataPath = path.join(config.sessionsDir, tenantId);
+  const sessionDataPath = path.join(config.sessionsDir, String(tenantId));
   fs.mkdirSync(sessionDataPath, { recursive: true });
 
-  const client = await create({
-    sessionId: tenantId,
-    multiDevice: true,
-    headless: true,
-    authTimeout: 60,
-    qrTimeout: 0,
-    blockCrashLogs: true,
-    disableSpins: true,
-    popup: false,
-    logConsole: false,
-    cacheEnabled: false,
-    sessionDataPath,
-    qrCallback: (qrcode) => {
-      state.qr = qrcode;
-      state.status = 'QR';
-      notifyLaravel(tenantId, 'qr', { qrcode });
-    },
-    statusFind: (statusSession) => {
-      notifyLaravel(tenantId, 'status', { status: statusSession });
-    },
+  const { state, saveCreds } = await useMultiFileAuthState(sessionDataPath);
+
+  const sessionState = { sock: null, status: 'STARTING', qr: null, saveCreds };
+  sessions.set(tenantId, sessionState);
+
+  const sock = makeWASocket({ auth: state });
+  sessionState.sock = sock;
+
+  sock.ev.on('creds.update', saveCreds);
+
+  sock.ev.on('connection.update', async (update) => {
+    const { connection, lastDisconnect, qr } = update;
+
+    if (qr) {
+      try {
+        sessionState.qr = await QRCode.toDataURL(qr);
+        sessionState.status = 'QR';
+        await notifyLaravel(tenantId, 'qr', { qrcode: sessionState.qr });
+      } catch (err) {
+        console.error(`[session:${tenantId}] generazione QR fallita:`, err.message);
+      }
+    }
+
+    if (connection === 'open') {
+      sessionState.status = 'CONNECTED';
+      sessionState.qr = null;
+      const phoneNumber = sock.user?.id ? fromJid(sock.user.id.split(':')[0]) : null;
+      await notifyLaravel(tenantId, 'ready', { phoneNumber });
+    }
+
+    if (connection === 'close') {
+      const statusCode = lastDisconnect?.error?.output?.statusCode;
+      const loggedOut = statusCode === DisconnectReason.loggedOut;
+
+      sessions.delete(tenantId);
+      await notifyLaravel(tenantId, 'state', { state: loggedOut ? 'UNPAIRED' : 'DISCONNECTED' });
+
+      if (!loggedOut) {
+        setTimeout(() => {
+          startSession(tenantId).catch((err) => {
+            console.error(`[session:${tenantId}] riconnessione fallita:`, err.message);
+          });
+        }, 3000);
+      }
+    }
   });
 
-  state.client = client;
-  state.status = 'CONNECTED';
-  state.qr = null;
-  registerListeners(tenantId, state);
-  await notifyLaravel(tenantId, 'ready', {});
+  sock.ev.on('messages.upsert', async ({ messages }) => {
+    for (const message of messages) {
+      if (message.key.fromMe) continue;
 
-  return state;
+      await notifyLaravel(tenantId, 'message', {
+        message: {
+          id: message.key.id,
+          from: fromJid(message.key.remoteJid),
+          body: extractText(message.message),
+          notifyName: message.pushName,
+          type: extractMediaType(message.message) ?? 'chat',
+        },
+      });
+    }
+  });
+
+  sock.ev.on('messages.update', async (updates) => {
+    for (const { key, update } of updates) {
+      if (update.status === undefined || update.status === null) continue;
+
+      await notifyLaravel(tenantId, 'ack', {
+        ack: { id: key.id, ack: update.status },
+      });
+    }
+  });
+
+  return sessionState;
 }
 
 async function stopSession(tenantId) {
   const state = sessions.get(tenantId);
-  if (!state || !state.client) return false;
-  await state.client.kill();
+  if (!state || !state.sock) return false;
+
+  await state.sock.logout().catch((err) => {
+    console.error(`[session:${tenantId}] logout con errori (proseguo comunque):`, err.message);
+  });
   sessions.delete(tenantId);
   await notifyLaravel(tenantId, 'stopped', {});
   return true;
@@ -94,7 +142,7 @@ async function sendMessage(tenantId, to, message) {
   if (!state || state.status !== 'CONNECTED') {
     throw new Error('sessione non connessa');
   }
-  return state.client.sendText(toChatId(to), message);
+  return state.sock.sendMessage(toJid(to), { text: message });
 }
 
 module.exports = { startSession, stopSession, statusOf, sendMessage };

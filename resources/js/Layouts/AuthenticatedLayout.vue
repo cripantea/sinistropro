@@ -29,6 +29,7 @@ const isOnDashboard = computed(() => currentPath.value === '/dashboard')
 const isOnPratiche  = computed(() => currentPath.value.startsWith('/pratiche') && currentPath.value !== '/pratiche/kanban')
 const isOnKanban    = computed(() => currentPath.value === '/pratiche/kanban')
 const isOnTeam      = computed(() => currentPath.value.startsWith('/team'))
+const isOnWhatsapp  = computed(() => currentPath.value.startsWith('/whatsapp'))
 
 function navigate(url: string) {
   window.location.href = url
@@ -183,6 +184,26 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
             </svg>
             <span v-show="!collapsed" class="truncate">Board</span>
+          </a>
+
+          <!-- WhatsApp -->
+          <a
+            v-if="!isSuperadmin"
+            :href="route('whatsapp.index')"
+            @click.prevent="navigate(route('whatsapp.index'))"
+            :class="[
+              'flex items-center rounded-lg text-sm font-medium transition-colors',
+              collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
+              isOnWhatsapp
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+            ]"
+            :title="collapsed ? 'WhatsApp' : undefined"
+          >
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+            <span v-show="!collapsed" class="truncate">WhatsApp</span>
           </a>
 
           <!-- Team (tenant-admin only) -->

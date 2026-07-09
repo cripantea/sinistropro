@@ -12,10 +12,10 @@ use Illuminate\Support\Str;
 
 class WhatsappWebhookController extends Controller
 {
-    /** Codici ACK di @open-wa/wa-automate. */
-    private const ACK_ERROR = -1;
-    private const ACK_READ = 3;
-    private const ACK_DEVICE = 2;
+    /** Codici WAMessageStatus di Baileys: ERROR=0, PENDING=1, SERVER_ACK=2, DELIVERY_ACK=3, READ=4, PLAYED=5. */
+    private const ACK_ERROR = 0;
+    private const ACK_READ = 4;
+    private const ACK_DELIVERED = 3;
 
     public function handle(Request $request): \Illuminate\Http\JsonResponse
     {
@@ -189,7 +189,7 @@ class WhatsappWebhookController extends Controller
         $status = match (true) {
             (int) $ackCode === self::ACK_ERROR => 'failed',
             (int) $ackCode >= self::ACK_READ => 'read',
-            (int) $ackCode >= self::ACK_DEVICE => 'delivered',
+            (int) $ackCode >= self::ACK_DELIVERED => 'delivered',
             default => 'sent',
         };
 

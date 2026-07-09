@@ -2,15 +2,16 @@
   "name": "whatsapp-service",
   "version": "1.0.0",
   "private": true,
-  "description": "Microservizio open-wa: una sessione WhatsApp Web per tenant, esposta via REST a Laravel",
+  "description": "Microservizio Baileys: una sessione WhatsApp per tenant, esposta via REST a Laravel",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "@open-wa/wa-automate": "4.76.0",
     "axios": "^1.7.9",
+    "baileys": "^7.0.0-rc13",
     "dotenv": "^16.4.7",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "qrcode": "^1.5.4"
   }
 }

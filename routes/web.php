@@ -9,6 +9,7 @@ use App\Http\Controllers\PraticaController;
 use App\Http\Controllers\PraticaNotaController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TeamController;
+use App\Http\Controllers\WhatsappSessionController;
 use App\Http\Controllers\Superadmin\AutomationController;
 use App\Http\Controllers\Superadmin\DocumentCategoryController;
 use App\Http\Controllers\Superadmin\ModuleTemplateController;
@@ -62,6 +63,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/team',                             [TeamController::class, 'store'])->name('team.store');
     Route::patch('/team/{member}',                   [TeamController::class, 'update'])->name('team.update');
     Route::patch('/team/{member}/toggle-active',     [TeamController::class, 'toggleActive'])->name('team.toggle-active');
+});
+
+// --- WhatsApp ---
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/whatsapp', [WhatsappSessionController::class, 'index'])->name('whatsapp.index');
+    Route::post('/whatsapp/start', [WhatsappSessionController::class, 'start'])->name('whatsapp.start');
+    Route::post('/whatsapp/stop', [WhatsappSessionController::class, 'stop'])->name('whatsapp.stop');
 });
 
 // --- Audit Log (solo tenant-admin) ---
