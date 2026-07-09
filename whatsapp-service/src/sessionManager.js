@@ -82,6 +82,7 @@ async function startSession(tenantId) {
     if (connection === 'close') {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = statusCode === DisconnectReason.loggedOut;
+      const restartRequired = statusCode === DisconnectReason.restartRequired;
       const wasConnected = sessionState.status === 'CONNECTED';
 
       console.error(`[session:${tenantId}] disconnesso (era: ${sessionState.status}):`, {
@@ -93,16 +94,22 @@ async function startSession(tenantId) {
       sessions.delete(tenantId);
       await notifyLaravel(tenantId, 'state', { state: loggedOut ? 'UNPAIRED' : 'DISCONNECTED' });
 
-      // Riconnette in automatico solo se una sessione già attiva si è interrotta:
-      // durante il pairing (QR non ancora scansionato/rifiutato) non insiste da sola,
-      // per non rischiare di intasare WhatsApp di tentativi ripetuti — va richiesto
-      // esplicitamente un nuovo /start.
-      if (!loggedOut && wasConnected) {
+      // "restart required" (515) è il segnale NORMALE che WhatsApp manda subito
+      // dopo che il pairing è andato a buon fine: va riconnesso subito con le
+      // credenziali appena salvate per completare il login, altrimenti la
+      // sessione resta a metà anche se lo scan è riuscito.
+      //
+      // Negli altri casi riconnette in automatico solo se una sessione già
+      // attiva si è interrotta: durante il pairing (QR non ancora scansionato
+      // o rifiutato) non insiste da sola, per non rischiare di intasare
+      // WhatsApp di tentativi ripetuti — va richiesto esplicitamente un nuovo
+      // /start.
+      if (restartRequired || (!loggedOut && wasConnected)) {
         setTimeout(() => {
           startSession(tenantId).catch((err) => {
             console.error(`[session:${tenantId}] riconnessione fallita:`, err.message);
           });
-        }, 3000);
+        }, restartRequired ? 500 : 3000);
       }
     }
   });
