@@ -34,4 +34,13 @@ class WhatsappEvent implements ShouldBroadcast
     {
         return $this->payload;
     }
+
+    /**
+     * Il worker in produzione consuma solo la coda "automations": riusiamo
+     * quella invece di "default", che non ha nessun worker dedicato.
+     */
+    public function broadcastQueue(): string
+    {
+        return 'automations';
+    }
 }
