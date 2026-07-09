@@ -82,11 +82,22 @@ async function startSession(tenantId) {
     if (connection === 'close') {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = statusCode === DisconnectReason.loggedOut;
+      const wasConnected = sessionState.status === 'CONNECTED';
+
+      console.error(`[session:${tenantId}] disconnesso (era: ${sessionState.status}):`, {
+        statusCode,
+        message: lastDisconnect?.error?.message,
+        payload: lastDisconnect?.error?.output?.payload,
+      });
 
       sessions.delete(tenantId);
       await notifyLaravel(tenantId, 'state', { state: loggedOut ? 'UNPAIRED' : 'DISCONNECTED' });
 
-      if (!loggedOut) {
+      // Riconnette in automatico solo se una sessione già attiva si è interrotta:
+      // durante il pairing (QR non ancora scansionato/rifiutato) non insiste da sola,
+      // per non rischiare di intasare WhatsApp di tentativi ripetuti — va richiesto
+      // esplicitamente un nuovo /start.
+      if (!loggedOut && wasConnected) {
         setTimeout(() => {
           startSession(tenantId).catch((err) => {
             console.error(`[session:${tenantId}] riconnessione fallita:`, err.message);
