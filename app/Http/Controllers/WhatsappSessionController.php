@@ -19,14 +19,38 @@ class WhatsappSessionController extends Controller
         $tenantId = auth()->user()->tenant_id;
 
         $session = WhatsappSession::where('tenant_id', $tenantId)->first();
+        $status = $this->resolveStatus($session);
 
         return Inertia::render('Whatsapp/Index', [
             'session' => [
-                'status'      => $session?->status ?? 'disconnected',
+                'status'      => $status,
                 'phoneNumber' => $session?->phone_number,
-                'qrCode'      => $session?->qr_code,
+                'qrCode'      => $status === 'qr' ? $session?->qr_code : null,
             ],
         ]);
+    }
+
+    /**
+     * Se il servizio si è bloccato/riavviato mentre la sessione era ancora in
+     * fase di pairing (QR/starting), la riga in DB può restare "congelata" su
+     * quello stato pur non avendo più un processo reale dietro. Un QR non
+     * aggiornato da un po' non è più valido: lo trattiamo come disconnesso
+     * invece di mostrare in eterno un codice morto.
+     */
+    private function resolveStatus(?WhatsappSession $session): string
+    {
+        if (! $session) {
+            return 'disconnected';
+        }
+
+        $isPairing = in_array($session->status, ['starting', 'qr'], true);
+        $stale = ($session->last_event_at ?? $session->updated_at)?->diffInMinutes(now()) >= 3;
+
+        if ($isPairing && $stale) {
+            return 'disconnected';
+        }
+
+        return $session->status;
     }
 
     public function start(): RedirectResponse
