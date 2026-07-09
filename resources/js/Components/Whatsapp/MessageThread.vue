@@ -51,32 +51,38 @@
       </div>
 
       <!-- Input -->
-      <p v-if="sendError" class="px-3 pt-2 text-xs text-red-600 bg-[#f0f0f0] shrink-0">{{ sendError }}</p>
-      <form @submit.prevent="submit" class="flex items-end gap-2 px-3 py-2 bg-[#f0f0f0] border-t border-gray-200 shrink-0">
-        <textarea
-          v-model="draft"
-          rows="1"
-          placeholder="Scrivi un messaggio…"
-          class="flex-1 text-sm bg-white border-0 rounded-xl px-3 py-2 resize-none focus:ring-2 focus:ring-green-500 outline-none"
-          @keydown.enter.exact.prevent="submit"
-        />
-        <button
-          type="submit"
-          :disabled="!draft.trim() || sending"
-          class="shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition"
-          :class="draft.trim() && !sending ? 'bg-[#25D366] hover:bg-[#20bf59] text-white shadow' : 'bg-gray-300 text-gray-400 cursor-not-allowed'"
-        >
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-          </svg>
-        </button>
-      </form>
+      <p v-if="disabled" class="px-3 py-2 text-xs text-gray-500 bg-[#f0f0f0] border-t border-gray-200 shrink-0">
+        WhatsApp non connesso — <Link :href="route('whatsapp.index')" class="text-indigo-600 hover:underline">collega il numero</Link> per scrivere.
+      </p>
+      <template v-else>
+        <p v-if="sendError" class="px-3 pt-2 text-xs text-red-600 bg-[#f0f0f0] shrink-0">{{ sendError }}</p>
+        <form @submit.prevent="submit" class="flex items-end gap-2 px-3 py-2 bg-[#f0f0f0] border-t border-gray-200 shrink-0">
+          <textarea
+            v-model="draft"
+            rows="1"
+            placeholder="Scrivi un messaggio…"
+            class="flex-1 text-sm bg-white border-0 rounded-xl px-3 py-2 resize-none focus:ring-2 focus:ring-green-500 outline-none"
+            @keydown.enter.exact.prevent="submit"
+          />
+          <button
+            type="submit"
+            :disabled="!draft.trim() || sending"
+            class="shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition"
+            :class="draft.trim() && !sending ? 'bg-[#25D366] hover:bg-[#20bf59] text-white shadow' : 'bg-gray-300 text-gray-400 cursor-not-allowed'"
+          >
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+        </form>
+      </template>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
+import { Link } from '@inertiajs/vue3'
 import StatusTicks from './StatusTicks.vue'
 import type { ConversationSummary } from './ConversationList.vue'
 
@@ -96,6 +102,7 @@ const props = defineProps<{
   loading: boolean
   sending: boolean
   sendError: string | null
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{ send: [body: string] }>()

@@ -2,15 +2,98 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Pratica;
 use App\Models\WhatsappConversation;
+use App\Models\WhatsappSession;
 use App\Services\WhatsappServiceClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class WhatsappConversationController extends Controller
 {
+    /** Stesse convenzioni di nome campo usate nel resto dell'app (Automazioni, mockup wa.me). */
+    private const PHONE_KEYS = ['telefono', 'tel', 'phone', 'cellulare', 'mobile', 'numero_tel'];
+    private const NAME_KEYS  = ['nome', 'cliente', 'contraente', 'assicurato', 'nominativo'];
+
     public function __construct(private WhatsappServiceClient $client)
     {
+    }
+
+    /**
+     * Risolve (creando se necessario) la conversazione WhatsApp collegata al
+     * numero di telefono della pratica, così la chat può essere mostrata
+     * filtrata direttamente nella pagina della pratica.
+     */
+    public function forPratica(Pratica $pratica): JsonResponse
+    {
+        $authed = auth()->user();
+        abort_unless($pratica->tenant_id === $authed->tenant_id, 403);
+
+        $fields = $pratica->custom_fields ?? [];
+        $phoneNumber = $this->extractDigits($fields, self::PHONE_KEYS);
+
+        $session = WhatsappSession::where('tenant_id', $authed->tenant_id)->first();
+        $sessionConnected = $session?->status === 'connected';
+
+        if (! $phoneNumber) {
+            return response()->json([
+                'phoneNumber'      => null,
+                'sessionConnected' => $sessionConnected,
+                'conversation'     => null,
+            ]);
+        }
+
+        $conversation = WhatsappConversation::firstOrCreate(
+            ['tenant_id' => $authed->tenant_id, 'phone_number' => $phoneNumber],
+            [
+                'pratica_id'   => $pratica->id,
+                'contact_name' => $this->extractValue($fields, self::NAME_KEYS),
+            ]
+        );
+
+        if ($conversation->pratica_id !== $pratica->id) {
+            $conversation->update(['pratica_id' => $pratica->id]);
+        }
+
+        return response()->json([
+            'phoneNumber'      => $phoneNumber,
+            'sessionConnected' => $sessionConnected,
+            'conversation'     => $this->conversationPayload($conversation),
+        ]);
+    }
+
+    private function extractValue(array $fields, array $keys): ?string
+    {
+        foreach ($fields as $key => $value) {
+            $lower = strtolower((string) $key);
+            foreach ($keys as $k) {
+                if (str_contains($lower, $k) && trim((string) $value) !== '') {
+                    return (string) $value;
+                }
+            }
+        }
+        return null;
+    }
+
+    private function extractDigits(array $fields, array $keys): ?string
+    {
+        $value = $this->extractValue($fields, $keys);
+        if ($value === null) {
+            return null;
+        }
+        $digits = preg_replace('/\D/', '', $value);
+        if ($digits === '') {
+            return null;
+        }
+
+        // I numeri italiani vengono spesso inseriti senza prefisso internazionale
+        // (es. 3331234567), mentre WhatsApp usa sempre il formato internazionale
+        // (393331234567): senza normalizzare, il numero non combacerebbe mai.
+        if (strlen($digits) <= 10 && ! str_starts_with($digits, '39')) {
+            $digits = '39' . $digits;
+        }
+
+        return $digits;
     }
 
     public function index(): JsonResponse

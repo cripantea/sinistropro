@@ -189,89 +189,7 @@
       </div>
 
       <!-- WHATSAPP -->
-      <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
-        <!-- Header -->
-        <div class="flex items-center gap-3 px-5 py-3.5 bg-[#075E54]">
-          <svg class="w-5 h-5 text-white shrink-0" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-          </svg>
-          <span class="text-white font-semibold text-sm">Comunicazione WhatsApp</span>
-        </div>
-
-        <div class="p-5">
-          <!-- Phone input row -->
-          <div class="flex items-center gap-3 mb-4">
-            <label class="text-xs font-medium text-gray-500 shrink-0 w-28">Numero cliente</label>
-            <input
-              v-model="waPhone"
-              type="tel"
-              placeholder="+39 333 1234567"
-              class="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-            />
-            <span v-if="waPhoneDetected" class="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full shrink-0">Auto</span>
-          </div>
-
-          <!-- Chat mockup -->
-          <div
-            class="rounded-xl overflow-hidden border border-gray-200"
-            style="background-color:#e5ddd5; background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEwAACxMBAJqcGAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAABESURBVDiNY2AYBYMHMDIy/mdiYPiPxGZiYGD4TwIGBGBgYGD4TwIGJGA0BsYeGAVDGIyKIQxGxRAGo2IIg1ExBAAAyv4FxPMAAAAASUVORK5CYII=')"
-          >
-            <!-- Fake top bar -->
-            <div class="flex items-center gap-2.5 px-3 py-2 bg-[#075E54]">
-              <div class="w-7 h-7 rounded-full bg-gray-300 shrink-0"/>
-              <div>
-                <p class="text-white text-xs font-semibold leading-tight">{{ contactName }}</p>
-                <p class="text-green-200 text-[10px]">online</p>
-              </div>
-            </div>
-
-            <!-- Messages area -->
-            <div class="px-4 py-3 min-h-[120px] flex flex-col justify-end space-y-2">
-              <!-- Outgoing message bubble (preview) -->
-              <div class="flex justify-end">
-                <div class="bg-[#dcf8c6] rounded-xl rounded-tr-sm px-3 py-2 max-w-[80%] shadow-sm">
-                  <p class="text-sm text-gray-800 whitespace-pre-wrap break-words leading-relaxed">
-                    {{ waMessage || '…' }}
-                  </p>
-                  <div class="flex items-center justify-end gap-0.5 mt-1">
-                    <span class="text-[10px] text-gray-400">{{ currentTime }}</span>
-                    <svg class="w-3.5 h-3.5 text-blue-500 ml-0.5" viewBox="0 0 16 11" fill="currentColor">
-                      <path d="M11.071.653a.75.75 0 0 1 .025 1.06l-6.5 7a.75.75 0 0 1-1.08.013L.97 6.09a.75.75 0 1 1 1.06-1.062l2.051 2.05 5.93-6.4a.75.75 0 0 1 1.06-.025zm3 0a.75.75 0 0 1 .025 1.06l-6.5 7a.75.75 0 0 1-1.085.003l-.725-.73a.75.75 0 1 1 1.062-1.06l.193.195 5.97-6.443a.75.75 0 0 1 1.06-.025z"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Input area mockup -->
-            <div class="flex items-end gap-2 px-3 py-2 bg-[#f0f0f0] border-t border-gray-200">
-              <textarea
-                v-model="waMessage"
-                rows="2"
-                placeholder="Scrivi un messaggio…"
-                class="flex-1 text-sm bg-white border-0 rounded-xl px-3 py-2 resize-none focus:ring-2 focus:ring-green-500 outline-none"
-              />
-              <button
-                @click="openWhatsApp"
-                :disabled="!waPhone.trim() || !waMessage.trim()"
-                class="shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition"
-                :class="waPhone.trim() && waMessage.trim()
-                  ? 'bg-[#25D366] hover:bg-[#20bf59] text-white shadow'
-                  : 'bg-gray-300 text-gray-400 cursor-not-allowed'"
-                title="Invia su WhatsApp"
-              >
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <p class="text-xs text-gray-400 mt-2 text-center">
-            Apre WhatsApp Web in una nuova scheda con il messaggio precompilato.
-          </p>
-        </div>
-      </div>
+      <PraticaChatPanel :pratica-id="props.pratica.id" />
 
       <!-- Ispezione / Perito assegnato -->
       <div v-if="externalUsers.length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
@@ -518,6 +436,7 @@ import axios from 'axios'
 const http = axios.create()
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import ModuleFormModal from '@/Components/ModuleFormModal.vue'
+import PraticaChatPanel from '@/Components/Whatsapp/PraticaChatPanel.vue'
 import type { PageProps } from '@/types'
 
 // ----- Types -----
@@ -735,48 +654,6 @@ function deleteAllegato(id: number) {
     preserveScroll: true,
     onSuccess: () => { allegatiList.value = allegatiList.value.filter(a => a.id !== id) },
   })
-}
-
-// ----- WhatsApp -----
-const PHONE_KEYS = ['telefono', 'tel', 'phone', 'cellulare', 'mobile', 'numero_tel']
-
-const waPhoneDetected = computed(() => {
-  if (!props.pratica.custom_fields) return false
-  return Object.keys(props.pratica.custom_fields).some(k =>
-    PHONE_KEYS.some(p => k.toLowerCase().includes(p))
-  )
-})
-
-const _detectedPhone = (() => {
-  if (!props.pratica.custom_fields) return ''
-  const entry = Object.entries(props.pratica.custom_fields).find(([k]) =>
-    PHONE_KEYS.some(p => k.toLowerCase().includes(p))
-  )
-  return entry ? String(entry[1]) : ''
-})()
-const waPhone = ref(_detectedPhone)
-
-const waMessage = ref('')
-
-const contactName = computed(() => {
-  if (!props.pratica.custom_fields) return `Pratica #${props.pratica.id}`
-  const nameKeys = ['nome', 'cliente', 'contraente', 'assicurato', 'nominativo']
-  const entry = Object.entries(props.pratica.custom_fields).find(([k]) =>
-    nameKeys.some(p => k.toLowerCase().includes(p))
-  )
-  return entry ? String(entry[1]) : `Pratica #${props.pratica.id}`
-})
-
-const currentTime = computed(() => {
-  const now = new Date()
-  return now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
-})
-
-function openWhatsApp() {
-  const digits = waPhone.value.replace(/\D/g, '')
-  if (!digits || !waMessage.value.trim()) return
-  const url = `https://wa.me/${digits}?text=${encodeURIComponent(waMessage.value)}`
-  window.open(url, '_blank', 'noopener,noreferrer')
 }
 
 // ----- Helpers -----

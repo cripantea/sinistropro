@@ -54,6 +54,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Ispezioni (sopralluoghi) — crea/aggiorna ispezione + aggiorna stato pratica
     Route::post('/pratiche/{pratica}/ispezioni', [IspezioneController::class, 'store'])->name('ispezioni.store');
 
+    // Chat WhatsApp filtrata sul numero della pratica
+    Route::get('/pratiche/{pratica}/whatsapp', [WhatsappConversationController::class, 'forPratica'])->name('pratiche.whatsapp');
+
     // Moduli dinamici — compila + genera PDF
     Route::post('/pratiche/{pratica}/modules', [\App\Http\Controllers\PraticaModuleController::class, 'store'])->name('pratica-modules.store');
 });
