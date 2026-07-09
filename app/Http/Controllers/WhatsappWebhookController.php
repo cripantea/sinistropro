@@ -106,7 +106,7 @@ class WhatsappWebhookController extends Controller
     {
         WhatsappSession::updateOrCreate(
             ['tenant_id' => $tenantId],
-            ['status' => 'disconnected', 'last_event_at' => now()]
+            ['status' => 'disconnected', 'qr_code' => null, 'last_event_at' => now()]
         );
 
         $this->broadcast($tenantId, 'stopped', []);

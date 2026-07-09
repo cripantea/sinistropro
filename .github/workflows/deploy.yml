@@ -81,8 +81,11 @@ jobs:
             php artisan queue:restart
 
             echo "==> Restarting whatsapp-service and reverb…"
-            pm2 startOrRestart "$CURRENT/whatsapp-service/ecosystem.config.js" --update-env
-            pm2 startOrRestart "$CURRENT/ecosystem.reverb.config.cjs" --update-env
+            # pm2 startOrRestart NON aggiorna cwd/script se il processo esiste già:
+            # va cancellato e riavviato da zero per puntare sempre alla release "current".
+            pm2 delete whatsapp-service reverb 2>/dev/null || true
+            pm2 start "$CURRENT/whatsapp-service/ecosystem.config.js"
+            pm2 start "$CURRENT/ecosystem.reverb.config.cjs"
             pm2 save
 
             echo "==> Cleaning old releases (keep 5)…"
