@@ -20,6 +20,7 @@ class StoreTenantRequest extends FormRequest
             'custom_fields_schema.*.name'   => ['required', 'string', 'max:50', 'regex:/^[a-z][a-z0-9_]*$/'],
             'custom_fields_schema.*.label'  => ['required', 'string', 'max:100'],
             'custom_fields_schema.*.type'   => ['required', 'in:text,date,number,boolean'],
+            'custom_fields_schema.*.required' => ['boolean'],
             'statuses'                      => ['nullable', 'array', 'max:20'],
             'statuses.*.name'               => ['required', 'string', 'max:100'],
             'statuses.*.color'              => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],

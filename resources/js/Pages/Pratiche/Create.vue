@@ -53,7 +53,7 @@
         <div class="space-y-5">
           <div v-for="field in schema" :key="field.name">
             <label :for="field.name" class="block text-sm font-medium text-gray-700 mb-1">
-              {{ field.label }}
+              {{ field.label }} <span v-if="field.required" class="text-red-500">*</span>
             </label>
 
             <!-- Tipo: boolean -->
@@ -73,9 +73,13 @@
               :id="field.name"
               v-model="form.custom_fields[field.name]"
               :type="field.type"
+              :required="field.required"
               class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
               :placeholder="field.label"
             />
+            <p v-if="form.errors[`custom_fields.${field.name}`]" class="text-xs text-red-600 mt-1">
+              {{ form.errors[`custom_fields.${field.name}`] }}
+            </p>
           </div>
         </div>
       </div>
@@ -105,7 +109,7 @@ import { computed } from 'vue'
 import { Link, useForm } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 
-interface FieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean' }
+interface FieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean'; required?: boolean }
 interface TenantStatus { id: number; name: string; color: string }
 interface Tenant {
   id: number

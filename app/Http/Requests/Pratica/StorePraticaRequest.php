@@ -15,7 +15,7 @@ class StorePraticaRequest extends FormRequest
     {
         $tenantId = auth()->user()->tenant_id;
 
-        return [
+        $rules = [
             'current_status_id' => [
                 'nullable',
                 'exists:tenant_statuses,id',
@@ -26,8 +26,30 @@ class StorePraticaRequest extends FormRequest
                     }
                 },
             ],
-            'custom_fields'   => ['nullable', 'array'],
-            'custom_fields.*' => ['nullable', 'string', 'max:1000'],
+            'custom_fields' => ['nullable', 'array'],
         ];
+
+        foreach (auth()->user()->tenant?->getCustomFieldsSchema() ?? [] as $field) {
+            $rules['custom_fields.' . $field['name']] = [
+                ($field['required'] ?? false) ? 'required' : 'nullable',
+                'string',
+                'max:1000',
+            ];
+        }
+
+        return $rules;
+    }
+
+    public function messages(): array
+    {
+        $messages = [];
+
+        foreach (auth()->user()->tenant?->getCustomFieldsSchema() ?? [] as $field) {
+            if ($field['required'] ?? false) {
+                $messages['custom_fields.' . $field['name'] . '.required'] = "Il campo \"{$field['label']}\" è obbligatorio.";
+            }
+        }
+
+        return $messages;
     }
 }

@@ -63,6 +63,10 @@
                   </select>
                 </div>
               </div>
+              <label class="mt-5 flex items-center gap-1.5 text-xs text-slate-600 shrink-0 cursor-pointer" title="Il campo diventa obbligatorio nel form della pratica">
+                <input v-model="field.required" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                Obbligatorio
+              </label>
               <button type="button" @click="removeField(i)" class="mt-5 text-red-400 hover:text-red-600 transition p-1">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
@@ -626,7 +630,7 @@ import FieldCoordEditor from '@/Components/Superadmin/FieldCoordEditor.vue'
 
 // ── Interfaces ───────────────────────────────────────────────────────────────
 
-interface CustomField   { _uid: number; name: string; label: string; type: string }
+interface CustomField   { _uid: number; name: string; label: string; type: string; required: boolean }
 interface StatusRow     { _uid: number; id?: number; name: string; color: string; is_closed: boolean; order: number }
 interface CategoryConfig { id: number; name: string; description: string | null; is_enabled: boolean; max_file_size_mb: number }
 interface DocCategory   { id: number; name: string }
@@ -705,7 +709,7 @@ const form = useForm({
 
 const PALETTE = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#6B7280']
 
-function addField()             { form.custom_fields_schema.push({ _uid: uid(), name: '', label: '', type: 'text' }) }
+function addField()             { form.custom_fields_schema.push({ _uid: uid(), name: '', label: '', type: 'text', required: false }) }
 function removeField(i: number) { form.custom_fields_schema.splice(i, 1) }
 
 function addStatus() {

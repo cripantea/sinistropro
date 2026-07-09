@@ -60,6 +60,10 @@
                   </select>
                 </div>
               </div>
+              <label class="mt-5 flex items-center gap-1.5 text-xs text-slate-600 shrink-0 cursor-pointer" title="Il campo diventa obbligatorio nel form della pratica">
+                <input v-model="field.required" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                Obbligatorio
+              </label>
               <button type="button" @click="removeField(i)" class="mt-5 text-red-400 hover:text-red-600 transition p-1" title="Rimuovi campo">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
@@ -165,7 +169,7 @@ import SuperadminLayout from '@/Layouts/SuperadminLayout.vue'
 import FormSection from '@/Components/Superadmin/FormSection.vue'
 import FieldError from '@/Components/Superadmin/FieldError.vue'
 
-interface CustomField  { _uid: number; name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean' }
+interface CustomField  { _uid: number; name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean'; required: boolean }
 interface StatusDraft  { _uid: number; name: string; color: string; is_closed: boolean }
 
 let _uid = 0
@@ -181,7 +185,7 @@ const form = useForm({
 })
 
 function addField() {
-  form.custom_fields_schema.push({ _uid: uid(), name: '', label: '', type: 'text' })
+  form.custom_fields_schema.push({ _uid: uid(), name: '', label: '', type: 'text', required: false })
 }
 
 function removeField(i: number) {
