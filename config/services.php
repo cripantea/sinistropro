@@ -45,4 +45,11 @@ return [
         'secret' => env('WHATSAPP_SERVICE_SECRET'),
     ],
 
+    'whatsapp_cloud' => [
+        'token'        => env('WHATSAPP_CLOUD_ACCESS_TOKEN'),
+        'api_version'  => env('WHATSAPP_CLOUD_API_VERSION', 'v21.0'),
+        'app_secret'   => env('WHATSAPP_CLOUD_APP_SECRET'),
+        'verify_token' => env('WHATSAPP_CLOUD_VERIFY_TOKEN'),
+    ],
+
 ];

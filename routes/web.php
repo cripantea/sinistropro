@@ -72,8 +72,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 // --- WhatsApp ---
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/whatsapp', [WhatsappSessionController::class, 'index'])->name('whatsapp.index');
-    Route::post('/whatsapp/start', [WhatsappSessionController::class, 'start'])->name('whatsapp.start');
-    Route::post('/whatsapp/stop', [WhatsappSessionController::class, 'stop'])->name('whatsapp.stop');
 
     Route::get('/whatsapp/conversations', [WhatsappConversationController::class, 'index'])->name('whatsapp.conversations.index');
     Route::get('/whatsapp/conversations/{conversation}/messages', [WhatsappConversationController::class, 'messages'])->name('whatsapp.conversations.messages');

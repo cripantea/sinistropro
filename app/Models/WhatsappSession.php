@@ -14,9 +14,9 @@ class WhatsappSession extends Model
 
     protected $fillable = [
         'tenant_id',
+        'phone_number_id',
+        'display_phone_number',
         'status',
-        'phone_number',
-        'qr_code',
         'last_connected_at',
         'last_event_at',
     ];

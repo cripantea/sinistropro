@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Pratica;
 use App\Models\WhatsappConversation;
 use App\Models\WhatsappSession;
-use App\Services\WhatsappServiceClient;
+use App\Services\WhatsappCloudApiClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -15,7 +15,7 @@ class WhatsappConversationController extends Controller
     private const PHONE_KEYS = ['telefono', 'tel', 'phone', 'cellulare', 'mobile', 'numero_tel'];
     private const NAME_KEYS  = ['nome', 'cliente', 'contraente', 'assicurato', 'nominativo'];
 
-    public function __construct(private WhatsappServiceClient $client)
+    public function __construct(private WhatsappCloudApiClient $client)
     {
     }
 
@@ -33,7 +33,7 @@ class WhatsappConversationController extends Controller
         $phoneNumber = $this->extractDigits($fields, self::PHONE_KEYS);
 
         $session = WhatsappSession::where('tenant_id', $authed->tenant_id)->first();
-        $sessionConnected = $session?->status === 'connected';
+        $sessionConnected = $session?->status === 'active';
 
         if (! $phoneNumber) {
             return response()->json([
@@ -132,15 +132,19 @@ class WhatsappConversationController extends Controller
             'body' => ['required', 'string', 'max:4096'],
         ]);
 
-        $result = $this->client->sendMessage($authed->tenant_id, $conversation->phone_number, $data['body']);
+        $session = WhatsappSession::where('tenant_id', $authed->tenant_id)->where('status', 'active')->first();
+        abort_unless($session, 409, 'Nessun numero WhatsApp collegato per questo tenant.');
+
+        $result = $this->client->sendText($session->phone_number_id, $conversation->phone_number, $data['body']);
+        $waMessageId = $result['messages'][0]['id'] ?? null;
 
         $message = $conversation->messages()->create([
             'tenant_id'     => $authed->tenant_id,
             'user_id'       => $authed->id,
             'direction'     => 'outbound',
             'body'          => $data['body'],
-            'wa_message_id' => $result['id'] ?? null,
-            'status'        => ($result['ok'] ?? false) ? 'sent' : 'failed',
+            'wa_message_id' => $waMessageId,
+            'status'        => $waMessageId ? 'sent' : 'failed',
         ]);
 
         $conversation->update([

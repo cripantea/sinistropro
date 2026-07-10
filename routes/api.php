@@ -10,9 +10,9 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-// Webhook interno chiamato dal microservizio open-wa (autenticato via secret condiviso, non da un utente).
-Route::post('/whatsapp/webhook', [WhatsappWebhookController::class, 'handle'])
-    ->middleware('whatsapp.service')
+// Webhook ufficiale WhatsApp Cloud API: GET per la verifica hub_challenge di Meta,
+// POST per gli eventi (autenticati via firma X-Hub-Signature-256, non da un utente).
+Route::match(['get', 'post'], '/whatsapp/webhook', [WhatsappWebhookController::class, 'handle'])
     ->name('api.whatsapp.webhook');
 
 Route::middleware('auth:sanctum')->group(function () {

@@ -110,14 +110,5 @@ if (tenantId) {
     const m = messages.value.find((msg) => msg.id === e.messageId)
     if (m) m.status = e.status
   })
-
-  useEcho(channel, '.ready', () => { sessionConnected.value = true })
-  useEcho(channel, '.stopped', () => { sessionConnected.value = false })
-  useEcho<{ state: string | null }>(channel, '.state', (e) => {
-    if (e.state === 'CONNECTED') sessionConnected.value = true
-    else if (['DISCONNECTED', 'CONFLICT', 'UNPAIRED', 'UNLAUNCHED', 'TIMEOUT'].includes(e.state ?? '')) {
-      sessionConnected.value = false
-    }
-  })
 }
 </script>
