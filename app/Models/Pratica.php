@@ -20,6 +20,7 @@ class Pratica extends Model
     protected $fillable = [
         'tenant_id',
         'utente_creatore_id',
+        'cliente_id',
         'current_status_id',
         'data_prossimo_avviso',
         'custom_fields',
@@ -43,6 +44,11 @@ class Pratica extends Model
     public function currentStatus(): BelongsTo
     {
         return $this->belongsTo(TenantStatus::class, 'current_status_id');
+    }
+
+    public function cliente(): BelongsTo
+    {
+        return $this->belongsTo(Cliente::class);
     }
 
     public function allegati(): HasMany

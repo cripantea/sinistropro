@@ -9,79 +9,43 @@
 
     <form @submit.prevent="submit" class="py-6 max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
-      <!-- Stato iniziale -->
-      <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-        <h3 class="text-sm font-semibold text-gray-700 mb-4">Stato iniziale</h3>
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          <button
-            v-for="status in tenant.statuses"
-            :key="status.id"
-            type="button"
-            @click="form.current_status_id = status.id"
-            :class="[
-              'flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition',
-              form.current_status_id === status.id
-                ? 'border-indigo-500 ring-2 ring-indigo-200'
-                : 'border-gray-200 hover:border-gray-300'
-            ]"
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-5">
+        <div>
+          <label for="cliente_id" class="block text-sm font-medium text-gray-700 mb-1">
+            Cliente <span class="text-red-500">*</span>
+          </label>
+          <select
+            id="cliente_id"
+            v-model="form.cliente_id"
+            required
+            class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
           >
-            <span
-              class="w-2.5 h-2.5 rounded-full shrink-0"
-              :style="{ backgroundColor: status.color }"
-            />
-            {{ status.name }}
-          </button>
-          <p v-if="form.errors.current_status_id" class="col-span-full text-xs text-red-600 mt-1">
-            {{ form.errors.current_status_id }}
-          </p>
+            <option :value="null" disabled>Seleziona un cliente</option>
+            <option v-for="cliente in clienti" :key="cliente.id" :value="cliente.id">{{ cliente.nome }}</option>
+          </select>
+          <p v-if="form.errors.cliente_id" class="text-xs text-red-600 mt-1">{{ form.errors.cliente_id }}</p>
         </div>
 
-        <p class="text-xs text-gray-400 mt-3">
-          La data del prossimo avviso verrà impostata automaticamente a
-          <strong>oggi + {{ tenant.settings?.default_notice_days ?? 30 }} giorni</strong>.
+        <div>
+          <label for="perito_user_id" class="block text-sm font-medium text-gray-700 mb-1">
+            Perito <span class="text-red-500">*</span>
+          </label>
+          <select
+            id="perito_user_id"
+            v-model="form.perito_user_id"
+            required
+            class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+          >
+            <option :value="null" disabled>Seleziona un perito</option>
+            <option v-for="perito in periti" :key="perito.id" :value="perito.id">{{ perito.name }}</option>
+          </select>
+          <p v-if="form.errors.perito_user_id" class="text-xs text-red-600 mt-1">{{ form.errors.perito_user_id }}</p>
+        </div>
+
+        <p class="text-xs text-gray-400">
+          La pratica verrà creata con lo stato iniziale del tenant. Potrai completare gli altri
+          dati subito dopo, nella pagina di modifica.
         </p>
-      </div>
-
-      <!-- Campi personalizzati dinamici -->
-      <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-        <h3 class="text-sm font-semibold text-gray-700 mb-4">Dati della pratica</h3>
-
-        <div v-if="schema.length === 0" class="text-sm text-gray-400 italic">
-          Nessun campo configurato per questo tenant. Contatta il tuo amministratore.
-        </div>
-
-        <div class="space-y-5">
-          <div v-for="field in schema" :key="field.name">
-            <label :for="field.name" class="block text-sm font-medium text-gray-700 mb-1">
-              {{ field.label }} <span v-if="field.required" class="text-red-500">*</span>
-            </label>
-
-            <!-- Tipo: boolean -->
-            <label v-if="field.type === 'boolean'" class="flex items-center gap-2 cursor-pointer">
-              <input
-                :id="field.name"
-                v-model="form.custom_fields[field.name]"
-                type="checkbox"
-                class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span class="text-sm text-gray-600">Sì</span>
-            </label>
-
-            <!-- Tipo: date, number, text -->
-            <input
-              v-else
-              :id="field.name"
-              v-model="form.custom_fields[field.name]"
-              :type="field.type"
-              :required="field.required"
-              class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              :placeholder="field.label"
-            />
-            <p v-if="form.errors[`custom_fields.${field.name}`]" class="text-xs text-red-600 mt-1">
-              {{ form.errors[`custom_fields.${field.name}`] }}
-            </p>
-          </div>
-        </div>
       </div>
 
       <!-- Submit -->
@@ -105,31 +69,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import { Link, useForm } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 
-interface FieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean'; required?: boolean }
-interface TenantStatus { id: number; name: string; color: string }
-interface Tenant {
-  id: number
-  settings: { default_notice_days: number; custom_fields_schema: FieldSchema[] } | null
-  statuses: TenantStatus[]
-}
+interface ClienteOption { id: number; nome: string }
+interface PeritoOption { id: number; name: string }
 
-const props = defineProps<{ tenant: Tenant }>()
-
-const schema = computed<FieldSchema[]>(() => props.tenant.settings?.custom_fields_schema ?? [])
-
-// Inizializza il form con i campi vuoti basandosi sullo schema del tenant.
-const initialCustomFields: Record<string, string | boolean> = {}
-schema.value.forEach(f => {
-  initialCustomFields[f.name] = f.type === 'boolean' ? false : ''
-})
+defineProps<{ clienti: ClienteOption[]; periti: PeritoOption[] }>()
 
 const form = useForm({
-  current_status_id: null as number | null,
-  custom_fields:     initialCustomFields,
+  cliente_id: null as number | null,
+  perito_user_id: null as number | null,
 })
 
 function submit() {

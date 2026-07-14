@@ -29,6 +29,7 @@ class UpdateTenantRequest extends FormRequest
             'statuses.*.name'               => ['required', 'string', 'max:100'],
             'statuses.*.color'              => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'statuses.*.is_closed'          => ['boolean'],
+            'statuses.*.is_initial'         => ['boolean'],
         ];
     }
 }

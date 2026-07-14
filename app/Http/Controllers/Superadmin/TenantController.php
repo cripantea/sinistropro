@@ -45,12 +45,18 @@ class TenantController extends Controller
                 ],
             ]);
 
+            $initialAssigned = false;
             foreach ($request->input('statuses', []) as $i => $statusData) {
+                // Solo il primo status marcato is_initial viene tenuto come tale per il tenant.
+                $isInitial = ! $initialAssigned && (bool) ($statusData['is_initial'] ?? false);
+                $initialAssigned = $initialAssigned || $isInitial;
+
                 $tenant->statuses()->create([
-                    'name'      => $statusData['name'],
-                    'color'     => $statusData['color'],
-                    'is_closed' => (bool) ($statusData['is_closed'] ?? false),
-                    'order'     => $i,
+                    'name'       => $statusData['name'],
+                    'color'      => $statusData['color'],
+                    'is_closed'  => (bool) ($statusData['is_closed'] ?? false),
+                    'is_initial' => $isInitial,
+                    'order'      => $i,
                 ]);
             }
 
@@ -169,14 +175,20 @@ class TenantController extends Controller
             // Elimina gli statuses rimossi dall'utente.
             $tenant->statuses()->whereNotIn('id', $incomingIds)->delete();
 
+            $initialAssigned = false;
             foreach ($request->input('statuses', []) as $i => $statusData) {
+                // Solo il primo status marcato is_initial viene tenuto come tale per il tenant.
+                $isInitial = ! $initialAssigned && (bool) ($statusData['is_initial'] ?? false);
+                $initialAssigned = $initialAssigned || $isInitial;
+
                 $tenant->statuses()->updateOrCreate(
                     ['id' => $statusData['id'] ?? null],
                     [
-                        'name'      => $statusData['name'],
-                        'color'     => $statusData['color'],
-                        'is_closed' => (bool) ($statusData['is_closed'] ?? false),
-                        'order'     => $i,
+                        'name'       => $statusData['name'],
+                        'color'      => $statusData['color'],
+                        'is_closed'  => (bool) ($statusData['is_closed'] ?? false),
+                        'is_initial' => $isInitial,
+                        'order'      => $i,
                     ]
                 );
             }

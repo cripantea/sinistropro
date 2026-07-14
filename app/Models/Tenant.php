@@ -43,6 +43,19 @@ class Tenant extends Model
         return $this->hasOne(WhatsappSession::class);
     }
 
+    public function clienti(): HasMany
+    {
+        return $this->hasMany(Cliente::class);
+    }
+
+    public function initialStatus(): ?TenantStatus
+    {
+        // Fallback al primo per ordine se nessuno stato è ancora marcato esplicitamente
+        // (es. tenant creati prima dell'introduzione del flag is_initial).
+        return $this->statuses()->where('is_initial', true)->first()
+            ?? $this->statuses()->first();
+    }
+
     public function documentCategories(): BelongsToMany
     {
         return $this->belongsToMany(DocumentCategory::class, 'tenant_document_categories')

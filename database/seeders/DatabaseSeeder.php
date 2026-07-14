@@ -42,7 +42,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // Stati Rossi
-        $rossiAperta  = TenantStatus::create(['tenant_id' => $rossi->id, 'name' => 'Aperta',              'color' => '#3B82F6', 'order' => 0, 'is_closed' => false]);
+        $rossiAperta  = TenantStatus::create(['tenant_id' => $rossi->id, 'name' => 'Aperta',              'color' => '#3B82F6', 'order' => 0, 'is_closed' => false, 'is_initial' => true]);
         $rossiLavoraz = TenantStatus::create(['tenant_id' => $rossi->id, 'name' => 'In Lavorazione',      'color' => '#F59E0B', 'order' => 1, 'is_closed' => false]);
         $rossiAttesa  = TenantStatus::create(['tenant_id' => $rossi->id, 'name' => 'In Attesa Documenti', 'color' => '#F97316', 'order' => 2, 'is_closed' => false]);
         $rossiChiusa  = TenantStatus::create(['tenant_id' => $rossi->id, 'name' => 'Chiusa',              'color' => '#10B981', 'order' => 3, 'is_closed' => true]);
@@ -162,7 +162,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // Stati Vega
-        $vegaNuovo      = TenantStatus::create(['tenant_id' => $vega->id, 'name' => 'Nuovo Sinistro', 'color' => '#6366F1', 'order' => 0, 'is_closed' => false]);
+        $vegaNuovo      = TenantStatus::create(['tenant_id' => $vega->id, 'name' => 'Nuovo Sinistro', 'color' => '#6366F1', 'order' => 0, 'is_closed' => false, 'is_initial' => true]);
         $vegaPerizia    = TenantStatus::create(['tenant_id' => $vega->id, 'name' => 'Perizia',        'color' => '#F59E0B', 'order' => 1, 'is_closed' => false]);
         $vegaLiquida    = TenantStatus::create(['tenant_id' => $vega->id, 'name' => 'Liquidazione',   'color' => '#3B82F6', 'order' => 2, 'is_closed' => false]);
         $vegaArchiviato = TenantStatus::create(['tenant_id' => $vega->id, 'name' => 'Archiviato',     'color' => '#10B981', 'order' => 3, 'is_closed' => true]);

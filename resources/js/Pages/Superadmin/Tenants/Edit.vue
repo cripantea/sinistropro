@@ -90,6 +90,10 @@
                 <input v-model="status.is_closed" type="checkbox" class="rounded border-slate-300 text-red-500 focus:ring-red-400" />
                 Chiuso
               </label>
+              <label class="flex items-center gap-1.5 text-xs text-slate-600 whitespace-nowrap cursor-pointer select-none">
+                <input :checked="status.is_initial" @change="setInitialStatus(i)" type="radio" name="initial-status" class="border-slate-300 text-indigo-600 focus:ring-indigo-400" />
+                Iniziale
+              </label>
               <button type="button" @click="removeStatus(i)" class="text-red-400 hover:text-red-600 transition p-1">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
@@ -631,7 +635,7 @@ import FieldCoordEditor from '@/Components/Superadmin/FieldCoordEditor.vue'
 // ── Interfaces ───────────────────────────────────────────────────────────────
 
 interface CustomField   { _uid: number; name: string; label: string; type: string; required: boolean }
-interface StatusRow     { _uid: number; id?: number; name: string; color: string; is_closed: boolean; order: number }
+interface StatusRow     { _uid: number; id?: number; name: string; color: string; is_closed: boolean; is_initial: boolean; order: number }
 interface CategoryConfig { id: number; name: string; description: string | null; is_enabled: boolean; max_file_size_mb: number }
 interface DocCategory   { id: number; name: string }
 
@@ -714,9 +718,13 @@ function removeField(i: number) { form.custom_fields_schema.splice(i, 1) }
 
 function addStatus() {
   const color = PALETTE[form.statuses.length % PALETTE.length]
-  form.statuses.push({ _uid: uid(), name: '', color, is_closed: false, order: form.statuses.length })
+  const isFirst = form.statuses.length === 0
+  form.statuses.push({ _uid: uid(), name: '', color, is_closed: false, is_initial: isFirst, order: form.statuses.length })
 }
 function removeStatus(i: number) { form.statuses.splice(i, 1) }
+function setInitialStatus(i: number) {
+  form.statuses.forEach((s, idx) => { s.is_initial = idx === i })
+}
 
 function submit() {
   form

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Pratica;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StorePraticaRequest extends FormRequest
 {
@@ -15,41 +16,27 @@ class StorePraticaRequest extends FormRequest
     {
         $tenantId = auth()->user()->tenant_id;
 
-        $rules = [
-            'current_status_id' => [
-                'nullable',
-                'exists:tenant_statuses,id',
-                // Verifica che lo status appartenga al tenant dell'utente.
-                function ($attr, $value, $fail) use ($tenantId) {
-                    if ($value && ! \App\Models\TenantStatus::where('id', $value)->where('tenant_id', $tenantId)->exists()) {
-                        $fail('Stato non valido per questo tenant.');
-                    }
-                },
+        return [
+            'cliente_id' => [
+                'required',
+                'integer',
+                Rule::exists('clienti', 'id')->where('tenant_id', $tenantId),
             ],
-            'custom_fields' => ['nullable', 'array'],
+            'perito_user_id' => [
+                'required',
+                'integer',
+                Rule::exists('users', 'id')->where('tenant_id', $tenantId)->where('role', 'external'),
+            ],
         ];
-
-        foreach (auth()->user()->tenant?->getCustomFieldsSchema() ?? [] as $field) {
-            $rules['custom_fields.' . $field['name']] = [
-                ($field['required'] ?? false) ? 'required' : 'nullable',
-                'string',
-                'max:1000',
-            ];
-        }
-
-        return $rules;
     }
 
     public function messages(): array
     {
-        $messages = [];
-
-        foreach (auth()->user()->tenant?->getCustomFieldsSchema() ?? [] as $field) {
-            if ($field['required'] ?? false) {
-                $messages['custom_fields.' . $field['name'] . '.required'] = "Il campo \"{$field['label']}\" è obbligatorio.";
-            }
-        }
-
-        return $messages;
+        return [
+            'cliente_id.required'      => 'Seleziona il cliente.',
+            'cliente_id.exists'        => 'Cliente non valido per questo tenant.',
+            'perito_user_id.required'  => 'Seleziona il perito.',
+            'perito_user_id.exists'    => 'Perito non valido per questo tenant.',
+        ];
     }
 }

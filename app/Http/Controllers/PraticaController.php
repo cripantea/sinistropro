@@ -7,6 +7,7 @@ use App\Http\Requests\Pratica\StorePraticaRequest;
 use App\Http\Requests\Pratica\UpdatePraticaRequest;
 use App\Mail\PraticaStatoAggiornatoMail;
 use App\Models\DocumentCategory;
+use App\Models\Ispezione;
 use App\Models\ModuleTemplate;
 use App\Models\Pratica;
 use App\Models\PraticaModule;
@@ -81,12 +82,13 @@ class PraticaController extends Controller
     public function create(): Response
     {
         $user   = auth()->user();
-        $tenant = $user->tenant?->load('statuses');
+        $tenant = $user->tenant;
 
         abort_unless($tenant !== null, 403, 'Nessun tenant associato a questo account.');
 
         return Inertia::render('Pratiche/Create', [
-            'tenant' => $tenant,
+            'clienti' => $tenant->clienti()->orderBy('nome')->get(['id', 'nome']),
+            'periti'  => User::where('tenant_id', $tenant->id)->where('role', 'external')->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -95,27 +97,30 @@ class PraticaController extends Controller
         $user   = auth()->user();
         $tenant = $user->tenant;
 
-        // Estrae solo i campi definiti nello schema del tenant.
-        // Previene injection di chiavi arbitrarie nel JSON.
-        $schema       = $tenant->getCustomFieldsSchema();
-        $customFields = [];
-        foreach ($schema as $field) {
-            $key = $field['name'];
-            if ($request->has("custom_fields.{$key}")) {
-                $customFields[$key] = $request->input("custom_fields.{$key}");
-            }
-        }
+        $statoIniziale = $tenant->initialStatus();
+        abort_unless($statoIniziale !== null, 422, 'Nessuno stato iniziale configurato per questo tenant. Contatta l\'amministratore della piattaforma.');
 
-        $pratica = Pratica::create([
-            'tenant_id'            => $tenant->id,
-            'utente_creatore_id'   => $user->id,
-            'current_status_id'    => $request->current_status_id,
-            'data_prossimo_avviso' => now()->addDays($tenant->getDefaultNoticeDays())->toDateString(),
-            'custom_fields'        => $customFields ?: null,
-        ]);
+        $pratica = DB::transaction(function () use ($request, $user, $tenant, $statoIniziale): Pratica {
+            $pratica = Pratica::create([
+                'tenant_id'            => $tenant->id,
+                'utente_creatore_id'   => $user->id,
+                'cliente_id'           => $request->integer('cliente_id'),
+                'current_status_id'    => $statoIniziale->id,
+                'data_prossimo_avviso' => now()->addDays($tenant->getDefaultNoticeDays())->toDateString(),
+            ]);
+
+            Ispezione::create([
+                'tenant_id'           => $tenant->id,
+                'pratica_id'          => $pratica->id,
+                'assegnato_a_user_id' => $request->integer('perito_user_id'),
+                'stato'               => 'pianificata',
+            ]);
+
+            return $pratica;
+        });
 
         return redirect()
-            ->route('pratiche.show', $pratica)
+            ->route('pratiche.edit', $pratica)
             ->with('success', "Pratica #{$pratica->id} creata con successo.");
     }
 

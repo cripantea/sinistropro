@@ -37,7 +37,7 @@ class DemoTenantSeeder extends Seeder
 
         // ── Stati ─────────────────────────────────────────────────────
         $statNuovo    = TenantStatus::firstOrCreate(['tenant_id' => $tenant->id, 'name' => 'Nuova Pratica'],
-            ['color' => '#6366F1', 'order' => 0, 'is_closed' => false, 'send_email_notification' => false]);
+            ['color' => '#6366F1', 'order' => 0, 'is_closed' => false, 'is_initial' => true, 'send_email_notification' => false]);
         $statPerizia  = TenantStatus::firstOrCreate(['tenant_id' => $tenant->id, 'name' => 'In Perizia'],
             ['color' => '#F59E0B', 'order' => 1, 'is_closed' => false, 'responsible_role' => 'external', 'send_email_notification' => false]);
         $statAttesa   = TenantStatus::firstOrCreate(['tenant_id' => $tenant->id, 'name' => 'Attesa Documenti'],

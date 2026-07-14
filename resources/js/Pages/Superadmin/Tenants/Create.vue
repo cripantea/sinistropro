@@ -128,6 +128,18 @@
                 <span>Chiuso</span>
               </label>
 
+              <!-- Initial toggle -->
+              <label class="flex items-center gap-1.5 text-xs text-slate-600 whitespace-nowrap cursor-pointer select-none">
+                <input
+                  :checked="status.is_initial"
+                  @change="setInitialStatus(i)"
+                  type="radio"
+                  name="initial-status"
+                  class="border-slate-300 text-indigo-600 focus:ring-indigo-400"
+                />
+                <span>Iniziale</span>
+              </label>
+
               <!-- Remove -->
               <button type="button" @click="removeStatus(i)" class="text-red-400 hover:text-red-600 transition p-1" title="Rimuovi stato">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -170,7 +182,7 @@ import FormSection from '@/Components/Superadmin/FormSection.vue'
 import FieldError from '@/Components/Superadmin/FieldError.vue'
 
 interface CustomField  { _uid: number; name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean'; required: boolean }
-interface StatusDraft  { _uid: number; name: string; color: string; is_closed: boolean }
+interface StatusDraft  { _uid: number; name: string; color: string; is_closed: boolean; is_initial: boolean }
 
 let _uid = 0
 const uid = () => ++_uid
@@ -194,11 +206,16 @@ function removeField(i: number) {
 
 function addStatus() {
   const color = PALETTE[form.statuses.length % PALETTE.length]
-  form.statuses.push({ _uid: uid(), name: '', color, is_closed: false })
+  const isFirst = form.statuses.length === 0
+  form.statuses.push({ _uid: uid(), name: '', color, is_closed: false, is_initial: isFirst })
 }
 
 function removeStatus(i: number) {
   form.statuses.splice(i, 1)
+}
+
+function setInitialStatus(i: number) {
+  form.statuses.forEach((s, idx) => { s.is_initial = idx === i })
 }
 
 function submit() {
