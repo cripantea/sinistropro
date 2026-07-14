@@ -21,6 +21,8 @@ class Allegato extends Model
         'nome_file',
         's3_key',
         'document_category_id',
+        'source',
+        'module_template_id',
     ];
 
     // s3_key è un dato tecnico/interno: non include nel log.

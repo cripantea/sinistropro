@@ -210,6 +210,8 @@ interface Allegato {
   nome_file: string
   created_at: string
   document_category_id: number | null
+  source: 'generato' | 'caricato'
+  module_template_id: number | null
   category: { id: number; name: string } | null
 }
 

@@ -154,6 +154,8 @@ class PdfFormFillerService
                 'nome_file'            => Str::slug($template->name) . '.pdf',
                 's3_key'               => $s3Key,
                 'document_category_id' => $template->output_document_category_id,
+                'source'               => 'generato',
+                'module_template_id'   => $template->id,
             ]);
 
             Log::info('PdfFormFillerService: PDF compilato con FPDI', [

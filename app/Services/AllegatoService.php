@@ -31,6 +31,7 @@ class AllegatoService
             'nome_file'            => $file->getClientOriginalName(),
             's3_key'               => $s3Key,
             'document_category_id' => $categoryId,
+            'source'               => 'caricato',
         ]);
     }
 

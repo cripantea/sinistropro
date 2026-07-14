@@ -154,7 +154,7 @@ class PraticaController extends Controller
             ->values();
 
         $moduleTemplates = ModuleTemplate::orderBy('name')
-            ->get(['id', 'name', 'fields_schema', 'pdf_template_s3_key']);
+            ->get(['id', 'name', 'fields_schema', 'pdf_template_s3_key', 'output_document_category_id']);
 
         $praticaModules = PraticaModule::where('pratica_id', $pratica->id)
             ->get(['id', 'module_template_id', 'values']);
