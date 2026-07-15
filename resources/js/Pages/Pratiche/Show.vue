@@ -171,8 +171,8 @@
           <div
             v-for="cat in categories"
             :key="cat.id"
-            class="rounded-xl border p-4 transition-colors"
-            :class="isRowSigned(cat.id) ? 'bg-[#d4edda] border-[#c3e6cb]' : 'bg-white border-gray-200'"
+            class="rounded-xl border-2 bg-white p-4 transition-colors"
+            :class="isRowSigned(cat.id) ? 'border-green-500' : 'border-gray-200'"
           >
             <div class="flex items-center justify-between mb-3">
               <h4 class="text-sm font-semibold text-gray-700">{{ cat.name }}</h4>
@@ -187,6 +187,20 @@
                   Nessun modulo configurato per questa categoria.
                 </p>
                 <div v-for="tpl in templatesForCategory(cat.id)" :key="tpl.id" class="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    :disabled="!!latestGeneratedAllegato(tpl.id)"
+                    @click="openGenerateModal(tpl)"
+                    class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition"
+                    :class="latestGeneratedAllegato(tpl.id)
+                      ? 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed'
+                      : 'border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100'"
+                  >
+                    <svg v-if="latestGeneratedAllegato(tpl.id)" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Compila Modulo
+                  </button>
                   <template v-if="latestGeneratedAllegato(tpl.id)">
                     <button
                       type="button"
@@ -204,14 +218,6 @@
                       Rigenera
                     </button>
                   </template>
-                  <button
-                    v-else
-                    type="button"
-                    @click="openGenerateModal(tpl)"
-                    class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition"
-                  >
-                    Genera Modulo
-                  </button>
                   <Transition enter-active-class="transition" enter-from-class="opacity-0" leave-active-class="transition" leave-to-class="opacity-0">
                     <span v-if="recompileMsg[tpl.id]" class="text-xs font-medium"
                           :class="recompileMsg[tpl.id]?.startsWith('✓') ? 'text-green-600' : 'text-amber-600'">
@@ -253,10 +259,10 @@
                   </div>
                 </div>
 
-                <!-- File presenti in questa categoria -->
-                <div v-if="filesForCategory(cat.id).length > 0" class="border-t border-gray-200 divide-y divide-gray-100 bg-white/60">
+                <!-- File firmati caricati in questa categoria (esclusi i moduli generati, che restano a sinistra) -->
+                <div v-if="signedFilesForCategory(cat.id).length > 0" class="border-t border-gray-200 divide-y divide-gray-100 bg-white/60">
                   <div
-                    v-for="allegato in filesForCategory(cat.id)"
+                    v-for="allegato in signedFilesForCategory(cat.id)"
                     :key="allegato.id"
                     class="flex items-center gap-2 px-3 py-2 text-xs"
                   >
@@ -564,6 +570,12 @@ let _uid = 0
 
 function filesForCategory(catId: number | null): Allegato[] {
   return allegatiList.value.filter(a => a.document_category_id === catId)
+}
+
+// Solo i file caricati manualmente (il firmato dal cliente) — i moduli generati
+// restano visibili/scaricabili solo a sinistra, accanto al pulsante "Compila Modulo".
+function signedFilesForCategory(catId: number): Allegato[] {
+  return filesForCategory(catId).filter(a => a.source === 'caricato')
 }
 
 function queueForCategory(catId: number | null): UploadItem[] {
