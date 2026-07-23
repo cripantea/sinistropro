@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ImpersonateController;
 use App\Http\Controllers\IspezioneController;
@@ -38,6 +39,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/pratiche/{pratica}',        [PraticaController::class, 'update'])->name('pratiche.update');
     Route::patch('/pratiche/{pratica}/status', [PraticaController::class, 'updateStatus'])->name('pratiche.update-status');
     Route::delete('/pratiche/{pratica}', [PraticaController::class, 'destroy'])->name('pratiche.destroy');
+
+    // Clienti — creazione rapida da modale nel form pratica
+    Route::post('/clienti', [ClienteController::class, 'store'])->name('clienti.store');
 
     // Note della pratica
     Route::post('/pratiche/{pratica}/note', [PraticaNotaController::class, 'store'])->name('pratiche.note.store');

@@ -112,7 +112,7 @@ class PraticaController extends Controller
             Ispezione::create([
                 'tenant_id'           => $tenant->id,
                 'pratica_id'          => $pratica->id,
-                'assegnato_a_user_id' => $request->integer('perito_user_id'),
+                'assegnato_a_user_id' => $request->filled('perito_user_id') ? $request->integer('perito_user_id') : null,
                 'stato'               => 'pianificata',
             ]);
 

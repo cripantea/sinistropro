@@ -14,29 +14,39 @@
           <label for="cliente_id" class="block text-sm font-medium text-gray-700 mb-1">
             Cliente <span class="text-red-500">*</span>
           </label>
-          <select
-            id="cliente_id"
-            v-model="form.cliente_id"
-            required
-            class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-          >
-            <option :value="null" disabled>Seleziona un cliente</option>
-            <option v-for="cliente in clienti" :key="cliente.id" :value="cliente.id">{{ cliente.nome }}</option>
-          </select>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              @click="showClienteModal = true"
+              title="Nuovo cliente"
+              class="shrink-0 inline-flex items-center justify-center rounded-lg bg-green-600 text-white px-3 py-2 hover:bg-green-700 transition"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+            </button>
+            <div class="flex-1">
+              <SearchableSelect
+                id="cliente_id"
+                v-model="form.cliente_id"
+                :options="clienteOptions"
+                placeholder="Cerca cliente per nome..."
+              />
+            </div>
+          </div>
           <p v-if="form.errors.cliente_id" class="text-xs text-red-600 mt-1">{{ form.errors.cliente_id }}</p>
         </div>
 
         <div>
           <label for="perito_user_id" class="block text-sm font-medium text-gray-700 mb-1">
-            Perito <span class="text-red-500">*</span>
+            Perito <span class="text-gray-400 font-normal">(opzionale)</span>
           </label>
           <select
             id="perito_user_id"
             v-model="form.perito_user_id"
-            required
             class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
           >
-            <option :value="null" disabled>Seleziona un perito</option>
+            <option :value="null">Nessun perito assegnato</option>
             <option v-for="perito in periti" :key="perito.id" :value="perito.id">{{ perito.name }}</option>
           </select>
           <p v-if="form.errors.perito_user_id" class="text-xs text-red-600 mt-1">{{ form.errors.perito_user_id }}</p>
@@ -65,22 +75,45 @@
       </div>
 
     </form>
+
+    <ClienteCreateModal
+      :show="showClienteModal"
+      @close="showClienteModal = false"
+      @created="onClienteCreated"
+    />
   </AuthenticatedLayout>
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import { Link, useForm } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import SearchableSelect from '@/Components/SearchableSelect.vue'
+import ClienteCreateModal from '@/Components/ClienteCreateModal.vue'
 
-interface ClienteOption { id: number; nome: string }
+interface ClienteOption { id: number; nome: string; telefono?: string | null; email?: string | null }
 interface PeritoOption { id: number; name: string }
 
-defineProps<{ clienti: ClienteOption[]; periti: PeritoOption[] }>()
+const props = defineProps<{ clienti: ClienteOption[]; periti: PeritoOption[] }>()
+
+const clientiList = ref<ClienteOption[]>([...props.clienti])
+const showClienteModal = ref(false)
+
+const clienteOptions = computed(() =>
+  clientiList.value.map(c => ({ id: c.id, label: c.nome }))
+)
 
 const form = useForm({
   cliente_id: null as number | null,
   perito_user_id: null as number | null,
 })
+
+function onClienteCreated(cliente: ClienteOption) {
+  clientiList.value.push(cliente)
+  clientiList.value.sort((a, b) => a.nome.localeCompare(b.nome))
+  form.cliente_id = cliente.id
+  showClienteModal.value = false
+}
 
 function submit() {
   form.post(route('pratiche.store'))
