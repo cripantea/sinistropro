@@ -165,7 +165,20 @@
             <div class="flex items-center gap-3 px-6 py-4 border-t border-slate-100">
               <button
                 type="button"
-                :disabled="!selectedTemplateId || submitting"
+                :disabled="!selectedTemplateId || submitting || savingDraft"
+                @click="save"
+                title="Salva i campi compilati finora, senza generare il PDF — utile se il modulo è ancora parziale"
+                class="inline-flex items-center justify-center gap-2 border border-slate-300 text-slate-700 text-sm font-semibold py-2.5 px-4 rounded-lg hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg v-if="savingDraft" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+                {{ savingDraft ? 'Salvataggio...' : 'Salva' }}
+              </button>
+              <button
+                type="button"
+                :disabled="!selectedTemplateId || submitting || savingDraft"
                 @click="submit"
                 class="flex-1 inline-flex items-center justify-center gap-2 bg-indigo-600 text-white text-sm font-semibold py-2.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -180,7 +193,7 @@
               </button>
               <button
                 type="button"
-                :disabled="submitting"
+                :disabled="submitting || savingDraft"
                 @click="$emit('close')"
                 class="px-4 py-2.5 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition disabled:opacity-50"
               >
@@ -254,13 +267,14 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
-  saved: [allegato: Allegato | null, warning: string | null]
+  saved: [module: PraticaModule, allegato: Allegato | null, warning: string | null]
 }>()
 
 // ── State ───────────────────────────────────────────────────────────────────
 const selectedTemplateId = ref<number | null>(null)
 const values             = ref<Record<string, unknown>>({})
 const submitting         = ref(false)
+const savingDraft        = ref(false)
 const errorMsg           = ref<string | null>(null)
 const warningMsg         = ref<string | null>(null)
 
@@ -379,7 +393,7 @@ async function submit() {
       warningMsg.value = resp.data.warning
     }
 
-    emit('saved', resp.data.allegato, resp.data.warning)
+    emit('saved', resp.data.module, resp.data.allegato, resp.data.warning)
 
     if (!resp.data.warning) {
       emit('close')
@@ -389,6 +403,38 @@ async function submit() {
     errorMsg.value = msg ?? 'Errore durante la generazione del modulo.'
   } finally {
     submitting.value = false
+  }
+}
+
+// Salva i valori compilati finora senza generare il PDF — pensato per moduli
+// ancora parziali, da riprendere più avanti riaprendo "Compila Modulo".
+async function save() {
+  if (!selectedTemplateId.value) return
+  errorMsg.value   = null
+  warningMsg.value = null
+  savingDraft.value = true
+
+  try {
+    const resp = await axios.post<{
+      module: PraticaModule
+      allegato: Allegato | null
+      warning: string | null
+    }>(
+      route('pratica-modules.store', props.praticaId),
+      {
+        module_template_id: selectedTemplateId.value,
+        values: values.value,
+        generate_pdf: false,
+      }
+    )
+
+    emit('saved', resp.data.module, null, null)
+    emit('close')
+  } catch (err: unknown) {
+    const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+    errorMsg.value = msg ?? 'Errore durante il salvataggio della bozza.'
+  } finally {
+    savingDraft.value = false
   }
 }
 </script>

@@ -193,12 +193,14 @@
                     class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition"
                     :class="latestGeneratedAllegato(tpl.id)
                       ? 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed'
-                      : 'border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100'"
+                      : draftModule(tpl.id)
+                        ? 'border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100'
+                        : 'border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100'"
                   >
                     <svg v-if="latestGeneratedAllegato(tpl.id)" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                     </svg>
-                    Compila Modulo
+                    {{ !latestGeneratedAllegato(tpl.id) && draftModule(tpl.id) ? 'Riprendi Modulo' : 'Compila Modulo' }}
                   </button>
                   <template v-if="latestGeneratedAllegato(tpl.id)">
                     <button
@@ -210,9 +212,8 @@
                     </button>
                     <button
                       type="button"
-                      :disabled="!!recompiling[tpl.id]"
                       @click="rigenera(tpl.id)"
-                      class="text-xs text-slate-500 hover:text-slate-700 underline disabled:opacity-50"
+                      class="text-xs text-slate-500 hover:text-slate-700 underline"
                     >
                       Rigenera
                     </button>
@@ -391,7 +392,7 @@
       :show="moduleModalOpen"
       :pratica-id="pratica.id"
       :templates="activeModuleTemplates"
-      :pratica-modules="praticaModules"
+      :pratica-modules="praticaModulesList"
       :field-dictionary="fieldDictionary"
       :cliente="pratica.cliente"
       :custom-fields="customFields"
@@ -406,8 +407,6 @@
 import { ref, computed, reactive } from 'vue'
 import { Link, useForm, router, usePage } from '@inertiajs/vue3'
 import axios from 'axios'
-
-const http = axios.create()
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import ModuleFormModal from '@/Components/ModuleFormModal.vue'
 import PraticaChatPanel from '@/Components/Whatsapp/PraticaChatPanel.vue'
@@ -521,46 +520,48 @@ function saveIspezione() {
 const moduleModalOpen       = ref(false)
 const activeModuleTemplates = ref<ModuleTemplate[]>([])
 
+// Copia locale aggiornabile: props.praticaModules resta la snapshot del
+// caricamento pagina, ma salvataggi/generazioni fatti via axios (senza
+// visita Inertia) devono riflettersi subito qui per permettere di riaprire
+// "Compila Modulo"/"Rigenera" nella stessa sessione con i valori più recenti.
+const praticaModulesList = ref<PraticaModule[]>([...props.praticaModules])
+
+const recompileMsg = reactive<Record<number, string | null>>({})
+
 function openGenerateModal(tpl: ModuleTemplate) {
   activeModuleTemplates.value = [tpl]
   moduleModalOpen.value = true
 }
 
-function onModuleSaved(allegato: Allegato | null, warning: string | null) {
+function draftModule(templateId: number): PraticaModule | null {
+  return praticaModulesList.value.find(m => m.module_template_id === templateId) ?? null
+}
+
+function onModuleSaved(module: PraticaModule, allegato: Allegato | null, warning: string | null) {
+  const i = praticaModulesList.value.findIndex(m => m.module_template_id === module.module_template_id)
+  if (i === -1) {
+    praticaModulesList.value.push(module)
+  } else {
+    praticaModulesList.value[i] = module
+  }
+
   if (allegato) {
     allegatiList.value.push(allegato)
   }
+
   if (!warning) {
     moduleModalOpen.value = false
-  }
-}
-
-const recompiling  = reactive<Record<number, boolean>>({})
-const recompileMsg = reactive<Record<number, string | null>>({})
-
-async function recompile(mod: PraticaModule) {
-  recompiling[mod.module_template_id] = true
-  recompileMsg[mod.module_template_id] = null
-  try {
-    const resp = await http.post<{ module: PraticaModule; allegato: Allegato | null; warning: string | null }>(
-      route('pratica-modules.store', props.pratica.id),
-      { module_template_id: mod.module_template_id, values: mod.values }
-    )
-    if (resp.data.allegato) {
-      allegatiList.value.push(resp.data.allegato)
+    if (!allegato) {
+      // Salvataggio bozza (nessun PDF generato): feedback discreto e temporaneo.
+      recompileMsg[module.module_template_id] = '✓ Bozza salvata'
+      setTimeout(() => { recompileMsg[module.module_template_id] = null }, 4000)
     }
-    recompileMsg[mod.module_template_id] = resp.data.warning ? '⚠ PDF non generato' : '✓ PDF generato'
-  } catch {
-    recompileMsg[mod.module_template_id] = '✗ Errore'
-  } finally {
-    recompiling[mod.module_template_id] = false
-    setTimeout(() => { recompileMsg[mod.module_template_id] = null }, 4000)
   }
 }
 
 function rigenera(templateId: number) {
-  const mod = props.praticaModules.find(m => m.module_template_id === templateId)
-  if (mod) recompile(mod)
+  const tpl = props.moduleTemplates.find(t => t.id === templateId)
+  if (tpl) openGenerateModal(tpl)
 }
 
 // ----- Allegati -----

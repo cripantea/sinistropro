@@ -15,7 +15,9 @@ class PraticaModuleController extends Controller
     public function __construct(private readonly PdfFormFillerService $pdfService) {}
 
     /**
-     * Salva/aggiorna i valori del modulo e genera il PDF compilato su S3.
+     * Salva/aggiorna i valori del modulo. Se generate_pdf è true (default)
+     * compila anche il PDF su S3, altrimenti salva solo la bozza — utile per
+     * campi parziali che si vogliono completare più avanti.
      * Restituisce il nuovo Allegato per aggiornamento ottimistico del frontend.
      */
     public function store(Request $request, Pratica $pratica): JsonResponse
@@ -26,6 +28,7 @@ class PraticaModuleController extends Controller
         $validated = $request->validate([
             'module_template_id' => ['required', 'integer'],
             'values'             => ['required', 'array'],
+            'generate_pdf'       => ['sometimes', 'boolean'],
         ]);
 
         // Verifica che il template appartenga al tenant corrente
@@ -48,6 +51,14 @@ class PraticaModuleController extends Controller
             ],
             ['values' => $filteredValues]
         );
+
+        if (! $request->boolean('generate_pdf', true)) {
+            return response()->json([
+                'module'   => $module,
+                'allegato' => null,
+                'warning'  => null,
+            ]);
+        }
 
         // Compila il PDF e crea l'Allegato su S3 (sincrono)
         $s3Key   = $this->pdfService->compile($module);
