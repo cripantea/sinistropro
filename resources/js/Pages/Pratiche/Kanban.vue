@@ -99,6 +99,11 @@
                 </div>
               </div>
 
+              <!-- Cliente -->
+              <p v-if="pratica.cliente" class="text-sm font-semibold text-gray-800 truncate mb-1">
+                {{ pratica.cliente.nome }}
+              </p>
+
               <!-- Primary custom field -->
               <div class="leading-snug">
                 <p
@@ -301,6 +306,7 @@ interface TenantStatus {
 }
 interface PraticaKanban {
   id: number
+  cliente: { id: number; nome: string } | null
   current_status_id: number | null
   data_prossimo_avviso: string | null
   custom_fields: Record<string, string> | null
