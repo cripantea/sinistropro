@@ -128,6 +128,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
 
     // Dizionario campi condivisi tra i moduli PDF di un tenant
     Route::post('/tenants/{tenant}/field-dictionary', [FieldDictionaryController::class, 'store'])->name('tenants.field-dictionary.store');
+    Route::post('/tenants/{tenant}/field-dictionary/bulk', [FieldDictionaryController::class, 'storeBulk'])->name('tenants.field-dictionary.bulk-store');
     Route::patch('/tenants/{tenant}/field-dictionary/{fieldDictionaryEntry}', [FieldDictionaryController::class, 'update'])->name('tenants.field-dictionary.update');
     Route::delete('/tenants/{tenant}/field-dictionary/{fieldDictionaryEntry}', [FieldDictionaryController::class, 'destroy'])->name('tenants.field-dictionary.destroy');
 

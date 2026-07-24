@@ -647,6 +647,63 @@
                     <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
                     PDF configurato: {{ moduleForm.pdf_template_s3_key.split('/').pop() }}
                   </p>
+
+                  <!-- Suggerimenti dizionario campi (dopo estrazione IA) -->
+                  <div v-if="dictSuggestions.length > 0" class="mt-3 bg-indigo-50 border border-indigo-200 rounded-lg p-3 space-y-2.5">
+                    <div class="flex items-center justify-between gap-2">
+                      <p class="text-xs font-semibold text-indigo-800">
+                        {{ dictSuggestions.length }} campi non sono ancora nel dizionario — aggiungerli?
+                      </p>
+                      <button type="button" @click="dictSuggestions = []" class="text-xs text-indigo-500 hover:text-indigo-700 shrink-0">
+                        Ignora
+                      </button>
+                    </div>
+
+                    <div class="space-y-2 max-h-56 overflow-y-auto">
+                      <div v-for="s in dictSuggestions" :key="s.name" class="bg-white border border-indigo-100 rounded-md p-2 space-y-1.5">
+                        <div class="flex items-center gap-2">
+                          <input type="checkbox" v-model="s.selected" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 shrink-0" />
+                          <input v-model="s.label" type="text" class="flex-1 min-w-0 text-xs border border-slate-300 rounded px-2 py-1 focus:ring-1 focus:ring-indigo-500 outline-none" />
+                          <select v-model="s.type" class="text-xs border border-slate-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-indigo-500 outline-none bg-white shrink-0">
+                            <option value="text">Testo</option>
+                            <option value="textarea">Paragrafo</option>
+                            <option value="date">Data</option>
+                            <option value="number">Numero</option>
+                            <option value="boolean">Sì/No</option>
+                          </select>
+                        </div>
+                        <div class="flex items-center gap-2 pl-6 flex-wrap">
+                          <select v-model="s.source_type" @change="s.source_field = null" class="text-xs border border-slate-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-indigo-500 outline-none bg-white">
+                            <option value="manual">Compilazione manuale</option>
+                            <option value="cliente">Dall'anagrafica cliente</option>
+                            <option value="pratica_field">Da un campo del sinistro</option>
+                          </select>
+                          <select v-if="s.source_type === 'cliente'" v-model="s.source_field" class="text-xs border border-slate-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-indigo-500 outline-none bg-white">
+                            <option :value="null" disabled>— Campo —</option>
+                            <option value="nome">Nome</option>
+                            <option value="telefono">Telefono</option>
+                            <option value="email">Email</option>
+                          </select>
+                          <select v-if="s.source_type === 'pratica_field'" v-model="s.source_field" class="text-xs border border-slate-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-indigo-500 outline-none bg-white">
+                            <option :value="null" disabled>— Campo —</option>
+                            <option v-for="f in tenant.settings?.custom_fields_schema ?? []" :key="f.name" :value="f.name">{{ f.label }}</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p v-if="dictSuggestError" class="text-xs text-red-600">{{ dictSuggestError }}</p>
+
+                    <button
+                      type="button"
+                      :disabled="dictSuggestSubmitting || !dictSuggestions.some(s => s.selected)"
+                      @click="submitDictSuggestions"
+                      class="inline-flex items-center gap-1.5 text-xs font-semibold bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <svg v-if="dictSuggestSubmitting" class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                      {{ dictSuggestSubmitting ? 'Aggiunta...' : `Aggiungi ${dictSuggestions.filter(s => s.selected).length} al dizionario` }}
+                    </button>
+                  </div>
                 </div>
 
                 <!-- Fields Schema Editor ─────────────────────────────────────── -->
@@ -833,6 +890,13 @@ interface DictEntry {
   id: number; key: string; label: string; type: string
   source_type: 'manual' | 'cliente' | 'pratica_field'
   source_field: string | null
+}
+
+interface DictSuggestion {
+  name: string; label: string; type: string
+  source_type: 'manual' | 'cliente' | 'pratica_field'
+  source_field: string | null
+  selected: boolean
 }
 
 interface ModuleTemplate {
@@ -1072,6 +1136,10 @@ const pdfFile           = ref<File | null>(null)
 
 const extraction = reactive({ loading: false, done: false, error: null as string | null })
 
+const dictSuggestions       = ref<DictSuggestion[]>([])
+const dictSuggestSubmitting = ref(false)
+const dictSuggestError      = ref<string | null>(null)
+
 const jsonViewMode    = ref(false)
 const rawJson         = ref('')
 const jsonError       = ref<string | null>(null)
@@ -1095,6 +1163,8 @@ function openCreateModule() {
   coordEditorMode.value = false
   rawJson.value = ''
   jsonError.value = null
+  dictSuggestions.value = []
+  dictSuggestError.value = null
   moduleModalOpen.value = true
 }
 function openEditModule(tmpl: ModuleTemplate) {
@@ -1110,6 +1180,8 @@ function openEditModule(tmpl: ModuleTemplate) {
   coordEditorMode.value = false
   rawJson.value = ''
   jsonError.value = null
+  dictSuggestions.value = []
+  dictSuggestError.value = null
   moduleModalOpen.value = true
 }
 function closeModuleModal() {
@@ -1122,6 +1194,8 @@ function closeModuleModal() {
   jsonViewMode.value = false
   coordEditorMode.value = false
   jsonError.value = null
+  dictSuggestions.value = []
+  dictSuggestError.value = null
 }
 
 function onPdfFileSelected(event: Event) {
@@ -1129,6 +1203,8 @@ function onPdfFileSelected(event: Event) {
   pdfFile.value = input.files?.[0] ?? null
   extraction.done = false
   extraction.error = null
+  dictSuggestions.value = []
+  dictSuggestError.value = null
 }
 
 async function runExtraction() {
@@ -1147,11 +1223,60 @@ async function runExtraction() {
     moduleForm.pdf_template_s3_key = resp.data.s3_key
     moduleForm.fields_schema       = resp.data.fields.map(f => ({ ...f, _uid: uid() }))
     extraction.done = true
+
+    // Suggerisci di aggiungere al dizionario i campi con un nome non ancora presente.
+    const existingKeys = new Set(props.fieldDictionary.map(d => d.key))
+    const seenNames     = new Set<string>()
+    const validTypes    = ['text', 'textarea', 'date', 'number', 'boolean']
+    dictSuggestions.value = []
+    for (const f of resp.data.fields) {
+      if (!f.name || existingKeys.has(f.name) || seenNames.has(f.name)) continue
+      seenNames.add(f.name)
+      dictSuggestions.value.push({
+        name: f.name,
+        label: f.label,
+        type: validTypes.includes(f.type) ? f.type : 'text',
+        source_type: 'manual',
+        source_field: null,
+        selected: true,
+      })
+    }
   } catch (err: unknown) {
     const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
     extraction.error = msg ?? 'Errore durante l\'analisi del PDF.'
   } finally {
     extraction.loading = false
+  }
+}
+
+async function submitDictSuggestions() {
+  const selected = dictSuggestions.value.filter(s => s.selected)
+  if (!selected.length) return
+
+  dictSuggestSubmitting.value = true
+  dictSuggestError.value = null
+
+  try {
+    await http.post(route('superadmin.tenants.field-dictionary.bulk-store', props.tenant.id), {
+      fields: selected.map(s => ({
+        key: s.name,
+        label: s.label,
+        type: s.type,
+        source_type: s.source_type,
+        source_field: s.source_field,
+      })),
+    })
+
+    const addedNames = new Set(selected.map(s => s.name))
+    dictSuggestions.value = dictSuggestions.value.filter(s => !addedNames.has(s.name))
+
+    // Ricarica solo il dizionario campi, senza chiudere la modale né perdere lo stato del form.
+    router.reload({ only: ['fieldDictionary'] })
+  } catch (err: unknown) {
+    const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+    dictSuggestError.value = msg ?? 'Errore durante l\'aggiunta al dizionario.'
+  } finally {
+    dictSuggestSubmitting.value = false
   }
 }
 
