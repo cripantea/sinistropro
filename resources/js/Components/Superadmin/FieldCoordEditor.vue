@@ -71,7 +71,7 @@
                 left:   field.x + '%',
                 top:    field.y + '%',
                 width:  field.w + '%',
-                height: '14px',
+                height: field.type === 'textarea' ? (field.h ?? DEFAULT_TEXTAREA_H) + '%' : '14px',
               }"
               @mousedown.prevent="startDrag(field._uid, $event)"
             >
@@ -124,6 +124,10 @@
               <span>y&nbsp;{{ fmt(selectedField.y) }}</span>
               <span class="text-slate-300">|</span>
               <span>w&nbsp;{{ fmt(selectedField.w) }}</span>
+              <template v-if="selectedField.type === 'textarea'">
+                <span class="text-slate-300">|</span>
+                <span>h&nbsp;{{ fmt(selectedField.h ?? DEFAULT_TEXTAREA_H) }}</span>
+              </template>
             </div>
           </div>
 
@@ -165,6 +169,16 @@
             </div>
           </div>
 
+          <!-- Height controls (solo per campi multiriga) -->
+          <div v-if="selectedField.type === 'textarea'" class="flex items-center justify-between gap-1">
+            <span class="text-[10px] text-slate-500 shrink-0">Altezza (h)</span>
+            <div class="flex items-center gap-1">
+              <button type="button" @click="adjustHeight(-STEP)" class="dpad-btn">−</button>
+              <span class="text-[10px] font-mono text-slate-600 w-10 text-center">{{ fmt(selectedField.h ?? DEFAULT_TEXTAREA_H) }}%</span>
+              <button type="button" @click="adjustHeight(STEP)"  class="dpad-btn">+</button>
+            </div>
+          </div>
+
         </div>
 
         <p v-else class="text-xs text-slate-400 italic text-center px-2">
@@ -183,8 +197,10 @@ import axios from 'axios'
 interface FieldSchemaRow {
   _uid: number
   name: string; label: string; type: string; required: boolean
-  page?: number; x?: number; y?: number; w?: number
+  page?: number; x?: number; y?: number; w?: number; h?: number
 }
+
+const DEFAULT_TEXTAREA_H = 8
 
 const props = defineProps<{
   fields: FieldSchemaRow[]
@@ -274,6 +290,13 @@ function adjustWidth(dw: number) {
   if (! selectedField.value) return
   updateField(selectedField.value._uid, {
     w: clamp((selectedField.value.w ?? 20) + dw),
+  })
+}
+
+function adjustHeight(dh: number) {
+  if (! selectedField.value) return
+  updateField(selectedField.value._uid, {
+    h: clamp((selectedField.value.h ?? DEFAULT_TEXTAREA_H) + dh),
   })
 }
 

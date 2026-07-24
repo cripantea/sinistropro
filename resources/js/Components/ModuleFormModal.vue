@@ -93,6 +93,16 @@
                     class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:bg-slate-50"
                   />
 
+                  <textarea
+                    v-else-if="field.type === 'textarea'"
+                    v-model="values[field.name] as string"
+                    :placeholder="field.label"
+                    :required="field.required"
+                    :disabled="submitting"
+                    rows="4"
+                    class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:bg-slate-50 resize-y"
+                  />
+
                   <input
                     v-else-if="field.type === 'date'"
                     v-model="values[field.name]"
@@ -192,7 +202,7 @@ import axios from 'axios'
 interface FieldSchema {
   name: string
   label: string
-  type: 'text' | 'date' | 'number' | 'boolean' | 'select'
+  type: 'text' | 'textarea' | 'date' | 'number' | 'boolean' | 'select'
   required?: boolean
   options?: string[]
 }

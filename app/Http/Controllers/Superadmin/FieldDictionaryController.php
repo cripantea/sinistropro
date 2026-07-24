@@ -78,7 +78,7 @@ class FieldDictionaryController extends Controller
                     ->ignore($ignoring?->id),
             ],
             'label' => ['required', 'string', 'max:255'],
-            'type' => ['required', Rule::in(['text', 'date', 'number', 'boolean'])],
+            'type' => ['required', Rule::in(['text', 'textarea', 'date', 'number', 'boolean'])],
             'source_type' => ['required', Rule::in(['manual', 'cliente', 'pratica_field'])],
             'source_field' => [
                 'nullable',

@@ -123,8 +123,16 @@ class PdfFormFillerService
                     }
 
                     $pdf->SetXY($mmX, $mmY);
-                    // ln=0 → cursor stays on same line after cell; border=0; align=L
-                    $pdf->Cell($mmW, 5, $encoded, 0, 0, 'L');
+
+                    if (($field['type'] ?? 'text') === 'textarea') {
+                        // A capo automatico su più righe, dentro la larghezza mmW.
+                        // L'altezza (h) è solo indicativa per l'editor: MultiCell non
+                        // tronca il testo, continua a scrivere oltre se necessario.
+                        $pdf->MultiCell($mmW, 5, $encoded, 0, 'L');
+                    } else {
+                        // ln=0 → cursor stays on same line after cell; border=0; align=L
+                        $pdf->Cell($mmW, 5, $encoded, 0, 0, 'L');
+                    }
                 }
             }
 

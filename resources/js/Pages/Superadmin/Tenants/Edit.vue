@@ -495,6 +495,7 @@
                   <label class="field-label">Tipo *</label>
                   <select v-model="dictForm.type" class="field-input">
                     <option value="text">Testo</option>
+                    <option value="textarea">Paragrafo (multiriga)</option>
                     <option value="date">Data</option>
                     <option value="number">Numero</option>
                     <option value="boolean">Sì / No</option>
@@ -702,6 +703,7 @@
                         </div>
                         <select v-model="field.type" class="text-xs border border-slate-300 rounded-md px-2 py-1.5 focus:ring-1 focus:ring-indigo-500 outline-none bg-white">
                           <option value="text">Testo</option>
+                          <option value="textarea">Paragrafo (multiriga)</option>
                           <option value="date">Data</option>
                           <option value="number">Numero</option>
                           <option value="boolean">Sì/No</option>
@@ -718,6 +720,9 @@
                     </div>
                     <p v-else class="text-xs text-slate-400 italic mb-3 py-3 text-center bg-slate-50 border border-dashed border-slate-300 rounded-lg">
                       Nessun campo definito — carica un PDF e clicca "Genera Campi con IA", oppure aggiungili manualmente.
+                    </p>
+                    <p v-if="moduleForm.fields_schema.some(f => f.type === 'textarea')" class="text-xs text-slate-400 mb-3">
+                      I campi "Paragrafo (multiriga)" vanno posizionati e ridimensionati in altezza dall'"Editor Coordinate".
                     </p>
                     <div class="flex items-center gap-3 flex-wrap">
                       <button type="button" @click="addModuleField" class="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition">
@@ -820,7 +825,7 @@ interface Automation {
 
 interface FieldSchema {
   name: string; label: string; type: string; required: boolean
-  page?: number; x?: number; y?: number; w?: number
+  page?: number; x?: number; y?: number; w?: number; h?: number
 }
 interface FieldSchemaRow extends FieldSchema { _uid: number }
 
@@ -1041,7 +1046,7 @@ function deleteDictEntry(entry: DictEntry) {
   )
 }
 function typeLabel(type: string): string {
-  return { text: 'Testo', date: 'Data', number: 'Numero', boolean: 'Sì / No' }[type] ?? type
+  return { text: 'Testo', textarea: 'Paragrafo', date: 'Data', number: 'Numero', boolean: 'Sì / No' }[type] ?? type
 }
 function sourceLabel(entry: DictEntry): string {
   if (entry.source_type === 'cliente') {

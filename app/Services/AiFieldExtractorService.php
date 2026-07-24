@@ -25,15 +25,20 @@ You are a precise PDF form-field extractor with advanced spatial analysis capabi
 RESPONSE FORMAT RULES (non-negotiable):
 1. Respond with ONLY a valid JSON array. The response MUST start with [ and end with ].
 2. Do NOT include markdown code fences (```), explanatory text, or any character outside the JSON array.
-3. Each element must be a JSON object with exactly these seven keys:
+3. Each element must be a JSON object with these keys ("h" only for "textarea" fields, otherwise omit it):
    - "name"     : identifier in strict snake_case (lowercase ASCII letters, digits, underscores only)
    - "label"    : human-readable Italian label as it appears in the form
-   - "type"     : one of exactly "text", "date", or "number"
+   - "type"     : one of exactly "text", "textarea", "date", or "number"
    - "required" : boolean — true if marked as mandatory
    - "page"     : integer — 1-indexed page number where the field appears
    - "x"        : float 0.0–100.0 — horizontal start of the input area as % of page width (0 = left edge)
    - "y"        : float 0.0–100.0 — vertical start of the input area as % of page height (0 = top edge, 100 = bottom)
    - "w"        : float 0.0–100.0 — estimated width of the input area as % of page width
+   - "h"        : float 0.0–100.0 — ONLY for "textarea" fields: estimated height of the blank area as % of page height
+
+TYPE RULES:
+- Use "textarea" for large multi-line blank areas meant for free-form text: a big empty box, several blank ruled lines stacked together, or a field labeled "Descrizione", "Note", "Osservazioni", "Motivazione", "Dettagli" and similar, where the visible blank space spans more than one line of text.
+- Use "text" for single-line blanks or underlines, even if the label suggests a short free-text answer.
 
 COORDINATE RULES:
 - x and y must point to the exact start of the blank space, dotted line, or underline where the user would write the value — NOT to the label text.
@@ -41,6 +46,7 @@ COORDINATE RULES:
 - x = 0.0 means the very left edge; x = 100.0 means the very right edge.
 - For a field label on the left and blank space on the right (e.g. "Nome: ___________"), x should be the position right after the colon/space, not at the label start.
 - w should reflect the actual visible width of the blank space or underline. If no explicit line is visible, estimate a reasonable input width (typically 15–40% of page width depending on the field).
+- For "textarea" fields, h should reflect the actual visible height of the whole blank area (from its top edge to its bottom edge), not a single line.
 - Be precise: a ±2% error in coordinates is acceptable; a ±10% error is not.
 
 SNAKE_CASE RULES for "name":
@@ -50,14 +56,14 @@ SNAKE_CASE RULES for "name":
 - Example: "Nome e Cognome" → "nome_e_cognome", "Importo €" → "importo"
 
 EXAMPLE of the ONLY acceptable response format:
-[{"name":"nome_cognome","label":"Nome e Cognome","type":"text","required":true,"page":1,"x":35.5,"y":18.2,"w":30.0},{"name":"data_sinistro","label":"Data del Sinistro","type":"date","required":true,"page":1,"x":72.0,"y":18.2,"w":18.0},{"name":"importo_danno","label":"Importo del Danno €","type":"number","required":false,"page":2,"x":50.0,"y":45.0,"w":20.0}]
+[{"name":"nome_cognome","label":"Nome e Cognome","type":"text","required":true,"page":1,"x":35.5,"y":18.2,"w":30.0},{"name":"data_sinistro","label":"Data del Sinistro","type":"date","required":true,"page":1,"x":72.0,"y":18.2,"w":18.0},{"name":"importo_danno","label":"Importo del Danno €","type":"number","required":false,"page":2,"x":50.0,"y":45.0,"w":20.0},{"name":"descrizione_danno","label":"Descrizione del Danno","type":"textarea","required":false,"page":2,"x":10.0,"y":55.0,"w":80.0,"h":18.0}]
 PROMPT;
 
     /**
      * Download a PDF from S3, send it to Claude via the native document block,
      * and return the extracted fields schema with spatial coordinates.
      *
-     * @return array<int, array{name: string, label: string, type: string, required: bool, page: int, x: float, y: float, w: float}>
+     * @return array<int, array{name: string, label: string, type: string, required: bool, page: int, x: float, y: float, w: float, h?: float}>
      * @throws RuntimeException
      */
     public function extractFromPdf(string $s3Key): array
@@ -118,7 +124,7 @@ PROMPT;
                         ],
                         [
                             'type' => 'text',
-                            'text' => 'Analizza questo modulo PDF. Per ogni campo compilabile estrai nome, etichetta, tipo, obbligatorietà e le coordinate spaziali precise (x, y, w, page). Rispondi ESCLUSIVAMENTE con l\'array JSON richiesto — nessun altro testo.',
+                            'text' => 'Analizza questo modulo PDF. Per ogni campo compilabile estrai nome, etichetta, tipo, obbligatorietà e le coordinate spaziali precise (x, y, w, page, e h per i campi multiriga "textarea"). Rispondi ESCLUSIVAMENTE con l\'array JSON richiesto — nessun altro testo.',
                         ],
                     ],
                 ],
@@ -149,7 +155,7 @@ PROMPT;
     }
 
     /**
-     * @return array<int, array{name: string, label: string, type: string, required: bool, page: int, x: float, y: float, w: float}>
+     * @return array<int, array{name: string, label: string, type: string, required: bool, page: int, x: float, y: float, w: float, h?: float}>
      * @throws RuntimeException
      */
     private function parseFields(string $raw): array
@@ -170,7 +176,7 @@ PROMPT;
             );
         }
 
-        $allowedTypes = ['text', 'date', 'number'];
+        $allowedTypes = ['text', 'textarea', 'date', 'number'];
         $fields       = [];
 
         foreach ($decoded as $item) {
@@ -187,7 +193,7 @@ PROMPT;
                 ? (string) $item['type']
                 : 'text';
 
-            $fields[] = [
+            $field = [
                 'name'     => $name,
                 'label'    => trim((string) ($item['label'] ?? $name)),
                 'type'     => $type,
@@ -197,6 +203,12 @@ PROMPT;
                 'y'        => $this->clampCoord($item['y'] ?? 0),
                 'w'        => $this->clampCoord($item['w'] ?? 20),
             ];
+
+            if ($type === 'textarea') {
+                $field['h'] = $this->clampCoord($item['h'] ?? 8);
+            }
+
+            $fields[] = $field;
         }
 
         if (empty($fields)) {
