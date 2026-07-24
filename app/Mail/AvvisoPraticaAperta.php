@@ -24,7 +24,7 @@ class AvvisoPraticaAperta extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "[{$this->pratica->tenant->name}] Avviso pratica #{$this->pratica->id} ancora aperta",
+            subject: "[{$this->pratica->tenant->name}] Avviso sinistro #{$this->pratica->id} ancora aperto",
         );
     }
 

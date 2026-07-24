@@ -14,16 +14,16 @@
           <div>
             <label class="field-label">Giorni preavviso default *</label>
             <input v-model.number="form.default_notice_days" type="number" min="1" max="365" class="field-input" />
-            <p class="text-xs text-slate-400 mt-1">Giorni tra un avviso e il successivo per le pratiche di questo tenant.</p>
+            <p class="text-xs text-slate-400 mt-1">Giorni tra un avviso e il successivo per i sinistri di questo tenant.</p>
             <FieldError :message="form.errors.default_notice_days" />
           </div>
         </div>
       </FormSection>
 
       <!-- ── Sezione 2: Campi personalizzati ─────────── -->
-      <FormSection title="Campi personalizzati delle pratiche">
+      <FormSection title="Campi personalizzati dei sinistri">
         <p class="text-sm text-slate-500 mb-4">
-          Definisci i campi aggiuntivi che gli utenti di questo tenant vedranno nelle pratiche. Il nome tecnico (snake_case) viene usato come chiave JSON.
+          Definisci i campi aggiuntivi che gli utenti di questo tenant vedranno nei sinistri. Il nome tecnico (snake_case) viene usato come chiave JSON.
         </p>
 
         <div class="space-y-3">
@@ -60,7 +60,7 @@
                   </select>
                 </div>
               </div>
-              <label class="mt-5 flex items-center gap-1.5 text-xs text-slate-600 shrink-0 cursor-pointer" title="Il campo diventa obbligatorio nel form della pratica">
+              <label class="mt-5 flex items-center gap-1.5 text-xs text-slate-600 shrink-0 cursor-pointer" title="Il campo diventa obbligatorio nel form del sinistro">
                 <input v-model="field.required" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
                 Obbligatorio
               </label>
@@ -82,7 +82,7 @@
       </FormSection>
 
       <!-- ── Sezione 3: Stati personalizzati ─────────── -->
-      <FormSection title="Stati delle pratiche">
+      <FormSection title="Stati dei sinistri">
         <p class="text-sm text-slate-500 mb-4">
           Definisci il workflow degli stati (es. Aperto → In lavorazione → Chiuso). Almeno uno stato "Chiuso" serve per i promemoria automatici.
         </p>

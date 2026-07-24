@@ -3,9 +3,9 @@
     <template #header>
       <div class="flex items-center justify-between">
         <h2 class="text-xl font-semibold text-gray-800 leading-tight">
-          Modifica Pratica <span class="font-mono text-indigo-600">#{{ pratica.id }}</span>
+          Modifica Sinistro <span class="font-mono text-indigo-600">#{{ pratica.id }}</span>
         </h2>
-        <Link :href="route('pratiche.show', pratica.id)" class="text-sm text-gray-500 hover:text-gray-700 transition">← Torna alla pratica</Link>
+        <Link :href="route('pratiche.show', pratica.id)" class="text-sm text-gray-500 hover:text-gray-700 transition">← Torna al sinistro</Link>
       </div>
     </template>
 
@@ -13,7 +13,7 @@
 
       <!-- Stato -->
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-        <h3 class="text-sm font-semibold text-gray-700 mb-4">Stato della pratica</h3>
+        <h3 class="text-sm font-semibold text-gray-700 mb-4">Stato del sinistro</h3>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
           <button
             v-for="status in tenant.statuses"
@@ -36,13 +36,9 @@
         </p>
       </div>
 
-      <!-- Campi personalizzati -->
-      <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-        <h3 class="text-sm font-semibold text-gray-700 mb-4">Dati della pratica</h3>
-
-        <div v-if="schema.length === 0" class="text-sm text-gray-400 italic">
-          Nessun campo configurato per questo tenant.
-        </div>
+      <!-- Campi personalizzati (solo se il tenant ne ha configurati) -->
+      <div v-if="schema.length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <h3 class="text-sm font-semibold text-gray-700 mb-4">Dati del sinistro</h3>
 
         <div class="space-y-5">
           <div v-for="field in schema" :key="field.name">
@@ -91,14 +87,14 @@
         </button>
         <Link :href="route('pratiche.show', pratica.id)" class="text-sm text-gray-500 hover:underline">Annulla</Link>
 
-        <!-- Zona pericolosa: elimina pratica -->
+        <!-- Zona pericolosa: elimina sinistro -->
         <div class="ml-auto">
           <button
             type="button"
             @click="destroyPratica"
             class="text-xs text-red-400 hover:text-red-600 transition border border-red-200 hover:border-red-400 px-3 py-1.5 rounded-lg"
           >
-            Elimina pratica
+            Elimina sinistro
           </button>
         </div>
       </div>
@@ -146,7 +142,7 @@ function submit() {
 }
 
 function destroyPratica() {
-  if (!confirm('Sei sicuro di voler eliminare definitivamente questa pratica? L\'operazione non è reversibile.')) return
+  if (!confirm('Sei sicuro di voler eliminare definitivamente questo sinistro? L\'operazione non è reversibile.')) return
   router.delete(route('pratiche.destroy', props.pratica.id))
 }
 </script>

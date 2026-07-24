@@ -2,7 +2,7 @@
   <AuthenticatedLayout>
     <template #header>
       <div class="flex items-center justify-between">
-        <h2 class="text-xl font-semibold text-gray-800 leading-tight">Le tue Pratiche</h2>
+        <h2 class="text-xl font-semibold text-gray-800 leading-tight">I tuoi Sinistri</h2>
         <Link
           :href="route('pratiche.create')"
           class="inline-flex items-center gap-2 bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
@@ -10,7 +10,7 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
           </svg>
-          Nuova Pratica
+          Nuovo Sinistro
         </Link>
       </div>
     </template>
@@ -43,7 +43,7 @@
           Resetta
         </button>
 
-        <span class="ml-auto text-sm text-gray-400">{{ pratiche.total }} pratiche</span>
+        <span class="ml-auto text-sm text-gray-400">{{ pratiche.total }} sinistri</span>
       </div>
 
       <!-- Table -->
@@ -62,7 +62,7 @@
           </thead>
           <tbody class="divide-y divide-gray-100">
             <tr v-if="pratiche.data.length === 0">
-              <td colspan="7" class="px-5 py-10 text-center text-gray-400">Nessuna pratica trovata.</td>
+              <td colspan="7" class="px-5 py-10 text-center text-gray-400">Nessun sinistro trovato.</td>
             </tr>
             <tr
               v-for="pratica in pratiche.data"

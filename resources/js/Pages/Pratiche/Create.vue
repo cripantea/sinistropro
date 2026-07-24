@@ -2,7 +2,7 @@
   <AuthenticatedLayout>
     <template #header>
       <div class="flex items-center justify-between">
-        <h2 class="text-xl font-semibold text-gray-800 leading-tight">Nuova Pratica</h2>
+        <h2 class="text-xl font-semibold text-gray-800 leading-tight">Nuovo Sinistro</h2>
         <Link :href="route('pratiche.index')" class="text-sm text-gray-500 hover:text-gray-700 transition">← Torna alla lista</Link>
       </div>
     </template>
@@ -53,8 +53,8 @@
         </div>
 
         <p class="text-xs text-gray-400">
-          La pratica verrà creata con lo stato iniziale del tenant. Potrai completare gli altri
-          dati subito dopo, nella pagina di modifica.
+          Il sinistro verrà creato con lo stato iniziale del tenant. Potrai completare gli altri
+          dati subito dopo, nella pagina del sinistro.
         </p>
       </div>
 
@@ -69,7 +69,7 @@
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
           </svg>
-          Crea Pratica
+          Crea Sinistro
         </button>
         <Link :href="route('pratiche.index')" class="text-sm text-gray-500 hover:underline">Annulla</Link>
       </div>

@@ -186,8 +186,13 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })
 }
 
+const MODEL_DISPLAY_LABELS: Record<string, string> = {
+  Pratica: 'Sinistro',
+}
+
 function shortType(type: string): string {
-  return type.split('\\').pop() ?? type
+  const short = type.split('\\').pop() ?? type
+  return MODEL_DISPLAY_LABELS[short] ?? short
 }
 
 function actionBadgeClass(action: string): string {

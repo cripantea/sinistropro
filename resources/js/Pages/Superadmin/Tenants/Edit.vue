@@ -39,7 +39,7 @@
         </div>
       </FormSection>
 
-      <FormSection title="Campi personalizzati delle pratiche">
+      <FormSection title="Campi personalizzati dei sinistri">
         <div class="space-y-3">
           <TransitionGroup name="list" tag="div" class="space-y-3">
             <div v-for="(field, i) in form.custom_fields_schema" :key="field._uid" class="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-lg p-3">
@@ -63,7 +63,7 @@
                   </select>
                 </div>
               </div>
-              <label class="mt-5 flex items-center gap-1.5 text-xs text-slate-600 shrink-0 cursor-pointer" title="Il campo diventa obbligatorio nel form della pratica">
+              <label class="mt-5 flex items-center gap-1.5 text-xs text-slate-600 shrink-0 cursor-pointer" title="Il campo diventa obbligatorio nel form del sinistro">
                 <input v-model="field.required" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
                 Obbligatorio
               </label>
@@ -79,7 +79,7 @@
         </button>
       </FormSection>
 
-      <FormSection title="Stati delle pratiche">
+      <FormSection title="Stati dei sinistri">
         <div class="space-y-2">
           <TransitionGroup name="list" tag="div" class="space-y-2">
             <div v-for="(status, i) in form.statuses" :key="status._uid" class="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
@@ -164,7 +164,7 @@
       <div class="flex items-center justify-between mb-5">
         <div>
           <h3 class="text-base font-semibold text-slate-900">Automazioni Workflow</h3>
-          <p class="text-xs text-slate-500 mt-0.5">Azioni automatiche eseguite al cambio di stato delle pratiche.</p>
+          <p class="text-xs text-slate-500 mt-0.5">Azioni automatiche eseguite al cambio di stato dei sinistri.</p>
         </div>
         <button type="button" @click="openCreateAuto" class="inline-flex items-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
@@ -350,7 +350,7 @@
 
                 <div>
                   <label class="field-label">Messaggio *</label>
-                  <textarea v-model="autoForm.message_template" rows="5" class="field-input resize-none" placeholder="Gentile {nome_cliente}, la pratica #{numero_pratica} è passata allo stato {stato_corrente}."></textarea>
+                  <textarea v-model="autoForm.message_template" rows="5" class="field-input resize-none" placeholder="Gentile {nome_cliente}, il sinistro #{numero_pratica} è passato allo stato {stato_corrente}."></textarea>
                   <p class="text-xs text-slate-400 mt-1">Variabili: <code class="bg-slate-100 px-1 rounded">{nome_cliente}</code> <code class="bg-slate-100 px-1 rounded ml-1">{numero_pratica}</code> <code class="bg-slate-100 px-1 rounded ml-1">{stato_corrente}</code> <code class="bg-slate-100 px-1 rounded ml-1">{link_documenti}</code></p>
                   <FieldError :message="autoForm.errors.message_template" />
                 </div>
@@ -428,6 +428,7 @@
                       <option :value="null">— Nessuna —</option>
                       <option v-for="cat in allDocCategories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
                     </select>
+                    <FieldError :message="moduleForm.errors.output_document_category_id" />
                   </div>
                 </div>
 

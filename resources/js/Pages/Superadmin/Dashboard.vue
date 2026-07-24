@@ -16,7 +16,7 @@
           </template>
         </StatCard>
 
-        <StatCard label="Pratiche nel sistema" :value="stats.pratiche" color="sky">
+        <StatCard label="Sinistri nel sistema" :value="stats.pratiche" color="sky">
           <template #icon>
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
           </template>
@@ -38,7 +38,7 @@
               <tr class="bg-slate-50 border-b border-slate-200">
                 <th class="px-5 py-3 text-left font-medium text-slate-500">Tenant</th>
                 <th class="px-5 py-3 text-left font-medium text-slate-500">Utenti</th>
-                <th class="px-5 py-3 text-left font-medium text-slate-500">Pratiche</th>
+                <th class="px-5 py-3 text-left font-medium text-slate-500">Sinistri</th>
                 <th class="px-5 py-3 text-left font-medium text-slate-500">Creato il</th>
                 <th class="px-5 py-3"></th>
               </tr>

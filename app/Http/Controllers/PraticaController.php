@@ -120,8 +120,8 @@ class PraticaController extends Controller
         });
 
         return redirect()
-            ->route('pratiche.edit', $pratica)
-            ->with('success', "Pratica #{$pratica->id} creata con successo.");
+            ->route('pratiche.show', $pratica)
+            ->with('success', "Sinistro #{$pratica->id} creato con successo.");
     }
 
     public function show(Pratica $pratica): Response

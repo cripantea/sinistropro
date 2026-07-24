@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-<title>Pratica #{{ $pratica->id }} — {{ $pratica->tenant->name }}</title>
+<title>Sinistro #{{ $pratica->id }} — {{ $pratica->tenant->name }}</title>
 <style>
   /* ── Reset & Base ─────────────────────────────────────────── */
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -212,7 +212,7 @@
     <table class="doc-header-table">
       <tr>
         <td>
-          <div class="doc-title">Pratica #{{ $pratica->id }}</div>
+          <div class="doc-title">Sinistro #{{ $pratica->id }}</div>
           <div class="doc-subtitle">{{ $pratica->tenant->name }} &mdash; Pacchetto documentale completo</div>
         </td>
         <td class="doc-meta">
@@ -230,7 +230,7 @@
     <div class="section-title">&#9312; Dati Principali</div>
     <table class="data-grid">
       <tr>
-        <td class="label">ID Pratica</td>
+        <td class="label">ID Sinistro</td>
         <td>#{{ $pratica->id }}</td>
         <td class="label">Stato</td>
         <td>
@@ -304,7 +304,7 @@
         </tbody>
       </table>
     @else
-      <p class="empty-state">Nessun campo personalizzato definito per questa pratica.</p>
+      <p class="empty-state">Nessun campo personalizzato definito per questo sinistro.</p>
     @endif
   </div>
 
@@ -326,7 +326,7 @@
         <div class="nota-body">{{ $nota->nota }}</div>
       </div>
     @empty
-      <p class="empty-state">Nessun commento presente per questa pratica.</p>
+      <p class="empty-state">Nessun commento presente per questo sinistro.</p>
     @endforelse
   </div>
 
@@ -358,7 +358,7 @@
         </tbody>
       </table>
     @else
-      <p class="empty-state">Nessun allegato caricato per questa pratica.</p>
+      <p class="empty-state">Nessun allegato caricato per questo sinistro.</p>
     @endif
   </div>
 
@@ -372,7 +372,7 @@
     <tr>
       <td>{{ $pratica->tenant->name }} &mdash; Documento riservato</td>
       <td style="text-align: center; color: #d1d5db;">{{ now()->format('d/m/Y') }}</td>
-      <td style="text-align: right;">Pratica #{{ $pratica->id }}</td>
+      <td style="text-align: right;">Sinistro #{{ $pratica->id }}</td>
     </tr>
   </table>
 </div>

@@ -10,7 +10,7 @@
     <!-- Nessun numero configurato -->
     <div v-if="loaded && !phoneNumber" class="p-6 text-center">
       <p class="text-sm text-gray-500">
-        Nessun numero di telefono configurato per questa pratica.
+        Nessun numero di telefono configurato per questo sinistro.
       </p>
       <Link :href="route('pratiche.edit', praticaId)" class="text-sm text-indigo-600 hover:underline mt-1 inline-block">
         Aggiungi il numero del cliente →

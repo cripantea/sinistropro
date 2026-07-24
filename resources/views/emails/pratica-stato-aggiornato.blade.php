@@ -1,14 +1,14 @@
 @component('mail::message')
-# Aggiornamento sulla sua pratica
+# Aggiornamento sul suo sinistro
 
 Gentile Cliente,
 
-la informiamo che la **Pratica #{{ $pratica->id }}** è stata aggiornata allo stato:
+la informiamo che il **Sinistro #{{ $pratica->id }}** è stato aggiornato allo stato:
 
 **{{ $nuovoStato->name }}**
 
 @component('mail::button', ['url' => $urlPratica, 'color' => 'primary'])
-Visualizza pratica
+Visualizza sinistro
 @endcomponent
 
 Per qualsiasi domanda può rispondere a questa email o contattarci direttamente.

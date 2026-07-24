@@ -23,7 +23,7 @@ class PraticaStatoAggiornatoMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "Aggiornamento pratica #{$this->pratica->id} — {$this->nuovoStato->name}",
+            subject: "Aggiornamento sinistro #{$this->pratica->id} — {$this->nuovoStato->name}",
         );
     }
 

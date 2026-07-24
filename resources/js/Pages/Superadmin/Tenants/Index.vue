@@ -19,7 +19,7 @@
             <tr class="bg-slate-50 border-b border-slate-200">
               <th class="px-5 py-3 text-left font-medium text-slate-500">Nome</th>
               <th class="px-5 py-3 text-left font-medium text-slate-500">Utenti</th>
-              <th class="px-5 py-3 text-left font-medium text-slate-500">Pratiche</th>
+              <th class="px-5 py-3 text-left font-medium text-slate-500">Sinistri</th>
               <th class="px-5 py-3 text-left font-medium text-slate-500">Stati</th>
               <th class="px-5 py-3 text-left font-medium text-slate-500">Avviso (gg)</th>
               <th class="px-5 py-3 text-left font-medium text-slate-500">Creato</th>

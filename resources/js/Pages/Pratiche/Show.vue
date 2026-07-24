@@ -5,7 +5,7 @@
         <div class="flex items-center gap-3 min-w-0">
           <Link :href="route('pratiche.index')" class="text-sm text-gray-500 hover:text-gray-700 transition shrink-0">← Lista</Link>
           <h2 class="text-xl font-semibold text-gray-800 leading-tight truncate">
-            Pratica <span class="font-mono text-indigo-600">#{{ pratica.id }}</span>
+            Sinistro <span class="font-mono text-indigo-600">#{{ pratica.id }}</span>
           </h2>
         </div>
         <div class="flex items-center gap-2 shrink-0">
@@ -76,10 +76,10 @@
         </div>
       </div>
 
-      <!-- Dati della pratica -->
-      <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-        <h3 class="text-sm font-semibold text-gray-700 mb-3">Dati della pratica</h3>
-        <div v-if="schema.length > 0" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      <!-- Dati del sinistro (solo se il tenant ha campi personalizzati configurati) -->
+      <div v-if="schema.length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">Dati del sinistro</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           <div v-for="field in schema" :key="field.name">
             <span class="text-gray-400 text-xs uppercase tracking-wide">{{ field.label }}</span>
             <p class="mt-0.5 text-sm font-medium text-gray-800">
@@ -92,7 +92,6 @@
             </p>
           </div>
         </div>
-        <p v-else class="text-sm text-gray-400 italic">Nessun campo personalizzato configurato.</p>
       </div>
 
       <!-- Ispezione / Perito assegnato -->

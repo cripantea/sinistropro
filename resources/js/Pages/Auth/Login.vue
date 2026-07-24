@@ -101,12 +101,12 @@ const submit = () => {
           </h1>
           <p class="text-emerald-200 text-[0.93rem] leading-relaxed">
             Centralizza la gestione dei sinistri, monitora scadenze e avvisi,
-            condividi pratiche con il tuo team — tutto in un unico posto sicuro.
+            condividi sinistri con il tuo team — tutto in un unico posto sicuro.
           </p>
 
           <!-- Feature pills -->
           <div class="flex flex-wrap gap-2 mt-7">
-            <span v-for="f in ['Pratiche in tempo reale', 'Avvisi automatici', 'Multi-azienda', 'Documenti sicuri']"
+            <span v-for="f in ['Sinistri in tempo reale', 'Avvisi automatici', 'Multi-azienda', 'Documenti sicuri']"
                   :key="f"
                   class="inline-flex items-center gap-1.5 text-xs text-emerald-100 px-3 py-1 rounded-full"
                   style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.10);">

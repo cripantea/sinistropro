@@ -17,7 +17,7 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
-            <span class="hidden sm:inline">Nuova Pratica</span>
+            <span class="hidden sm:inline">Nuovo Sinistro</span>
           </Link>
         </div>
       </div>
@@ -199,7 +199,7 @@
                 <div>
                   <h3 class="text-sm font-semibold text-gray-800">Assegna incarico</h3>
                   <p class="text-xs text-gray-400 mt-0.5">
-                    Pratica #{{ assignModal.praticaId }} → colonna "<span class="font-medium text-amber-600">{{ assignModal.columnName }}</span>"
+                    Sinistro #{{ assignModal.praticaId }} → colonna "<span class="font-medium text-amber-600">{{ assignModal.columnName }}</span>"
                   </p>
                 </div>
                 <button @click="cancelAssign" class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0">

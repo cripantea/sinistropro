@@ -52,7 +52,7 @@ function formatMonth(ym: string): string {
 // ── Stat cards ─────────────────────────────────────────────
 const cards = computed(() => [
   {
-    label: 'Pratiche Totali',
+    label: 'Sinistri Totali',
     value: props.stats.total,
     icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
     bg: 'bg-indigo-50',
@@ -60,7 +60,7 @@ const cards = computed(() => [
     valueColor: 'text-indigo-700',
   },
   {
-    label: 'Pratiche Aperte',
+    label: 'Sinistri Aperti',
     value: props.stats.open,
     icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z',
     bg: 'bg-sky-50',
@@ -68,7 +68,7 @@ const cards = computed(() => [
     valueColor: 'text-sky-700',
   },
   {
-    label: 'Pratiche Chiuse',
+    label: 'Sinistri Chiusi',
     value: props.stats.closed,
     icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
     bg: 'bg-emerald-50',
@@ -105,7 +105,7 @@ function buildTrendChart() {
     data: {
       labels,
       datasets: [{
-        label: 'Pratiche create',
+        label: 'Sinistri creati',
         data,
         fill: true,
         tension: 0.4,
@@ -123,7 +123,7 @@ function buildTrendChart() {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: ctx => ` ${ctx.parsed.y} pratiche`,
+            label: ctx => ` ${ctx.parsed.y} sinistri`,
           },
         },
       },
@@ -187,7 +187,7 @@ function buildDonutChart() {
               const pct = props.stats.total
                 ? Math.round((ctx.parsed / props.stats.total) * 100)
                 : 0
-              return ` ${ctx.parsed} pratiche (${pct}%)`
+              return ` ${ctx.parsed} sinistri (${pct}%)`
             },
           },
         },
@@ -250,8 +250,8 @@ onBeforeUnmount(() => {
         <svg class="w-12 h-12 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
         </svg>
-        <h3 class="text-sm font-semibold text-slate-600 mb-1">Nessuna pratica ancora</h3>
-        <p class="text-xs text-slate-400">I grafici appariranno non appena verranno create le prime pratiche.</p>
+        <h3 class="text-sm font-semibold text-slate-600 mb-1">Nessun sinistro ancora</h3>
+        <p class="text-xs text-slate-400">I grafici appariranno non appena verranno creati i primi sinistri.</p>
       </div>
 
       <!-- ── Charts row ──────────────────────────────────────── -->
@@ -261,7 +261,7 @@ onBeforeUnmount(() => {
         <div class="xl:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
           <div class="flex items-center justify-between mb-4">
             <div>
-              <h2 class="text-sm font-semibold text-slate-800">Andamento Pratiche</h2>
+              <h2 class="text-sm font-semibold text-slate-800">Andamento Sinistri</h2>
               <p class="text-xs text-slate-400 mt-0.5">Ultimi 12 mesi</p>
             </div>
             <div class="w-2.5 h-2.5 rounded-full bg-indigo-500"></div>
@@ -276,7 +276,7 @@ onBeforeUnmount(() => {
           <div class="flex items-center justify-between mb-4">
             <div>
               <h2 class="text-sm font-semibold text-slate-800">Distribuzione per Stato</h2>
-              <p class="text-xs text-slate-400 mt-0.5">{{ stats.total }} pratiche totali</p>
+              <p class="text-xs text-slate-400 mt-0.5">{{ stats.total }} sinistri totali</p>
             </div>
           </div>
           <div class="h-56">

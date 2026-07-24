@@ -20,7 +20,12 @@ class ModuleTemplateController extends Controller
     {
         $data = $request->validate([
             'name'                        => ['required', 'string', 'max:255'],
-            'output_document_category_id' => ['nullable', 'integer', 'exists:document_categories,id'],
+            'output_document_category_id' => [
+                'nullable',
+                'integer',
+                'exists:document_categories,id',
+                Rule::unique('module_templates', 'output_document_category_id')->where('tenant_id', $tenant->id),
+            ],
             'pdf_template_s3_key'         => ['nullable', 'string', 'max:1000'],
             'fields_schema'               => ['nullable', 'array'],
             'fields_schema.*.name'     => ['required', 'string', 'max:100'],
@@ -32,6 +37,8 @@ class ModuleTemplateController extends Controller
             'fields_schema.*.y'        => ['nullable', 'numeric', 'min:0', 'max:100'],
             'fields_schema.*.w'        => ['nullable', 'numeric', 'min:0', 'max:100'],
             'font_size'                => ['nullable', 'integer', 'min:6', 'max:24'],
+        ], [
+            'output_document_category_id.unique' => 'Questa categoria ha già un modulo associato. Ogni categoria può avere al massimo un modulo.',
         ]);
 
         ModuleTemplate::create([
@@ -54,7 +61,14 @@ class ModuleTemplateController extends Controller
 
         $data = $request->validate([
             'name'                        => ['required', 'string', 'max:255'],
-            'output_document_category_id' => ['nullable', 'integer', 'exists:document_categories,id'],
+            'output_document_category_id' => [
+                'nullable',
+                'integer',
+                'exists:document_categories,id',
+                Rule::unique('module_templates', 'output_document_category_id')
+                    ->where('tenant_id', $tenant->id)
+                    ->ignore($moduleTemplate->id),
+            ],
             'pdf_template_s3_key'         => ['nullable', 'string', 'max:1000'],
             'fields_schema'               => ['nullable', 'array'],
             'fields_schema.*.name'     => ['required', 'string', 'max:100'],
@@ -66,6 +80,8 @@ class ModuleTemplateController extends Controller
             'fields_schema.*.y'        => ['nullable', 'numeric', 'min:0', 'max:100'],
             'fields_schema.*.w'        => ['nullable', 'numeric', 'min:0', 'max:100'],
             'font_size'                => ['nullable', 'integer', 'min:6', 'max:24'],
+        ], [
+            'output_document_category_id.unique' => 'Questa categoria ha già un modulo associato. Ogni categoria può avere al massimo un modulo.',
         ]);
 
         $moduleTemplate->update([

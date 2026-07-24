@@ -48,8 +48,8 @@
                 {{ warningMsg }}
               </div>
 
-              <!-- Template selector -->
-              <div>
+              <!-- Template selector (solo se c'è più di un template tra cui scegliere) -->
+              <div v-if="templates.length > 1">
                 <label class="block text-xs font-medium text-slate-700 mb-1">Template modulo *</label>
                 <select
                   v-model="selectedTemplateId"
@@ -66,6 +66,9 @@
                   Attenzione: questo template non ha un PDF matrice configurato — il PDF non verrà generato.
                 </p>
               </div>
+              <p v-else-if="selectedTemplate && !selectedTemplate.pdf_template_s3_key" class="text-xs text-amber-600">
+                Attenzione: questo template non ha un PDF matrice configurato — il PDF non verrà generato.
+              </p>
 
               <!-- Dynamic fields from fields_schema -->
               <template v-if="selectedTemplate && selectedTemplate.fields_schema.length > 0">
@@ -245,10 +248,12 @@ const existingModule = computed<PraticaModule | null>(
 
 // ── Watchers ────────────────────────────────────────────────────────────────
 
-// When modal opens, reset state
+// When modal opens, reset state. Se c'è un solo template disponibile
+// (es. pulsante "Compila Modulo" per categoria) selezionalo subito,
+// evitando il passaggio manuale dal dropdown.
 watch(() => props.show, (open) => {
   if (open) {
-    selectedTemplateId.value = null
+    selectedTemplateId.value = props.templates.length === 1 ? props.templates[0].id : null
     values.value             = {}
     errorMsg.value           = null
     warningMsg.value         = null

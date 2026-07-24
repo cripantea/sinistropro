@@ -269,7 +269,7 @@ class ExecuteAutomationJob implements ShouldQueue
             return;
         }
 
-        $subject = "Pratica #{$pratica->id} — {$pratica->currentStatus?->name}";
+        $subject = "Sinistro #{$pratica->id} — {$pratica->currentStatus?->name}";
 
         Mail::to($recipient['email'])->send(
             new AutomazioneNotificaMail(
