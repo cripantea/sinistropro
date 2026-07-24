@@ -227,7 +227,69 @@
       </div>
     </div>
 
-    <!-- ── Tab 4: Template Moduli PDF ───────────────────────────────────────── -->
+    <!-- ── Tab 4: Dizionario Campi ────────────────────────────────────────────── -->
+    <div v-show="activeTab === 'dictionary'" class="p-6 max-w-5xl">
+
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h3 class="text-base font-semibold text-slate-900">Dizionario Campi</h3>
+          <p class="text-xs text-slate-500 mt-0.5">
+            Campi condivisi tra i moduli PDF di questo tenant (es. "Nome Cliente"). Collegali all'anagrafica
+            cliente o ai campi del sinistro per autocompilarli, invece di ridigitarli ogni volta.
+          </p>
+        </div>
+        <button type="button" @click="openCreateDict" class="inline-flex items-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-indigo-700 transition shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Nuovo Campo
+        </button>
+      </div>
+
+      <div v-if="fieldDictionary.length > 0" class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-100 bg-slate-50">
+              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Chiave</th>
+              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Etichetta</th>
+              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Tipo</th>
+              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Fonte</th>
+              <th class="w-24"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="entry in fieldDictionary" :key="entry.id" class="hover:bg-slate-50/70 transition">
+              <td class="px-4 py-3 font-mono text-xs text-slate-600">{{ entry.key }}</td>
+              <td class="px-4 py-3 font-medium text-slate-800">{{ entry.label }}</td>
+              <td class="px-4 py-3 text-slate-600 text-xs">{{ typeLabel(entry.type) }}</td>
+              <td class="px-4 py-3">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" :class="sourceBadgeClass(entry.source_type)">
+                  {{ sourceLabel(entry) }}
+                </span>
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-1.5 justify-end">
+                  <button type="button" @click="openEditDict(entry)" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition" title="Modifica">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                  </button>
+                  <button type="button" @click="deleteDictEntry(entry)" class="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition" title="Elimina">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div v-else class="bg-slate-50 border border-dashed border-slate-300 rounded-xl px-8 py-14 text-center">
+        <svg class="w-10 h-10 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+        </svg>
+        <p class="text-sm text-slate-500 font-medium">Nessun campo nel dizionario</p>
+        <p class="text-xs text-slate-400 mt-1">Clicca "Nuovo Campo" per definirne uno riusabile tra i moduli.</p>
+      </div>
+    </div>
+
+    <!-- ── Tab 5: Template Moduli PDF ───────────────────────────────────────── -->
     <div v-show="activeTab === 'modules'" class="p-6 max-w-5xl">
 
       <div class="flex items-center justify-between mb-5">
@@ -386,6 +448,101 @@
                   {{ autoForm.processing ? 'Salvataggio...' : 'Salva automazione' }}
                 </button>
                 <button type="button" :disabled="autoForm.processing" @click="closeAutoModal" class="px-4 py-2.5 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition disabled:opacity-50">Annulla</button>
+              </div>
+
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- ── Field Dictionary Modal ─────────────────────────────────────────────── -->
+    <Teleport to="body">
+      <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0" leave-active-class="transition duration-150" leave-to-class="opacity-0">
+        <div v-if="dictModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" @click.self="closeDictModal">
+          <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0 scale-95" leave-active-class="transition duration-150" leave-to-class="opacity-0 scale-95">
+            <div v-if="dictModalOpen" class="bg-white rounded-2xl shadow-2xl w-full max-w-lg" @click.stop>
+
+              <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                <h3 class="text-base font-semibold text-slate-900">{{ editingDictEntry ? 'Modifica Campo' : 'Nuovo Campo del Dizionario' }}</h3>
+                <button type="button" @click="closeDictModal" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+
+              <form @submit.prevent="submitDict" class="px-6 py-5 space-y-4">
+
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="field-label">Chiave tecnica *</label>
+                    <input
+                      v-model="dictForm.key"
+                      type="text"
+                      class="field-input font-mono text-sm"
+                      placeholder="nome_cliente"
+                      @input="dictForm.key = dictForm.key.toLowerCase().replace(/[^a-z0-9_]/g, '_')"
+                    />
+                    <FieldError :message="dictForm.errors.key" />
+                  </div>
+                  <div>
+                    <label class="field-label">Etichetta *</label>
+                    <input v-model="dictForm.label" type="text" class="field-input" placeholder="Nome Cliente" />
+                    <FieldError :message="dictForm.errors.label" />
+                  </div>
+                </div>
+
+                <div>
+                  <label class="field-label">Tipo *</label>
+                  <select v-model="dictForm.type" class="field-input">
+                    <option value="text">Testo</option>
+                    <option value="date">Data</option>
+                    <option value="number">Numero</option>
+                    <option value="boolean">Sì / No</option>
+                  </select>
+                  <FieldError :message="dictForm.errors.type" />
+                </div>
+
+                <div>
+                  <label class="field-label">Autocompilazione</label>
+                  <select v-model="dictForm.source_type" @change="dictForm.source_field = null" class="field-input">
+                    <option value="manual">Nessuna — compilazione manuale</option>
+                    <option value="cliente">Dall'anagrafica cliente</option>
+                    <option value="pratica_field">Da un campo personalizzato del sinistro</option>
+                  </select>
+                  <FieldError :message="dictForm.errors.source_type" />
+                </div>
+
+                <div v-if="dictForm.source_type === 'cliente'">
+                  <label class="field-label">Campo cliente *</label>
+                  <select v-model="dictForm.source_field" class="field-input">
+                    <option :value="null" disabled>— Scegli —</option>
+                    <option value="nome">Nome</option>
+                    <option value="telefono">Telefono</option>
+                    <option value="email">Email</option>
+                  </select>
+                  <FieldError :message="dictForm.errors.source_field" />
+                </div>
+
+                <div v-if="dictForm.source_type === 'pratica_field'">
+                  <label class="field-label">Campo del sinistro *</label>
+                  <select v-model="dictForm.source_field" class="field-input">
+                    <option :value="null" disabled>— Scegli —</option>
+                    <option v-for="f in tenant.settings?.custom_fields_schema ?? []" :key="f.name" :value="f.name">{{ f.label }}</option>
+                  </select>
+                  <p v-if="!(tenant.settings?.custom_fields_schema ?? []).length" class="text-xs text-amber-600 mt-1">
+                    Questo tenant non ha campi personalizzati configurati (tab "Configurazione").
+                  </p>
+                  <FieldError :message="dictForm.errors.source_field" />
+                </div>
+
+              </form>
+
+              <div class="flex items-center gap-3 px-6 py-4 border-t border-slate-100">
+                <button type="button" :disabled="dictForm.processing" @click="submitDict" class="flex-1 inline-flex items-center justify-center gap-2 bg-indigo-600 text-white text-sm font-semibold py-2.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                  <svg v-if="dictForm.processing" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                  {{ dictForm.processing ? 'Salvataggio...' : 'Salva campo' }}
+                </button>
+                <button type="button" :disabled="dictForm.processing" @click="closeDictModal" class="px-4 py-2.5 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition disabled:opacity-50">Annulla</button>
               </div>
 
             </div>
@@ -562,10 +719,25 @@
                     <p v-else class="text-xs text-slate-400 italic mb-3 py-3 text-center bg-slate-50 border border-dashed border-slate-300 rounded-lg">
                       Nessun campo definito — carica un PDF e clicca "Genera Campi con IA", oppure aggiungili manualmente.
                     </p>
-                    <button type="button" @click="addModuleField" class="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                      Aggiungi campo manualmente
-                    </button>
+                    <div class="flex items-center gap-3 flex-wrap">
+                      <button type="button" @click="addModuleField" class="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        Aggiungi campo manualmente
+                      </button>
+                      <select
+                        v-if="fieldDictionary.length > 0"
+                        :value="''"
+                        @change="onAddFromDictionary($event)"
+                        class="text-xs border border-slate-300 rounded-md px-2 py-1.5 focus:ring-1 focus:ring-indigo-500 outline-none bg-white text-indigo-700"
+                      >
+                        <option value="" disabled>+ Aggiungi dal dizionario…</option>
+                        <option v-for="d in fieldDictionary" :key="d.id" :value="d.key">{{ d.label }}</option>
+                      </select>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1.5">
+                      Un campo del dizionario può essere aggiunto più volte nello stesso modulo (es. se compare
+                      due volte nel PDF): verrà compilato una sola volta e riportato in tutte le posizioni.
+                    </p>
                   </template>
 
                   <!-- JSON Editor -->
@@ -652,6 +824,12 @@ interface FieldSchema {
 }
 interface FieldSchemaRow extends FieldSchema { _uid: number }
 
+interface DictEntry {
+  id: number; key: string; label: string; type: string
+  source_type: 'manual' | 'cliente' | 'pratica_field'
+  source_field: string | null
+}
+
 interface ModuleTemplate {
   id: number; name: string; pdf_template_s3_key: string | null
   output_document_category_id: number | null; fields_schema: FieldSchema[]
@@ -673,6 +851,7 @@ const props = defineProps<{
   automations: Automation[]
   allDocCategories: DocCategory[]
   moduleTemplates: ModuleTemplate[]
+  fieldDictionary: DictEntry[]
 }>()
 
 // ── UID counter (shared across all lists) ────────────────────────────────────
@@ -686,6 +865,7 @@ const TABS = [
   { id: 'config',      label: 'Configurazione' },
   { id: 'categories',  label: 'Categorie Documenti' },
   { id: 'automations', label: 'Automazioni Workflow' },
+  { id: 'dictionary',  label: 'Dizionario Campi' },
   { id: 'modules',     label: 'Template Moduli PDF' },
 ] as const
 
@@ -694,7 +874,7 @@ type TabId = typeof TABS[number]['id']
 function tabFromUrl(url: string): TabId {
   const search = url.includes('?') ? url.split('?')[1] : ''
   const tab = new URLSearchParams(search).get('tab')
-  return (['config', 'categories', 'automations', 'modules'] as const).includes(tab as TabId)
+  return (['config', 'categories', 'automations', 'dictionary', 'modules'] as const).includes(tab as TabId)
     ? (tab as TabId)
     : 'config'
 }
@@ -807,6 +987,76 @@ function channelBadgeClass(ch: string) {
   return ch === 'email' ? 'bg-blue-100 text-blue-700' : ch === 'whatsapp' ? 'bg-green-100 text-green-700' : 'bg-violet-100 text-violet-700'
 }
 function recipientLabel(r: string)  { return r === 'cliente' ? 'Cliente' : r === 'perito' ? 'Perito' : 'Gestore' }
+
+// ── Dizionario Campi ─────────────────────────────────────────────────────────
+
+const dictModalOpen     = ref(false)
+const editingDictEntry  = ref<DictEntry | null>(null)
+
+const dictForm = useForm({
+  key:          '' as string,
+  label:        '' as string,
+  type:         'text' as string,
+  source_type:  'manual' as string,
+  source_field: null as string | null,
+})
+
+function openCreateDict() {
+  editingDictEntry.value = null
+  dictForm.reset()
+  dictModalOpen.value = true
+}
+function openEditDict(entry: DictEntry) {
+  editingDictEntry.value = entry
+  dictForm.key          = entry.key
+  dictForm.label        = entry.label
+  dictForm.type         = entry.type
+  dictForm.source_type  = entry.source_type
+  dictForm.source_field = entry.source_field
+  dictModalOpen.value = true
+}
+function closeDictModal() {
+  dictModalOpen.value = false
+  editingDictEntry.value = null
+  dictForm.reset()
+}
+function submitDict() {
+  if (editingDictEntry.value) {
+    dictForm.patch(
+      route('superadmin.tenants.field-dictionary.update', [props.tenant.id, editingDictEntry.value.id]),
+      { onSuccess: closeDictModal }
+    )
+  } else {
+    dictForm.post(
+      route('superadmin.tenants.field-dictionary.store', props.tenant.id),
+      { onSuccess: closeDictModal }
+    )
+  }
+}
+function deleteDictEntry(entry: DictEntry) {
+  if (!confirm(`Eliminare il campo "${entry.label}" dal dizionario? I moduli che lo usano già non vengono modificati.`)) return
+  router.delete(
+    route('superadmin.tenants.field-dictionary.destroy', [props.tenant.id, entry.id]),
+    { preserveScroll: true }
+  )
+}
+function typeLabel(type: string): string {
+  return { text: 'Testo', date: 'Data', number: 'Numero', boolean: 'Sì / No' }[type] ?? type
+}
+function sourceLabel(entry: DictEntry): string {
+  if (entry.source_type === 'cliente') {
+    const names: Record<string, string> = { nome: 'Nome', telefono: 'Telefono', email: 'Email' }
+    return `Cliente → ${names[entry.source_field ?? ''] ?? entry.source_field}`
+  }
+  if (entry.source_type === 'pratica_field') {
+    const field = (props.tenant.settings?.custom_fields_schema ?? []).find(f => f.name === entry.source_field)
+    return `Sinistro → ${field?.label ?? entry.source_field}`
+  }
+  return 'Manuale'
+}
+function sourceBadgeClass(sourceType: string): string {
+  return sourceType === 'manual' ? 'bg-slate-100 text-slate-600' : 'bg-emerald-100 text-emerald-700'
+}
 
 // ── Module Templates ─────────────────────────────────────────────────────────
 
@@ -942,6 +1192,13 @@ function addModuleField() {
 }
 function removeModuleField(i: number) {
   moduleForm.fields_schema.splice(i, 1)
+}
+function onAddFromDictionary(event: Event) {
+  const key = (event.target as HTMLSelectElement).value
+  const entry = props.fieldDictionary.find(d => d.key === key)
+  if (!entry) return
+  moduleForm.fields_schema.push({ _uid: uid(), name: entry.key, label: entry.label, type: entry.type, required: false })
+  ;(event.target as HTMLSelectElement).value = ''
 }
 
 function saveModule() {

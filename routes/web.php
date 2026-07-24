@@ -14,6 +14,7 @@ use App\Http\Controllers\WhatsappConversationController;
 use App\Http\Controllers\WhatsappSessionController;
 use App\Http\Controllers\Superadmin\AutomationController;
 use App\Http\Controllers\Superadmin\DocumentCategoryController;
+use App\Http\Controllers\Superadmin\FieldDictionaryController;
 use App\Http\Controllers\Superadmin\ModuleTemplateController;
 use App\Http\Controllers\Superadmin\SuperadminController;
 use App\Http\Controllers\Superadmin\TenantController;
@@ -124,6 +125,11 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::post('/tenants/{tenant}/automations', [AutomationController::class, 'store'])->name('tenants.automations.store');
     Route::patch('/tenants/{tenant}/automations/{automation}', [AutomationController::class, 'update'])->name('tenants.automations.update');
     Route::delete('/tenants/{tenant}/automations/{automation}', [AutomationController::class, 'destroy'])->name('tenants.automations.destroy');
+
+    // Dizionario campi condivisi tra i moduli PDF di un tenant
+    Route::post('/tenants/{tenant}/field-dictionary', [FieldDictionaryController::class, 'store'])->name('tenants.field-dictionary.store');
+    Route::patch('/tenants/{tenant}/field-dictionary/{fieldDictionaryEntry}', [FieldDictionaryController::class, 'update'])->name('tenants.field-dictionary.update');
+    Route::delete('/tenants/{tenant}/field-dictionary/{fieldDictionaryEntry}', [FieldDictionaryController::class, 'destroy'])->name('tenants.field-dictionary.destroy');
 
     // Tenant CRUD
     Route::resource('tenants', TenantController::class)->names([

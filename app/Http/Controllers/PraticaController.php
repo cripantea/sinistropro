@@ -7,6 +7,7 @@ use App\Http\Requests\Pratica\StorePraticaRequest;
 use App\Http\Requests\Pratica\UpdatePraticaRequest;
 use App\Mail\PraticaStatoAggiornatoMail;
 use App\Models\DocumentCategory;
+use App\Models\FieldDictionaryEntry;
 use App\Models\Ispezione;
 use App\Models\ModuleTemplate;
 use App\Models\Pratica;
@@ -130,6 +131,7 @@ class PraticaController extends Controller
             'tenant.statuses',
             'utenteCreatore:id,name,email',
             'currentStatus',
+            'cliente:id,nome,telefono,email',
             'note.user:id,name',
             'allegati.category:id,name',
             'ispezioni.assegnatoa:id,name,email',
@@ -165,12 +167,16 @@ class PraticaController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'email']);
 
+        $fieldDictionary = FieldDictionaryEntry::where('tenant_id', $tenantId)
+            ->get(['key', 'source_type', 'source_field']);
+
         return Inertia::render('Pratiche/Show', [
             'pratica'         => $pratica,
             'categories'      => $enabledCategories,
             'moduleTemplates' => $moduleTemplates,
             'praticaModules'  => $praticaModules,
             'externalUsers'   => $externalUsers,
+            'fieldDictionary' => $fieldDictionary,
         ]);
     }
 

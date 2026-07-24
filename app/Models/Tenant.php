@@ -48,6 +48,11 @@ class Tenant extends Model
         return $this->hasMany(Cliente::class);
     }
 
+    public function fieldDictionaryEntries(): HasMany
+    {
+        return $this->hasMany(FieldDictionaryEntry::class)->orderBy('label');
+    }
+
     public function initialStatus(): ?TenantStatus
     {
         // Fallback al primo per ordine se nessuno stato è ancora marcato esplicitamente

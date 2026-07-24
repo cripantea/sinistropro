@@ -7,6 +7,7 @@ use App\Http\Requests\Superadmin\StoreTenantRequest;
 use App\Http\Requests\Superadmin\UpdateTenantRequest;
 use App\Models\Automation;
 use App\Models\DocumentCategory;
+use App\Models\FieldDictionaryEntry;
 use App\Models\ModuleTemplate;
 use App\Models\Tenant;
 use Illuminate\Http\RedirectResponse;
@@ -123,12 +124,17 @@ class TenantController extends Controller
             ])
             ->values();
 
+        $fieldDictionary = FieldDictionaryEntry::where('tenant_id', $tenant->id)
+            ->orderBy('label')
+            ->get(['id', 'key', 'label', 'type', 'source_type', 'source_field']);
+
         return Inertia::render('Superadmin/Tenants/Edit', [
             'tenant'            => $tenant,
             'categoriesConfig'  => $categoriesConfig,
             'automations'       => $automations,
             'allDocCategories'  => $allDocCategories,
             'moduleTemplates'   => $moduleTemplates,
+            'fieldDictionary'   => $fieldDictionary,
         ]);
     }
 

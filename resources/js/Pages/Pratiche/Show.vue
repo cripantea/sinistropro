@@ -392,6 +392,9 @@
       :pratica-id="pratica.id"
       :templates="activeModuleTemplates"
       :pratica-modules="praticaModules"
+      :field-dictionary="fieldDictionary"
+      :cliente="pratica.cliente"
+      :custom-fields="customFields"
       @close="moduleModalOpen = false"
       @saved="onModuleSaved"
     />
@@ -448,6 +451,9 @@ interface Allegato {
   category: { id: number; name: string } | null
 }
 
+interface Cliente { id: number; nome: string; telefono: string | null; email: string | null }
+interface DictEntry { key: string; source_type: 'manual' | 'cliente' | 'pratica_field'; source_field: string | null }
+
 interface Pratica {
   id: number
   custom_fields: Record<string, string | boolean> | null
@@ -456,6 +462,7 @@ interface Pratica {
   current_status: TenantStatus | null
   current_status_id: number | null
   utente_creatore: { id: number; name: string; email: string } | null
+  cliente: Cliente | null
   tenant: { id: number; settings: { custom_fields_schema: FieldSchema[] } | null; statuses: TenantStatus[] }
   note: Nota[]
   allegati: Allegato[]
@@ -468,6 +475,7 @@ const props   = defineProps<{
   moduleTemplates: ModuleTemplate[]
   praticaModules: PraticaModule[]
   externalUsers: ExternalUser[]
+  fieldDictionary: DictEntry[]
 }>()
 const page    = usePage<PageProps>()
 const flash   = computed(() => page.props.flash)

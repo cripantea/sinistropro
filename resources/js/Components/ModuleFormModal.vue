@@ -70,15 +70,17 @@
                 Attenzione: questo template non ha un PDF matrice configurato — il PDF non verrà generato.
               </p>
 
-              <!-- Dynamic fields from fields_schema -->
-              <template v-if="selectedTemplate && selectedTemplate.fields_schema.length > 0">
+              <!-- Dynamic fields from fields_schema (un solo input per nome univoco,
+                   anche se il campo compare più volte nel PDF) -->
+              <template v-if="uniqueFields.length > 0">
                 <div
-                  v-for="field in selectedTemplate.fields_schema"
+                  v-for="field in uniqueFields"
                   :key="field.name"
                 >
                   <label class="block text-xs font-medium text-slate-700 mb-1">
                     {{ field.label }}
                     <span v-if="field.required" class="text-red-500">*</span>
+                    <span v-if="autoFilledFields.has(field.name)" class="text-emerald-600 font-normal">(precompilato)</span>
                   </label>
 
                   <input
@@ -218,11 +220,26 @@ interface Allegato {
   category: { id: number; name: string } | null
 }
 
+interface DictEntry {
+  key: string
+  source_type: 'manual' | 'cliente' | 'pratica_field'
+  source_field: string | null
+}
+
+interface ClienteInfo {
+  nome: string
+  telefono: string | null
+  email: string | null
+}
+
 const props = defineProps<{
   show: boolean
   praticaId: number
   templates: ModuleTemplate[]
   praticaModules: PraticaModule[]
+  fieldDictionary?: DictEntry[]
+  cliente?: ClienteInfo | null
+  customFields?: Record<string, unknown> | null
 }>()
 
 const emit = defineEmits<{
@@ -246,6 +263,54 @@ const existingModule = computed<PraticaModule | null>(
   () => props.praticaModules.find(m => m.module_template_id === selectedTemplateId.value) ?? null
 )
 
+// Un solo campo per nome univoco, anche se il template lo posiziona più volte
+// nel PDF (es. "Nome Cliente" in intestazione e in calce) — required vince se
+// anche una sola occorrenza lo richiede.
+const uniqueFields = computed<FieldSchema[]>(() => {
+  const schema = selectedTemplate.value?.fields_schema ?? []
+  const byName = new Map<string, FieldSchema>()
+  for (const field of schema) {
+    const current = byName.get(field.name)
+    if (!current) {
+      byName.set(field.name, { ...field })
+    } else if (field.required && !current.required) {
+      current.required = true
+    }
+  }
+  return Array.from(byName.values())
+})
+
+const dictionaryByKey = computed(() => {
+  const map = new Map<string, DictEntry>()
+  for (const entry of props.fieldDictionary ?? []) map.set(entry.key, entry)
+  return map
+})
+
+// Risolve il valore di un campo dal dizionario (anagrafica cliente o campo
+// personalizzato del sinistro), se collegato — altrimenti null.
+function resolveAutoValue(name: string): unknown {
+  const entry = dictionaryByKey.value.get(name)
+  if (!entry || entry.source_type === 'manual' || !entry.source_field) return null
+
+  if (entry.source_type === 'cliente') {
+    return props.cliente?.[entry.source_field as keyof ClienteInfo] ?? null
+  }
+  if (entry.source_type === 'pratica_field') {
+    return props.customFields?.[entry.source_field] ?? null
+  }
+  return null
+}
+
+// Campi effettivamente precompilati (valore non vuoto trovato da cliente/pratica).
+const autoFilledFields = computed(() => {
+  const set = new Set<string>()
+  for (const field of uniqueFields.value) {
+    const auto = resolveAutoValue(field.name)
+    if (auto !== null && auto !== undefined && auto !== '') set.add(field.name)
+  }
+  return set
+})
+
 // ── Watchers ────────────────────────────────────────────────────────────────
 
 // When modal opens, reset state. Se c'è un solo template disponibile
@@ -261,16 +326,21 @@ watch(() => props.show, (open) => {
   }
 })
 
-// When template changes, pre-fill from existing module or reset fields
+// When template changes, pre-fill from existing module, poi dal dizionario
+// (cliente/pratica), altrimenti campo vuoto da compilare a mano.
 watch(selectedTemplateId, () => {
   errorMsg.value   = null
   warningMsg.value = null
-  const schema     = selectedTemplate.value?.fields_schema ?? []
   const existing   = existingModule.value?.values ?? {}
 
   const newValues: Record<string, unknown> = {}
-  for (const field of schema) {
-    newValues[field.name] = existing[field.name] ?? ''
+  for (const field of uniqueFields.value) {
+    const savedValue = existing[field.name]
+    if (savedValue !== undefined && savedValue !== '') {
+      newValues[field.name] = savedValue
+      continue
+    }
+    newValues[field.name] = resolveAutoValue(field.name) ?? ''
   }
   values.value = newValues
 })
