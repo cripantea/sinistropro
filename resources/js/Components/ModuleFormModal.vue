@@ -263,11 +263,12 @@ const props = defineProps<{
   fieldDictionary?: DictEntry[]
   cliente?: ClienteInfo | null
   customFields?: Record<string, unknown> | null
+  sharedModuleValues?: Record<string, unknown> | null
 }>()
 
 const emit = defineEmits<{
   close: []
-  saved: [module: PraticaModule, allegato: Allegato | null, warning: string | null]
+  saved: [module: PraticaModule, allegato: Allegato | null, warning: string | null, sharedModuleValues: Record<string, unknown>]
 }>()
 
 // ── State ───────────────────────────────────────────────────────────────────
@@ -325,11 +326,20 @@ function resolveAutoValue(name: string): unknown {
   return null
 }
 
-// Campi effettivamente precompilati (valore non vuoto trovato da cliente/pratica).
+// Un campo compilato in un ALTRO modulo della stessa pratica (es. "telefono")
+// ha priorità sull'autofill statico da cliente/pratica, perché riflette
+// quanto l'utente ha effettivamente digitato altrove.
+function resolveSharedOrAutoValue(name: string): unknown {
+  const shared = props.sharedModuleValues?.[name]
+  if (shared !== undefined && shared !== null && shared !== '') return shared
+  return resolveAutoValue(name)
+}
+
+// Campi effettivamente precompilati (da un altro modulo o da cliente/pratica).
 const autoFilledFields = computed(() => {
   const set = new Set<string>()
   for (const field of uniqueFields.value) {
-    const auto = resolveAutoValue(field.name)
+    const auto = resolveSharedOrAutoValue(field.name)
     if (auto !== null && auto !== undefined && auto !== '') set.add(field.name)
   }
   return set
@@ -350,7 +360,8 @@ watch(() => props.show, (open) => {
   }
 })
 
-// When template changes, pre-fill from existing module, poi dal dizionario
+// When template changes, pre-fill: 1) valore già salvato in QUESTO modulo,
+// 2) valore condiviso da un ALTRO modulo della stessa pratica, 3) dizionario
 // (cliente/pratica), altrimenti campo vuoto da compilare a mano.
 watch(selectedTemplateId, () => {
   errorMsg.value   = null
@@ -364,7 +375,7 @@ watch(selectedTemplateId, () => {
       newValues[field.name] = savedValue
       continue
     }
-    newValues[field.name] = resolveAutoValue(field.name) ?? ''
+    newValues[field.name] = resolveSharedOrAutoValue(field.name) ?? ''
   }
   values.value = newValues
 })
@@ -381,6 +392,7 @@ async function submit() {
       module: PraticaModule
       allegato: Allegato | null
       warning: string | null
+      sharedModuleValues: Record<string, unknown>
     }>(
       route('pratica-modules.store', props.praticaId),
       {
@@ -393,7 +405,7 @@ async function submit() {
       warningMsg.value = resp.data.warning
     }
 
-    emit('saved', resp.data.module, resp.data.allegato, resp.data.warning)
+    emit('saved', resp.data.module, resp.data.allegato, resp.data.warning, resp.data.sharedModuleValues)
 
     if (!resp.data.warning) {
       emit('close')
@@ -419,6 +431,7 @@ async function save() {
       module: PraticaModule
       allegato: Allegato | null
       warning: string | null
+      sharedModuleValues: Record<string, unknown>
     }>(
       route('pratica-modules.store', props.praticaId),
       {
@@ -428,7 +441,7 @@ async function save() {
       }
     )
 
-    emit('saved', resp.data.module, null, null)
+    emit('saved', resp.data.module, null, null, resp.data.sharedModuleValues)
     emit('close')
   } catch (err: unknown) {
     const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message

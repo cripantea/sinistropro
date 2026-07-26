@@ -24,12 +24,18 @@ class Pratica extends Model
         'current_status_id',
         'data_prossimo_avviso',
         'custom_fields',
+        'shared_module_values',
     ];
 
     protected $casts = [
         'data_prossimo_avviso' => 'date',
         'custom_fields'        => 'array',
+        'shared_module_values' => 'array',
     ];
+
+    // Cache interna di propagazione tra moduli (vedi PraticaModuleController) —
+    // non è un dato che l'utente inserisce consapevolmente, va escluso dall'audit.
+    protected array $auditExclude = ['shared_module_values'];
 
     public function tenant(): BelongsTo
     {

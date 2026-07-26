@@ -396,6 +396,7 @@
       :field-dictionary="fieldDictionary"
       :cliente="pratica.cliente"
       :custom-fields="customFields"
+      :shared-module-values="sharedModuleValues"
       @close="moduleModalOpen = false"
       @saved="onModuleSaved"
     />
@@ -456,6 +457,7 @@ interface DictEntry { key: string; source_type: 'manual' | 'cliente' | 'pratica_
 interface Pratica {
   id: number
   custom_fields: Record<string, string | boolean> | null
+  shared_module_values: Record<string, unknown> | null
   data_prossimo_avviso: string | null
   created_at: string
   current_status: TenantStatus | null
@@ -526,6 +528,11 @@ const activeModuleTemplates = ref<ModuleTemplate[]>([])
 // "Compila Modulo"/"Rigenera" nella stessa sessione con i valori più recenti.
 const praticaModulesList = ref<PraticaModule[]>([...props.praticaModules])
 
+// Cache condivisa tra i moduli della stessa pratica (es. "telefono" compilato
+// in un modulo si ritrova già pronto negli altri) — aggiornata dal backend a
+// ogni salvataggio/generazione, vedi PraticaModuleController.
+const sharedModuleValues = ref<Record<string, unknown>>({ ...(props.pratica.shared_module_values ?? {}) })
+
 const recompileMsg = reactive<Record<number, string | null>>({})
 
 function openGenerateModal(tpl: ModuleTemplate) {
@@ -537,13 +544,20 @@ function draftModule(templateId: number): PraticaModule | null {
   return praticaModulesList.value.find(m => m.module_template_id === templateId) ?? null
 }
 
-function onModuleSaved(module: PraticaModule, allegato: Allegato | null, warning: string | null) {
+function onModuleSaved(
+  module: PraticaModule,
+  allegato: Allegato | null,
+  warning: string | null,
+  updatedSharedValues: Record<string, unknown>
+) {
   const i = praticaModulesList.value.findIndex(m => m.module_template_id === module.module_template_id)
   if (i === -1) {
     praticaModulesList.value.push(module)
   } else {
     praticaModulesList.value[i] = module
   }
+
+  sharedModuleValues.value = { ...updatedSharedValues }
 
   if (allegato) {
     allegatiList.value.push(allegato)

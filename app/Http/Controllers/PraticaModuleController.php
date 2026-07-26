@@ -52,11 +52,22 @@ class PraticaModuleController extends Controller
             ['values' => $filteredValues]
         );
 
+        // Propaga i valori compilati (non vuoti) agli altri moduli della stessa
+        // pratica: un campo con lo stesso nome in un altro template (es.
+        // "telefono") si troverà già precompilato, senza doverlo ridigitare.
+        $nonEmptyValues = array_filter($filteredValues, fn ($v) => $v !== null && $v !== '');
+        if (! empty($nonEmptyValues)) {
+            $pratica->update([
+                'shared_module_values' => array_merge($pratica->shared_module_values ?? [], $nonEmptyValues),
+            ]);
+        }
+
         if (! $request->boolean('generate_pdf', true)) {
             return response()->json([
-                'module'   => $module,
-                'allegato' => null,
-                'warning'  => null,
+                'module'              => $module,
+                'allegato'            => null,
+                'warning'             => null,
+                'sharedModuleValues'  => $pratica->shared_module_values ?? [],
             ]);
         }
 
@@ -67,9 +78,10 @@ class PraticaModuleController extends Controller
             : null;
 
         return response()->json([
-            'module'   => $module,
-            'allegato' => $allegato,
-            'warning'  => $s3Key ? null : 'PDF non generato: verifica che il template abbia un PDF matrice configurato e che il file S3 sia raggiungibile. Controlla i log per i dettagli.',
+            'module'             => $module,
+            'allegato'           => $allegato,
+            'warning'            => $s3Key ? null : 'PDF non generato: verifica che il template abbia un PDF matrice configurato e che il file S3 sia raggiungibile. Controlla i log per i dettagli.',
+            'sharedModuleValues' => $pratica->shared_module_values ?? [],
         ], 201);
     }
 }
