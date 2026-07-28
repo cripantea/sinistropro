@@ -100,8 +100,9 @@ Route::middleware('auth')->group(function () {
 
 // --- Pannello Superadmin (dashboard, utenti, tenant CRUD, impersonazione) ---
 Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
-    Route::get('/',          [SuperadminController::class, 'dashboard'])->name('dashboard');
-    Route::get('/users',     [SuperadminController::class, 'users'])->name('users');
+    Route::get('/',            [SuperadminController::class, 'dashboard'])->name('dashboard');
+    Route::get('/audit-logs', [SuperadminController::class, 'auditLogs'])->name('audit-logs');
+    Route::get('/users',      [SuperadminController::class, 'users'])->name('users');
     Route::post('/users',    [SuperadminController::class, 'store'])->name('users.store');
     Route::patch('/users/{user}/toggle-active', [SuperadminController::class, 'toggleActive'])->name('users.toggle-active');
     Route::patch('/users/{user}', [SuperadminController::class, 'update'])->name('users.update');

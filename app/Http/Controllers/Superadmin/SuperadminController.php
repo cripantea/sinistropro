@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Pratica;
 use App\Models\Tenant;
 use App\Models\User;
@@ -30,6 +31,34 @@ class SuperadminController extends Controller
                 'pratiche' => Pratica::acrossAllTenants()->count(),
             ],
             'recentTenants' => $recentTenants,
+        ]);
+    }
+
+    public function auditLogs(Request $request): Response
+    {
+        $query = AuditLog::with(['user:id,name,email', 'impersonator:id,name,email', 'tenant:id,name'])
+            ->withoutGlobalScope(\App\Models\Scopes\TenantScope::class)
+            ->latest();
+
+        if ($request->filled('action')) {
+            $query->where('action', $request->input('action'));
+        }
+
+        if ($request->filled('tenant_id')) {
+            $query->where('tenant_id', $request->integer('tenant_id'));
+        }
+
+        if ($request->filled('model')) {
+            $query->where('auditable_type', 'like', '%' . $request->input('model') . '%');
+        }
+
+        $logs    = $query->paginate(50)->withQueryString();
+        $tenants = Tenant::select('id', 'name')->orderBy('name')->get();
+
+        return Inertia::render('Superadmin/AuditLogs', [
+            'logs'    => $logs,
+            'tenants' => $tenants,
+            'filters' => $request->only(['action', 'tenant_id', 'model']),
         ]);
     }
 
