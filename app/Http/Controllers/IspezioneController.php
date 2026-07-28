@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\PraticaCampoDataAggiornato;
+use App\Events\PraticaStatoAggiornato;
 use App\Models\Ispezione;
 use App\Models\Pratica;
 use App\Models\User;
@@ -14,7 +16,8 @@ class IspezioneController extends Controller
 {
     /**
      * Crea (o aggiorna) l'ispezione per una pratica e aggiorna lo stato della pratica.
-     * Usato dalla board Kanban quando si sposta una card in una colonna 'external'.
+     * Usato dalla board Kanban quando si sposta una card in una colonna 'external',
+     * e dal pannello Sopralluogo/Perito nella pagina di dettaglio pratica.
      */
     public function store(Request $request, Pratica $pratica): JsonResponse
     {
@@ -30,6 +33,12 @@ class IspezioneController extends Controller
             'data_appuntamento'    => ['nullable', 'date'],
             'note_sopralluogo'     => ['nullable', 'string', 'max:2000'],
         ]);
+
+        $skip = $request->boolean('skip_confirmable_automations', false);
+
+        $oldStatusId          = $pratica->current_status_id;
+        $oldDataAppuntamento  = (string) ($pratica->ispezioni->first()?->data_appuntamento?->format('Y-m-d') ?? '');
+        $newDataAppuntamento  = (string) ($data['data_appuntamento'] ?? '');
 
         DB::transaction(function () use ($pratica, $data, $user): void {
             Ispezione::updateOrCreate(
@@ -50,6 +59,17 @@ class IspezioneController extends Controller
                 $pratica->update(['current_status_id' => $data['current_status_id']]);
             }
         });
+
+        // Event-driven: lancia il sistema Automazioni se lo stato è cambiato.
+        $newStatusId = $data['current_status_id'] ?? null;
+        if ($newStatusId && $newStatusId != $oldStatusId) {
+            event(new PraticaStatoAggiornato($pratica, $oldStatusId, $newStatusId, $skip));
+        }
+
+        // Event-driven: lancia il sistema Automazioni se la data della perizia è cambiata.
+        if ($oldDataAppuntamento !== $newDataAppuntamento) {
+            event(new PraticaCampoDataAggiornato($pratica, 'data_appuntamento', $skip));
+        }
 
         if ($request->expectsJson()) {
             return response()->json(['ok' => true]);

@@ -259,26 +259,50 @@
                 />
               </div>
 
+              <!-- Automazioni "richiede conferma" collegate a questo cambio -->
+              <div v-if="assignAutomations.length > 0" class="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1.5">
+                <p class="text-xs font-semibold text-amber-800">Questa azione attiva delle automazioni:</p>
+                <ul class="space-y-1">
+                  <li v-for="a in assignAutomations" :key="a.id" class="flex items-center gap-1.5 text-xs text-amber-700">
+                    <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    {{ a.name }}
+                  </li>
+                </ul>
+              </div>
+
               <!-- Actions -->
-              <div class="flex items-center gap-3 pt-1">
+              <div class="flex flex-col gap-2 pt-1">
+                <div class="flex items-center gap-3">
+                  <button
+                    type="button"
+                    :disabled="assignForm.submitting"
+                    @click="submitAssign(false)"
+                    class="flex-1 bg-amber-500 text-white text-sm font-semibold py-2.5 rounded-lg hover:bg-amber-600 transition disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    <svg v-if="assignForm.submitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                    </svg>
+                    Conferma e sposta
+                  </button>
+                  <button
+                    type="button"
+                    @click="cancelAssign"
+                    class="px-4 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                  >
+                    Annulla
+                  </button>
+                </div>
                 <button
+                  v-if="assignAutomations.length > 0"
                   type="button"
                   :disabled="assignForm.submitting"
-                  @click="submitAssign"
-                  class="flex-1 bg-amber-500 text-white text-sm font-semibold py-2.5 rounded-lg hover:bg-amber-600 transition disabled:opacity-60 flex items-center justify-center gap-2"
+                  @click="submitAssign(true)"
+                  class="text-xs text-gray-500 hover:text-gray-700 underline disabled:opacity-60"
                 >
-                  <svg v-if="assignForm.submitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                  </svg>
-                  Conferma e sposta
-                </button>
-                <button
-                  type="button"
-                  @click="cancelAssign"
-                  class="px-4 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                >
-                  Annulla
+                  Conferma ma blocca solo le automazioni
                 </button>
               </div>
             </div>
@@ -288,14 +312,24 @@
       </div>
     </Transition>
 
+    <!-- Modale conferma automazioni — solo per il drop su colonne normali (non "external") -->
+    <AutomationConfirmModal
+      :show="statusConfirm.open"
+      :automations="statusConfirm.automations"
+      @accept="onStatusConfirmAccept"
+      @block-automations="onStatusConfirmBlockAutomations"
+      @block-action="onStatusConfirmBlockAction"
+    />
+
   </AuthenticatedLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, watch } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import AutomationConfirmModal from '@/Components/AutomationConfirmModal.vue'
 
 interface TenantStatus {
   id: number
@@ -313,6 +347,7 @@ interface PraticaKanban {
 }
 interface FieldSchema { name: string; label: string; type: string }
 interface ExternalUser  { id: number; name: string; email: string }
+interface AutomationSummary { id: number; name: string }
 
 const props = defineProps<{
   statuses: TenantStatus[]
@@ -346,6 +381,28 @@ const assignForm = reactive({
   data_appuntamento:   '' as string,
   submitting:          false,
 })
+const assignAutomations = ref<AutomationSummary[]>([])
+
+// Modale di conferma automazioni per il drop su colonne "normali" (non external)
+const statusConfirm = reactive({
+  open:             false,
+  automations:      [] as AutomationSummary[],
+  praticaId:        null as number | null,
+  toStatusId:       null as number | null,
+  previousStatusId: null as number | null,
+})
+
+async function previewAutomations(praticaId: number, tenantStatusId: number, dateFields?: Record<string, string>): Promise<AutomationSummary[]> {
+  try {
+    const resp = await axios.post<{ automations: AutomationSummary[] }>(
+      route('pratiche.automations.preview', praticaId),
+      { tenant_status_id: tenantStatusId, date_fields: dateFields }
+    )
+    return resp.data.automations
+  } catch {
+    return []
+  }
+}
 
 const columns = computed(() =>
   props.statuses.map(s => ({
@@ -422,22 +479,57 @@ async function onDrop(toStatusId: number) {
     assignModal.columnName  = targetStatus.name
     assignForm.assegnato_a_user_id = null
     assignForm.data_appuntamento   = ''
+    assignAutomations.value = await previewAutomations(praticaId, toStatusId)
     return
   }
 
-  // Regular column → standard PATCH
+  // Regular column → verifica prima se ci sono automazioni "richiede conferma"
   const previousStatusId = pratica.current_status_id
-  pratica.current_status_id = toStatusId
+  pratica.current_status_id = toStatusId // optimistic move
 
+  const automations = await previewAutomations(praticaId, toStatusId)
+  if (automations.length > 0) {
+    statusConfirm.open             = true
+    statusConfirm.automations      = automations
+    statusConfirm.praticaId        = praticaId
+    statusConfirm.toStatusId       = toStatusId
+    statusConfirm.previousStatusId = previousStatusId
+    return
+  }
+
+  await commitStatusChange(praticaId, toStatusId, previousStatusId, false)
+}
+
+async function commitStatusChange(praticaId: number, toStatusId: number, previousStatusId: number | null, skip: boolean) {
   try {
     await axios.patch(route('pratiche.update-status', praticaId), {
       current_status_id: toStatusId,
+      skip_confirmable_automations: skip,
     })
     showToast('Stato aggiornato.', 'success')
   } catch {
-    pratica.current_status_id = previousStatusId
+    const pratica = localPratiche.value.find(p => p.id === praticaId)
+    if (pratica) pratica.current_status_id = previousStatusId
     showToast('Errore: impossibile aggiornare lo stato.', 'error')
   }
+}
+
+function onStatusConfirmAccept() {
+  statusConfirm.open = false
+  if (statusConfirm.praticaId !== null && statusConfirm.toStatusId !== null) {
+    commitStatusChange(statusConfirm.praticaId, statusConfirm.toStatusId, statusConfirm.previousStatusId, false)
+  }
+}
+function onStatusConfirmBlockAutomations() {
+  statusConfirm.open = false
+  if (statusConfirm.praticaId !== null && statusConfirm.toStatusId !== null) {
+    commitStatusChange(statusConfirm.praticaId, statusConfirm.toStatusId, statusConfirm.previousStatusId, true)
+  }
+}
+function onStatusConfirmBlockAction() {
+  statusConfirm.open = false
+  const pratica = localPratiche.value.find(p => p.id === statusConfirm.praticaId)
+  if (pratica) pratica.current_status_id = statusConfirm.previousStatusId // rollback optimistic move
 }
 
 // ── Assignment modal ──────────────────────────────────────────────────────────
@@ -451,7 +543,17 @@ function cancelAssign() {
   assignModal.open = false
 }
 
-async function submitAssign() {
+// Ricalcola le automazioni in attesa quando l'utente inserisce/modifica la data appuntamento
+watch(() => assignForm.data_appuntamento, async (value) => {
+  if (!assignModal.open || assignModal.toStatusId === null || assignModal.praticaId === null) return
+  assignAutomations.value = await previewAutomations(
+    assignModal.praticaId,
+    assignModal.toStatusId,
+    value ? { data_appuntamento: value } : undefined
+  )
+})
+
+async function submitAssign(skip: boolean) {
   if (!assignModal.praticaId || !assignModal.toStatusId) return
 
   assignForm.submitting = true
@@ -460,6 +562,7 @@ async function submitAssign() {
       current_status_id:   assignModal.toStatusId,
       assegnato_a_user_id: assignForm.assegnato_a_user_id || null,
       data_appuntamento:   assignForm.data_appuntamento   || null,
+      skip_confirmable_automations: skip,
     })
     assignModal.open = false
     showToast('Incarico assegnato e stato aggiornato.', 'success')

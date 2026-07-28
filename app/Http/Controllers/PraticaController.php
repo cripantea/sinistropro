@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\PraticaCampoDataAggiornato;
 use App\Events\PraticaStatoAggiornato;
 use App\Http\Requests\Pratica\StorePraticaRequest;
 use App\Http\Requests\Pratica\UpdatePraticaRequest;
@@ -205,10 +206,33 @@ class PraticaController extends Controller
             }
         }
 
+        $oldStatusId    = $pratica->current_status_id;
+        $oldCustomFields = $pratica->custom_fields ?? [];
+        $newStatusId    = $request->current_status_id;
+        $skip           = $request->boolean('skip_confirmable_automations', false);
+
         $pratica->update([
-            'current_status_id' => $request->current_status_id,
+            'current_status_id' => $newStatusId,
             'custom_fields'     => $customFields ?: null,
         ]);
+
+        // Event-driven: lancia il sistema Automazioni se lo stato è cambiato.
+        if ($newStatusId && $newStatusId != $oldStatusId) {
+            event(new PraticaStatoAggiornato($pratica, $oldStatusId, $newStatusId, $skip));
+        }
+
+        // Event-driven: lancia il sistema Automazioni per ogni campo data osservato che è cambiato.
+        foreach ($schema as $field) {
+            if ($field['type'] !== 'date') {
+                continue;
+            }
+            $key = $field['name'];
+            $old = (string) ($oldCustomFields[$key] ?? '');
+            $new = (string) ($customFields[$key] ?? '');
+            if ($old !== $new) {
+                event(new PraticaCampoDataAggiornato($pratica, $key, $skip));
+            }
+        }
 
         return redirect()
             ->route('pratiche.show', $pratica)
@@ -241,6 +265,7 @@ class PraticaController extends Controller
 
         $oldStatusId = $pratica->current_status_id;
         $newStatusId = $request->integer('current_status_id') ?: null;
+        $skip        = $request->boolean('skip_confirmable_automations', false);
 
         $pratica->update(['current_status_id' => $newStatusId]);
 
@@ -259,7 +284,7 @@ class PraticaController extends Controller
 
         // Event-driven: lancia il sistema Automazioni per il nuovo stato
         if ($newStatusId) {
-            event(new PraticaStatoAggiornato($pratica, $oldStatusId, $newStatusId));
+            event(new PraticaStatoAggiornato($pratica, $oldStatusId, $newStatusId, $skip));
         }
 
         if ($request->expectsJson()) {

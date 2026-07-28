@@ -177,9 +177,10 @@
           <thead>
             <tr class="border-b border-slate-100 bg-slate-50">
               <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Nome</th>
-              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Stato Trigger</th>
+              <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Osserva</th>
               <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Canale</th>
               <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Destinatario</th>
+              <th class="text-center text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Conferma</th>
               <th class="text-center text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Attivo</th>
               <th class="w-24"></th>
             </tr>
@@ -188,17 +189,25 @@
             <tr v-for="auto in automations" :key="auto.id" class="hover:bg-slate-50/70 transition">
               <td class="px-4 py-3 font-medium text-slate-800">{{ auto.name }}</td>
               <td class="px-4 py-3">
-                <span v-if="auto.status" class="inline-flex items-center gap-1.5 text-xs text-slate-700">
+                <span v-if="auto.trigger_type === 'date_field'" class="inline-flex items-center gap-1.5 text-xs text-slate-700">
+                  <svg class="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  {{ watchedFieldLabel(auto.watched_field) }}
+                </span>
+                <span v-else-if="auto.status" class="inline-flex items-center gap-1.5 text-xs text-slate-700">
                   <span class="inline-block w-2 h-2 rounded-full shrink-0" :style="{ backgroundColor: auto.status.color }"></span>
                   {{ auto.status.name }}
                 </span>
-                <span v-else class="text-xs text-slate-400 italic">Qualsiasi</span>
+                <span v-else class="text-xs text-slate-400 italic">Qualsiasi stato</span>
               </td>
               <td class="px-4 py-3">
                 <span :class="channelBadgeClass(auto.channel)" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium">{{ channelLabel(auto.channel) }}</span>
               </td>
               <td class="px-4 py-3">
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{{ recipientLabel(auto.recipient) }}</span>
+              </td>
+              <td class="px-4 py-3 text-center">
+                <span v-if="auto.requires_confirmation" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Richiesta</span>
+                <span v-else class="text-xs text-slate-300">—</span>
               </td>
               <td class="px-4 py-3 text-center">
                 <button type="button" @click="toggleIsActive(auto)" :class="['relative inline-flex h-5 w-9 items-center rounded-full transition focus:outline-none', auto.is_active ? 'bg-indigo-600' : 'bg-slate-300']">
@@ -381,6 +390,15 @@
                 </div>
 
                 <div>
+                  <label class="field-label">Cosa osservare *</label>
+                  <select v-model="autoForm.trigger_type" class="field-input">
+                    <option value="status">Cambio di stato</option>
+                    <option value="date_field">Cambio di una data</option>
+                  </select>
+                  <FieldError :message="autoForm.errors.trigger_type" />
+                </div>
+
+                <div v-if="autoForm.trigger_type === 'status'">
                   <label class="field-label">Stato trigger</label>
                   <select v-model="autoForm.tenant_status_id" class="field-input">
                     <option :value="null">— Qualsiasi stato —</option>
@@ -388,6 +406,27 @@
                   </select>
                   <FieldError :message="autoForm.errors.tenant_status_id" />
                 </div>
+
+                <div v-else>
+                  <label class="field-label">Quale data *</label>
+                  <select v-model="autoForm.watched_field" class="field-input">
+                    <option :value="null" disabled>— Scegli —</option>
+                    <option value="data_appuntamento">Data perizia (sopralluogo)</option>
+                    <option v-for="f in dateCustomFields" :key="f.name" :value="f.name">{{ f.label }}</option>
+                  </select>
+                  <p v-if="dateCustomFields.length === 0" class="text-xs text-amber-600 mt-1">
+                    Nessun campo di tipo "Data" configurato tra i campi personalizzati dei sinistri (tab "Configurazione").
+                  </p>
+                  <FieldError :message="autoForm.errors.watched_field" />
+                </div>
+
+                <label class="flex items-start gap-2.5 bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-3 cursor-pointer">
+                  <input type="checkbox" v-model="autoForm.requires_confirmation" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                  <span>
+                    <span class="block text-sm font-medium text-slate-700">Richiede conferma</span>
+                    <span class="block text-xs text-slate-500 mt-0.5">Prima di scattare, mostra all'utente una modale con la possibilità di accettare, bloccare solo questa automazione, o bloccare l'intera azione.</span>
+                  </span>
+                </label>
 
                 <div class="grid grid-cols-2 gap-4">
                   <div>
@@ -854,7 +893,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { useForm, usePage, Link, router } from '@inertiajs/vue3'
 import axios from 'axios'
 
@@ -875,8 +914,13 @@ interface CategoryConfig { id: number; name: string; description: string | null;
 interface DocCategory   { id: number; name: string }
 
 interface Automation {
-  id: number; name: string; tenant_status_id: number | null; channel: string; recipient: string
-  message_template: string; is_active: boolean; document_category_ids: number[]
+  id: number; name: string
+  trigger_type: 'status' | 'date_field'
+  tenant_status_id: number | null
+  watched_field: string | null
+  channel: string; recipient: string
+  message_template: string; is_active: boolean; requires_confirmation: boolean
+  document_category_ids: number[]
   status: { id: number; name: string; color: string } | null
 }
 
@@ -999,14 +1043,26 @@ function submitCategories() {
 const autoModalOpen     = ref(false)
 const editingAutomation = ref<Automation | null>(null)
 
+const dateCustomFields = computed(() =>
+  (props.tenant.settings?.custom_fields_schema ?? []).filter(f => f.type === 'date')
+)
+
+function watchedFieldLabel(field: string | null): string {
+  if (field === 'data_appuntamento') return 'Data perizia'
+  return dateCustomFields.value.find(f => f.name === field)?.label ?? field ?? '—'
+}
+
 const autoForm = useForm({
   name:                  '' as string,
+  trigger_type:          'status' as 'status' | 'date_field',
   tenant_status_id:      null as number | null,
+  watched_field:         null as string | null,
   channel:               'email' as string,
   recipient:             'cliente' as string,
   message_template:      '' as string,
   document_category_ids: [] as number[],
   is_active:             true as boolean,
+  requires_confirmation: false as boolean,
 })
 
 function openCreateAuto() {
@@ -1018,12 +1074,15 @@ function openCreateAuto() {
 function openEditAuto(auto: Automation) {
   editingAutomation.value = auto
   autoForm.name                  = auto.name
+  autoForm.trigger_type          = auto.trigger_type
   autoForm.tenant_status_id      = auto.tenant_status_id
+  autoForm.watched_field         = auto.watched_field
   autoForm.channel               = auto.channel
   autoForm.recipient             = auto.recipient
   autoForm.message_template      = auto.message_template
   autoForm.document_category_ids = [...auto.document_category_ids]
   autoForm.is_active             = auto.is_active
+  autoForm.requires_confirmation = auto.requires_confirmation
   autoModalOpen.value = true
 }
 function closeAutoModal() {

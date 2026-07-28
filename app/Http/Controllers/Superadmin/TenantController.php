@@ -94,11 +94,14 @@ class TenantController extends Controller
             ->map(fn ($a) => [
                 'id'                    => $a->id,
                 'name'                  => $a->name,
+                'trigger_type'          => $a->trigger_type,
                 'tenant_status_id'      => $a->tenant_status_id,
+                'watched_field'         => $a->watched_field,
                 'channel'               => $a->channel,
                 'recipient'             => $a->recipient,
                 'message_template'      => $a->message_template,
                 'is_active'             => $a->is_active,
+                'requires_confirmation' => $a->requires_confirmation,
                 'document_category_ids' => $a->documentCategories->pluck('id')->all(),
                 'status'                => $a->status
                     ? ['id' => $a->status->id, 'name' => $a->status->name, 'color' => $a->status->color]

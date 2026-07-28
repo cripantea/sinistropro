@@ -100,13 +100,23 @@
       </div>
 
     </form>
+
+    <AutomationConfirmModal
+      :show="automationConfirm.open"
+      :automations="automationConfirm.automations"
+      @accept="onConfirmAccept"
+      @block-automations="onConfirmBlockAutomations"
+      @block-action="onConfirmBlockAction"
+    />
   </AuthenticatedLayout>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, reactive } from 'vue'
 import { Link, useForm, router } from '@inertiajs/vue3'
+import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import AutomationConfirmModal from '@/Components/AutomationConfirmModal.vue'
 
 interface FieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean'; required?: boolean }
 interface TenantStatus { id: number; name: string; color: string }
@@ -137,8 +147,64 @@ const form = useForm({
   custom_fields:     initialCustomFields,
 })
 
-function submit() {
-  form.put(route('pratiche.update', props.pratica.id))
+interface AutomationSummary { id: number; name: string }
+const automationConfirm = reactive({
+  open: false,
+  automations: [] as AutomationSummary[],
+})
+
+async function submit() {
+  const changedDateFields: Record<string, string> = {}
+  for (const field of schema.value) {
+    if (field.type !== 'date') continue
+    const oldValue = String(initialCustomFields[field.name] ?? '')
+    const newValue = String(form.custom_fields[field.name] ?? '')
+    if (oldValue !== newValue) changedDateFields[field.name] = newValue
+  }
+
+  const statusChanged = form.current_status_id !== props.pratica.current_status_id
+
+  if (!statusChanged && Object.keys(changedDateFields).length === 0) {
+    doSubmit(false)
+    return
+  }
+
+  try {
+    const resp = await axios.post<{ automations: AutomationSummary[] }>(
+      route('pratiche.automations.preview', props.pratica.id),
+      {
+        tenant_status_id: statusChanged ? form.current_status_id : undefined,
+        date_fields: Object.keys(changedDateFields).length > 0 ? changedDateFields : undefined,
+      }
+    )
+    if (resp.data.automations.length > 0) {
+      automationConfirm.automations = resp.data.automations
+      automationConfirm.open = true
+      return
+    }
+  } catch {
+    // Se la verifica automazioni fallisce, procedi comunque con il salvataggio normale.
+  }
+
+  doSubmit(false)
+}
+
+function doSubmit(skip: boolean) {
+  form
+    .transform(data => ({ ...data, skip_confirmable_automations: skip }))
+    .put(route('pratiche.update', props.pratica.id))
+}
+
+function onConfirmAccept() {
+  automationConfirm.open = false
+  doSubmit(false)
+}
+function onConfirmBlockAutomations() {
+  automationConfirm.open = false
+  doSubmit(true)
+}
+function onConfirmBlockAction() {
+  automationConfirm.open = false
 }
 
 function destroyPratica() {

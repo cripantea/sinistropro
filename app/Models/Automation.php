@@ -16,15 +16,19 @@ class Automation extends Model
     protected $fillable = [
         'tenant_id',
         'name',
+        'trigger_type',
         'tenant_status_id',
+        'watched_field',
         'channel',
         'recipient',
         'message_template',
         'is_active',
+        'requires_confirmation',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'requires_confirmation' => 'boolean',
     ];
 
     public function tenant(): BelongsTo

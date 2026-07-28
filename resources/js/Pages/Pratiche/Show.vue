@@ -401,6 +401,14 @@
       @saved="onModuleSaved"
     />
 
+    <AutomationConfirmModal
+      :show="ispezioneAutomationConfirm.open"
+      :automations="ispezioneAutomationConfirm.automations"
+      @accept="onIspezioneConfirmAccept"
+      @block-automations="onIspezioneConfirmBlockAutomations"
+      @block-action="onIspezioneConfirmBlockAction"
+    />
+
   </AuthenticatedLayout>
 </template>
 
@@ -410,6 +418,7 @@ import { Link, useForm, router, usePage } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import ModuleFormModal from '@/Components/ModuleFormModal.vue'
+import AutomationConfirmModal from '@/Components/AutomationConfirmModal.vue'
 import PraticaChatPanel from '@/Components/Whatsapp/PraticaChatPanel.vue'
 import type { PageProps } from '@/types'
 
@@ -513,9 +522,49 @@ const ispezioneForm = useForm({
   data_appuntamento:   ispezione.value?.data_appuntamento?.substring(0, 10) ?? '' as string,
   note_sopralluogo:    ispezione.value?.note_sopralluogo ?? '' as string,
 })
+const originalDataAppuntamento = ispezione.value?.data_appuntamento?.substring(0, 10) ?? ''
 
-function saveIspezione() {
-  ispezioneForm.post(route('ispezioni.store', props.pratica.id), { preserveScroll: true })
+interface AutomationSummary { id: number; name: string }
+const ispezioneAutomationConfirm = reactive({
+  open: false,
+  automations: [] as AutomationSummary[],
+})
+
+async function saveIspezione() {
+  if (ispezioneForm.data_appuntamento !== originalDataAppuntamento) {
+    try {
+      const resp = await axios.post<{ automations: AutomationSummary[] }>(
+        route('pratiche.automations.preview', props.pratica.id),
+        { date_fields: { data_appuntamento: ispezioneForm.data_appuntamento } }
+      )
+      if (resp.data.automations.length > 0) {
+        ispezioneAutomationConfirm.automations = resp.data.automations
+        ispezioneAutomationConfirm.open = true
+        return
+      }
+    } catch {
+      // Se la verifica automazioni fallisce, procedi comunque con il salvataggio normale.
+    }
+  }
+  doSaveIspezione(false)
+}
+
+function doSaveIspezione(skip: boolean) {
+  ispezioneForm
+    .transform(data => ({ ...data, skip_confirmable_automations: skip }))
+    .post(route('ispezioni.store', props.pratica.id), { preserveScroll: true })
+}
+
+function onIspezioneConfirmAccept() {
+  ispezioneAutomationConfirm.open = false
+  doSaveIspezione(false)
+}
+function onIspezioneConfirmBlockAutomations() {
+  ispezioneAutomationConfirm.open = false
+  doSaveIspezione(true)
+}
+function onIspezioneConfirmBlockAction() {
+  ispezioneAutomationConfirm.open = false
 }
 
 // ----- Moduli dinamici -----

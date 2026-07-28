@@ -14,35 +14,19 @@ class AutomationController extends Controller
 {
     public function store(Request $request, Tenant $tenant): RedirectResponse
     {
-        $data = $request->validate([
-            'name'                    => ['required', 'string', 'max:255'],
-            'tenant_status_id'        => ['nullable', 'integer'],
-            'channel'                 => ['required', Rule::in(['email', 'whatsapp', 'both'])],
-            'recipient'               => ['required', Rule::in(['cliente', 'perito', 'gestore'])],
-            'message_template'        => ['required', 'string'],
-            'document_category_ids'   => ['nullable', 'array'],
-            'document_category_ids.*' => ['integer', 'exists:document_categories,id'],
-            'is_active'               => ['boolean'],
-        ]);
-
-        if (! empty($data['tenant_status_id'])) {
-            abort_unless(
-                TenantStatus::where('id', $data['tenant_status_id'])
-                    ->where('tenant_id', $tenant->id)
-                    ->exists(),
-                422,
-                'Stato non valido per questo tenant.'
-            );
-        }
+        $data = $this->validated($request, $tenant);
 
         $automation = Automation::create([
-            'tenant_id'        => $tenant->id,
-            'name'             => $data['name'],
-            'tenant_status_id' => $data['tenant_status_id'] ?? null,
-            'channel'          => $data['channel'],
-            'recipient'        => $data['recipient'],
-            'message_template' => $data['message_template'],
-            'is_active'        => $data['is_active'] ?? true,
+            'tenant_id'             => $tenant->id,
+            'name'                  => $data['name'],
+            'trigger_type'          => $data['trigger_type'],
+            'tenant_status_id'      => $data['trigger_type'] === 'status' ? ($data['tenant_status_id'] ?? null) : null,
+            'watched_field'         => $data['trigger_type'] === 'date_field' ? $data['watched_field'] : null,
+            'channel'               => $data['channel'],
+            'recipient'             => $data['recipient'],
+            'message_template'      => $data['message_template'],
+            'is_active'             => $data['is_active'] ?? true,
+            'requires_confirmation' => $data['requires_confirmation'] ?? false,
         ]);
 
         $automation->documentCategories()->sync($data['document_category_ids'] ?? []);
@@ -65,34 +49,18 @@ class AutomationController extends Controller
                 ->with('success', 'Stato automazione aggiornato.');
         }
 
-        $data = $request->validate([
-            'name'                    => ['required', 'string', 'max:255'],
-            'tenant_status_id'        => ['nullable', 'integer'],
-            'channel'                 => ['required', Rule::in(['email', 'whatsapp', 'both'])],
-            'recipient'               => ['required', Rule::in(['cliente', 'perito', 'gestore'])],
-            'message_template'        => ['required', 'string'],
-            'document_category_ids'   => ['nullable', 'array'],
-            'document_category_ids.*' => ['integer', 'exists:document_categories,id'],
-            'is_active'               => ['boolean'],
-        ]);
-
-        if (! empty($data['tenant_status_id'])) {
-            abort_unless(
-                TenantStatus::where('id', $data['tenant_status_id'])
-                    ->where('tenant_id', $tenant->id)
-                    ->exists(),
-                422,
-                'Stato non valido per questo tenant.'
-            );
-        }
+        $data = $this->validated($request, $tenant);
 
         $automation->update([
-            'name'             => $data['name'],
-            'tenant_status_id' => $data['tenant_status_id'] ?? null,
-            'channel'          => $data['channel'],
-            'recipient'        => $data['recipient'],
-            'message_template' => $data['message_template'],
-            'is_active'        => $data['is_active'] ?? $automation->is_active,
+            'name'                  => $data['name'],
+            'trigger_type'          => $data['trigger_type'],
+            'tenant_status_id'      => $data['trigger_type'] === 'status' ? ($data['tenant_status_id'] ?? null) : null,
+            'watched_field'         => $data['trigger_type'] === 'date_field' ? $data['watched_field'] : null,
+            'channel'               => $data['channel'],
+            'recipient'             => $data['recipient'],
+            'message_template'      => $data['message_template'],
+            'is_active'             => $data['is_active'] ?? $automation->is_active,
+            'requires_confirmation' => $data['requires_confirmation'] ?? false,
         ]);
 
         $automation->documentCategories()->sync($data['document_category_ids'] ?? []);
@@ -113,5 +81,54 @@ class AutomationController extends Controller
         return redirect()
             ->to(route('superadmin.tenants.edit', $tenant) . '?tab=automations')
             ->with('success', "Automazione \"{$name}\" eliminata.");
+    }
+
+    /**
+     * @return array{
+     *     name: string, trigger_type: string, tenant_status_id: ?int, watched_field: ?string,
+     *     channel: string, recipient: string, message_template: string,
+     *     document_category_ids: ?array, is_active: ?bool, requires_confirmation: ?bool
+     * }
+     */
+    private function validated(Request $request, Tenant $tenant): array
+    {
+        $data = $request->validate([
+            'name'                    => ['required', 'string', 'max:255'],
+            'trigger_type'            => ['required', Rule::in(['status', 'date_field'])],
+            'tenant_status_id'        => ['nullable', 'integer'],
+            'watched_field'           => ['nullable', 'string', 'required_if:trigger_type,date_field'],
+            'channel'                 => ['required', Rule::in(['email', 'whatsapp', 'both'])],
+            'recipient'               => ['required', Rule::in(['cliente', 'perito', 'gestore'])],
+            'message_template'        => ['required', 'string'],
+            'document_category_ids'   => ['nullable', 'array'],
+            'document_category_ids.*' => ['integer', 'exists:document_categories,id'],
+            'is_active'               => ['boolean'],
+            'requires_confirmation'   => ['boolean'],
+        ]);
+
+        if ($data['trigger_type'] === 'status' && ! empty($data['tenant_status_id'])) {
+            abort_unless(
+                TenantStatus::where('id', $data['tenant_status_id'])
+                    ->where('tenant_id', $tenant->id)
+                    ->exists(),
+                422,
+                'Stato non valido per questo tenant.'
+            );
+        }
+
+        if ($data['trigger_type'] === 'date_field') {
+            $dateCustomFields = collect($tenant->getCustomFieldsSchema())
+                ->where('type', 'date')
+                ->pluck('name')
+                ->all();
+
+            abort_unless(
+                in_array($data['watched_field'], array_merge(['data_appuntamento'], $dateCustomFields), true),
+                422,
+                'Campo data non valido per questo tenant.'
+            );
+        }
+
+        return $data;
     }
 }

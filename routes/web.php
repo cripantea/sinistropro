@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\AutomationPreviewController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ImpersonateController;
@@ -40,6 +41,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/pratiche/{pratica}',        [PraticaController::class, 'update'])->name('pratiche.update');
     Route::patch('/pratiche/{pratica}/status', [PraticaController::class, 'updateStatus'])->name('pratiche.update-status');
     Route::delete('/pratiche/{pratica}', [PraticaController::class, 'destroy'])->name('pratiche.destroy');
+
+    // Anteprima automazioni "richiede conferma" prima di confermare cambio stato/data
+    Route::post('/pratiche/{pratica}/automations/preview', [AutomationPreviewController::class, 'preview'])->name('pratiche.automations.preview');
 
     // Clienti — creazione rapida da modale nel form pratica
     Route::post('/clienti', [ClienteController::class, 'store'])->name('clienti.store');
