@@ -388,7 +388,10 @@ function formatDate(iso: string): string {
 function daysUntil(dateStr: string): number {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const target = new Date(dateStr + 'T00:00:00')
+  // Laravel serializza un cast 'date' come ISO completo ("2026-08-08T00:00:00.000000Z"),
+  // non come semplice "YYYY-MM-DD" — teniamo solo i primi 10 caratteri prima di
+  // aggiungere l'orario locale, altrimenti la stringa risulterebbe non valida.
+  const target = new Date(dateStr.substring(0, 10) + 'T00:00:00')
   return Math.round((target.getTime() - today.getTime()) / 86_400_000)
 }
 
