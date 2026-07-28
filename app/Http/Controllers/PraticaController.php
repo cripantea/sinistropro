@@ -31,7 +31,7 @@ class PraticaController extends Controller
         $user     = auth()->user();
         $statuses = $user->tenant?->statuses ?? collect();
 
-        $pratiche = Pratica::with(['currentStatus', 'utenteCreatore:id,name'])
+        $pratiche = Pratica::with(['currentStatus', 'utenteCreatore:id,name', 'cliente:id,nome'])
             ->when(
                 $request->filled('search'),
                 fn (Builder $q) => $q->where(function (Builder $q) use ($request): void {

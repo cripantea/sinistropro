@@ -53,7 +53,7 @@
             <tr class="bg-gray-50 border-b border-gray-200">
               <th class="px-5 py-3 text-left font-medium text-gray-500 w-16">ID</th>
               <th class="px-5 py-3 text-left font-medium text-gray-500">Stato</th>
-              <th class="px-5 py-3 text-left font-medium text-gray-500">Campi principali</th>
+              <th class="px-5 py-3 text-left font-medium text-gray-500">Cliente</th>
               <th class="px-5 py-3 text-left font-medium text-gray-500">Prossimo avviso</th>
               <th class="px-5 py-3 text-left font-medium text-gray-500">Creata da</th>
               <th class="px-5 py-3 text-left font-medium text-gray-500">Aperta il</th>
@@ -83,17 +83,9 @@
                 <span v-else class="text-gray-300 text-xs italic">—</span>
               </td>
 
-              <td class="px-5 py-3.5 max-w-xs">
-                <div class="flex flex-wrap gap-x-3 gap-y-0.5">
-                  <span
-                    v-for="(val, key) in summarize(pratica.custom_fields)"
-                    :key="key"
-                    class="text-xs text-gray-600"
-                  >
-                    <span class="text-gray-400">{{ String(key).replace(/_/g, ' ') }}:</span>
-                    {{ val }}
-                  </span>
-                </div>
+              <td class="px-5 py-3.5">
+                <span v-if="pratica.cliente" class="text-sm font-medium text-gray-800">{{ pratica.cliente.nome }}</span>
+                <span v-else class="text-gray-300 text-xs italic">—</span>
               </td>
 
               <td class="px-5 py-3.5">
@@ -155,7 +147,7 @@ interface Status { id: number; name: string; color: string }
 interface PraticaRow {
   id: number
   current_status: Status | null
-  custom_fields: Record<string, string> | null
+  cliente: { id: number; nome: string } | null
   data_prossimo_avviso: string | null
   utente_creatore: { name: string } | null
   created_at: string
@@ -192,11 +184,6 @@ function resetFilters() {
 }
 
 function goTo(id: number) { router.visit(route('pratiche.show', id)) }
-
-function summarize(fields: Record<string, string> | null, max = 3): Record<string, string> {
-  if (!fields) return {}
-  return Object.fromEntries(Object.entries(fields).slice(0, max))
-}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('it-IT')
