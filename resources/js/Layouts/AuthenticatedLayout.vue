@@ -206,34 +206,17 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 
         </nav>
 
-        <!-- User info + logout -->
-        <div class="border-t border-slate-700 px-3 py-3 shrink-0">
-          <div
-            :class="collapsed ? 'flex justify-center mb-2' : 'flex items-center gap-3 mb-2 min-w-0'"
+        <!-- Collapse toggle -->
+        <div class="border-t border-slate-700 flex justify-end px-3 py-3 shrink-0">
+          <button
+            @click="toggleSidebar"
+            class="w-7 h-7 rounded-full bg-emerald-500 hover:bg-emerald-400 flex items-center justify-center text-white transition-colors shrink-0"
+            :title="collapsed ? 'Espandi' : 'Comprimi'"
           >
-            <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold text-white shrink-0">
-              {{ initials }}
-            </div>
-            <div v-show="!collapsed" class="min-w-0">
-              <div class="text-sm font-medium text-slate-100 truncate">{{ user.name }}</div>
-              <div class="text-xs text-slate-400 truncate">{{ user.email }}</div>
-            </div>
-          </div>
-          <Link
-            :href="route('logout')"
-            method="post"
-            as="button"
-            :class="[
-              'w-full text-xs text-slate-400 hover:text-red-400 transition-colors flex items-center gap-2',
-              collapsed ? 'justify-center' : ''
-            ]"
-            :title="collapsed ? 'Esci' : undefined"
-          >
-            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            <svg class="w-4 h-4 transition-transform" :class="collapsed ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
             </svg>
-            <span v-show="!collapsed">Esci dall'account</span>
-          </Link>
+          </button>
         </div>
       </aside>
 
@@ -242,17 +225,6 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 
         <!-- Top header -->
         <header class="h-14 bg-white border-b border-slate-200 flex items-center gap-3 px-4 shrink-0">
-
-          <!-- Sidebar toggle -->
-          <button
-            @click="toggleSidebar"
-            class="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0"
-            :title="collapsed ? 'Espandi menu' : 'Comprimi menu'"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-            </svg>
-          </button>
 
           <!-- Page title slot -->
           <div class="flex-1 min-w-0">
