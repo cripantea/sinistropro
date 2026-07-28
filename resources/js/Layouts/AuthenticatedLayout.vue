@@ -80,28 +80,6 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
     <!-- ── Impersonation banner (fixed, sempre sopra tutto) ── -->
     <ImpersonationBanner />
 
-    <!-- ── Superadmin back-banner ─────────────────────────── -->
-    <div v-if="isSuperadmin" class="shrink-0 bg-indigo-600 text-white">
-      <div class="flex items-center justify-between px-5 py-2">
-        <div class="flex items-center gap-2 text-sm">
-          <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-          </svg>
-          <span class="font-medium">Modalità Superadmin</span>
-          <span class="hidden sm:inline text-indigo-200">— stai visualizzando l'area tenant</span>
-        </div>
-        <Link
-          :href="route('superadmin.dashboard')"
-          class="flex items-center gap-1.5 rounded-md bg-white/15 px-3 py-1 text-sm font-semibold hover:bg-white/25 transition-colors"
-        >
-          <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-          </svg>
-          Pannello Superadmin
-        </Link>
-      </div>
-    </div>
-
     <!-- ── App Shell ────────────────────────────────────────── -->
     <div class="flex flex-1 overflow-hidden min-h-0">
 

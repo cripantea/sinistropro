@@ -15,12 +15,8 @@ class DashboardController extends Controller
         $user     = auth()->user();
         $tenantId = $user->tenant_id;
 
-        // Superadmin senza tenant → dashboard vuota con banner di ritorno
         if (! $tenantId) {
-            return Inertia::render('Dashboard', [
-                'stats' => ['total' => 0, 'open' => 0, 'closed' => 0, 'todayReminders' => 0, 'statuses' => []],
-                'trend' => [],
-            ]);
+            return redirect()->route('superadmin.dashboard');
         }
 
         // Conteggi per stato (TenantStatus non ha GlobalScope, filtro manuale)
