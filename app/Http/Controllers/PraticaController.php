@@ -7,6 +7,7 @@ use App\Events\PraticaStatoAggiornato;
 use App\Http\Requests\Pratica\StorePraticaRequest;
 use App\Http\Requests\Pratica\UpdatePraticaRequest;
 use App\Mail\PraticaStatoAggiornatoMail;
+use App\Models\Cliente;
 use App\Models\DocumentCategory;
 use App\Models\FieldDictionaryEntry;
 use App\Models\Ispezione;
@@ -29,7 +30,26 @@ class PraticaController extends Controller
     public function index(Request $request): Response
     {
         $user     = auth()->user();
-        $statuses = $user->tenant?->statuses ?? collect();
+        $tenant   = $user->tenant;
+        $statuses = $tenant?->statuses ?? collect();
+
+        $customFieldsSchema = $tenant?->getCustomFieldsSchema() ?? [];
+        $customFieldNames   = collect($customFieldsSchema)->pluck('name')->all();
+
+        // Ordinamento: colonne fisse oppure un campo personalizzato del tenant (whitelist,
+        // per evitare che un valore arbitrario finisca in un path JSON della query).
+        $sortableColumns = ['id', 'cliente', 'current_status_id', 'data_prossimo_avviso', 'utente_creatore', 'created_at'];
+        $sortField         = (string) $request->input('sort_field', 'data_prossimo_avviso');
+        $sortDir           = $request->input('sort_dir') === 'asc' ? 'asc' : 'desc';
+        $isCustomFieldSort = in_array($sortField, $customFieldNames, true);
+        if (! $isCustomFieldSort && ! in_array($sortField, $sortableColumns, true)) {
+            $sortField = 'data_prossimo_avviso';
+        }
+
+        // Filtro per campo personalizzato: stessa whitelist del sort.
+        $filterField       = $request->input('filter_field');
+        $filterValue       = $request->input('filter_value');
+        $filterFieldSchema = collect($customFieldsSchema)->firstWhere('name', $filterField);
 
         $pratiche = Pratica::with(['currentStatus', 'utenteCreatore:id,name', 'cliente:id,nome'])
             ->when(
@@ -37,21 +57,53 @@ class PraticaController extends Controller
                 fn (Builder $q) => $q->where(function (Builder $q) use ($request): void {
                     $term = '%' . $request->search . '%';
                     $q->where('id', 'like', $term)
-                      ->orWhereRaw('CAST(custom_fields AS CHAR) LIKE ?', [$term]);
+                      ->orWhereRaw('CAST(custom_fields AS CHAR) LIKE ?', [$term])
+                      ->orWhereHas('cliente', fn (Builder $c) => $c->where('nome', 'like', $term));
                 })
             )
             ->when(
                 $request->filled('status_id'),
                 fn (Builder $q) => $q->where('current_status_id', $request->integer('status_id'))
             )
-            ->orderByDesc('data_prossimo_avviso')
+            ->when(
+                $filterFieldSchema && $filterValue !== null && $filterValue !== '',
+                function (Builder $q) use ($filterFieldSchema, $filterValue): void {
+                    $key = "custom_fields->{$filterFieldSchema['name']}";
+                    match ($filterFieldSchema['type']) {
+                        'boolean'         => $q->where($key, '=', filter_var($filterValue, FILTER_VALIDATE_BOOLEAN)),
+                        'date', 'number'  => $q->where($key, '=', $filterValue),
+                        default           => $q->where($key, 'like', '%' . $filterValue . '%'),
+                    };
+                }
+            )
+            ->when(
+                $isCustomFieldSort,
+                fn (Builder $q) => $q->orderBy("custom_fields->{$sortField}", $sortDir)
+            )
+            ->when(
+                ! $isCustomFieldSort && $sortField === 'cliente',
+                fn (Builder $q) => $q->orderBy(Cliente::select('nome')->whereColumn('clienti.id', 'pratiche.cliente_id'), $sortDir)
+            )
+            ->when(
+                ! $isCustomFieldSort && $sortField === 'current_status_id',
+                fn (Builder $q) => $q->orderBy(TenantStatus::select('order')->whereColumn('tenant_statuses.id', 'pratiche.current_status_id'), $sortDir)
+            )
+            ->when(
+                ! $isCustomFieldSort && $sortField === 'utente_creatore',
+                fn (Builder $q) => $q->orderBy(User::select('name')->whereColumn('users.id', 'pratiche.utente_creatore_id'), $sortDir)
+            )
+            ->when(
+                ! $isCustomFieldSort && in_array($sortField, ['id', 'data_prossimo_avviso', 'created_at'], true),
+                fn (Builder $q) => $q->orderBy($sortField, $sortDir)
+            )
             ->paginate(25)
             ->withQueryString();
 
         return Inertia::render('Pratiche/Index', [
-            'pratiche' => $pratiche,
-            'statuses' => $statuses,
-            'filters'  => $request->only(['search', 'status_id']),
+            'pratiche'           => $pratiche,
+            'statuses'           => $statuses,
+            'customFieldsSchema' => $customFieldsSchema,
+            'filters'            => $request->only(['search', 'status_id', 'sort_field', 'sort_dir', 'filter_field', 'filter_value']),
         ]);
     }
 

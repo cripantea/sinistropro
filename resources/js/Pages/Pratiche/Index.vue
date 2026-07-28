@@ -26,7 +26,7 @@
           <input
             v-model="search"
             type="search"
-            placeholder="Cerca per ID o valore campo…"
+            placeholder="Cerca per ID, cliente o valore campo…"
             class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
           />
         </div>
@@ -38,6 +38,35 @@
           <option value="">Tutti gli stati</option>
           <option v-for="s in statuses" :key="s.id" :value="String(s.id)">{{ s.name }}</option>
         </select>
+
+        <!-- Selettore campo personalizzato: aggiunge una colonna, la rende ordinabile e filtrabile -->
+        <select
+          v-if="customFieldsSchema.length > 0"
+          v-model="filterField"
+          class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+        >
+          <option value="">+ Campo…</option>
+          <option v-for="f in customFieldsSchema" :key="f.name" :value="f.name">{{ f.label }}</option>
+        </select>
+
+        <template v-if="selectedFieldSchema">
+          <select
+            v-if="selectedFieldSchema.type === 'boolean'"
+            v-model="filterValue"
+            class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+          >
+            <option value="">Tutti</option>
+            <option value="true">Sì</option>
+            <option value="false">No</option>
+          </select>
+          <input
+            v-else
+            v-model="filterValue"
+            :type="selectedFieldSchema.type === 'date' ? 'date' : selectedFieldSchema.type === 'number' ? 'number' : 'text'"
+            :placeholder="`Filtra ${selectedFieldSchema.label}…`"
+            class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+          />
+        </template>
 
         <button v-if="hasFilters" @click="resetFilters" class="text-xs text-gray-500 hover:text-red-500 transition underline">
           Resetta
@@ -51,18 +80,37 @@
         <table class="min-w-full text-sm">
           <thead>
             <tr class="bg-gray-50 border-b border-gray-200">
-              <th class="px-5 py-3 text-left font-medium text-gray-500 w-16">ID</th>
-              <th class="px-5 py-3 text-left font-medium text-gray-500">Stato</th>
-              <th class="px-5 py-3 text-left font-medium text-gray-500">Cliente</th>
-              <th class="px-5 py-3 text-left font-medium text-gray-500">Prossimo avviso</th>
-              <th class="px-5 py-3 text-left font-medium text-gray-500">Creata da</th>
-              <th class="px-5 py-3 text-left font-medium text-gray-500">Aperta il</th>
+              <th class="px-5 py-3 text-left font-medium text-gray-500 w-16 cursor-pointer select-none hover:text-gray-700" @click="sortBy('id')">
+                ID <SortIcon :active="sortField === 'id'" :dir="sortDir" />
+              </th>
+              <th class="px-5 py-3 text-left font-medium text-gray-500 cursor-pointer select-none hover:text-gray-700" @click="sortBy('current_status_id')">
+                Stato <SortIcon :active="sortField === 'current_status_id'" :dir="sortDir" />
+              </th>
+              <th class="px-5 py-3 text-left font-medium text-gray-500 cursor-pointer select-none hover:text-gray-700" @click="sortBy('cliente')">
+                Cliente <SortIcon :active="sortField === 'cliente'" :dir="sortDir" />
+              </th>
+              <th
+                v-if="selectedFieldSchema"
+                class="px-5 py-3 text-left font-medium text-gray-500 cursor-pointer select-none hover:text-gray-700"
+                @click="sortBy(selectedFieldSchema.name)"
+              >
+                {{ selectedFieldSchema.label }} <SortIcon :active="sortField === selectedFieldSchema.name" :dir="sortDir" />
+              </th>
+              <th class="px-5 py-3 text-left font-medium text-gray-500 cursor-pointer select-none hover:text-gray-700" @click="sortBy('data_prossimo_avviso')">
+                Prossimo avviso <SortIcon :active="sortField === 'data_prossimo_avviso'" :dir="sortDir" />
+              </th>
+              <th class="px-5 py-3 text-left font-medium text-gray-500 cursor-pointer select-none hover:text-gray-700" @click="sortBy('utente_creatore')">
+                Creata da <SortIcon :active="sortField === 'utente_creatore'" :dir="sortDir" />
+              </th>
+              <th class="px-5 py-3 text-left font-medium text-gray-500 cursor-pointer select-none hover:text-gray-700" @click="sortBy('created_at')">
+                Aperta il <SortIcon :active="sortField === 'created_at'" :dir="sortDir" />
+              </th>
               <th class="px-5 py-3"></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
             <tr v-if="pratiche.data.length === 0">
-              <td colspan="7" class="px-5 py-10 text-center text-gray-400">Nessun sinistro trovato.</td>
+              <td :colspan="selectedFieldSchema ? 8 : 7" class="px-5 py-10 text-center text-gray-400">Nessun sinistro trovato.</td>
             </tr>
             <tr
               v-for="pratica in pratiche.data"
@@ -86,6 +134,10 @@
               <td class="px-5 py-3.5">
                 <span v-if="pratica.cliente" class="text-sm font-medium text-gray-800">{{ pratica.cliente.nome }}</span>
                 <span v-else class="text-gray-300 text-xs italic">—</span>
+              </td>
+
+              <td v-if="selectedFieldSchema" class="px-5 py-3.5 text-xs text-gray-600">
+                {{ formatFieldValue(pratica.custom_fields?.[selectedFieldSchema.name], selectedFieldSchema.type) }}
               </td>
 
               <td class="px-5 py-3.5">
@@ -142,12 +194,15 @@
 import { computed, ref, watch } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import SortIcon from '@/Components/SortIcon.vue'
 
 interface Status { id: number; name: string; color: string }
+interface CustomFieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean' }
 interface PraticaRow {
   id: number
   current_status: Status | null
   cliente: { id: number; nome: string } | null
+  custom_fields: Record<string, string | boolean> | null
   data_prossimo_avviso: string | null
   utente_creatore: { name: string } | null
   created_at: string
@@ -157,12 +212,22 @@ interface PaginationLink { url: string | null; label: string; active: boolean }
 const props = defineProps<{
   pratiche: { data: PraticaRow[]; from: number; to: number; total: number; links: PaginationLink[] }
   statuses: Status[]
-  filters: { search?: string; status_id?: string }
+  customFieldsSchema: CustomFieldSchema[]
+  filters: { search?: string; status_id?: string; sort_field?: string; sort_dir?: string; filter_field?: string; filter_value?: string }
 }>()
 
 const search         = ref(props.filters.search ?? '')
 const selectedStatus = ref(props.filters.status_id ?? '')
-const hasFilters     = computed(() => !!search.value || !!selectedStatus.value)
+const sortField       = ref(props.filters.sort_field ?? 'data_prossimo_avviso')
+const sortDir         = ref<'asc' | 'desc'>(props.filters.sort_dir === 'asc' ? 'asc' : 'desc')
+const filterField     = ref(props.filters.filter_field ?? '')
+const filterValue     = ref(props.filters.filter_value ?? '')
+
+const hasFilters = computed(() => !!search.value || !!selectedStatus.value || !!filterField.value)
+
+const selectedFieldSchema = computed(() =>
+  props.customFieldsSchema.find(f => f.name === filterField.value) ?? null
+)
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 watch(search, (v) => {
@@ -170,17 +235,44 @@ watch(search, (v) => {
   searchTimer = setTimeout(() => navigate(), v ? 350 : 0)
 })
 watch(selectedStatus, () => navigate())
+watch(sortField, () => navigate())
+watch(sortDir, () => navigate())
+
+let filterValueTimer: ReturnType<typeof setTimeout> | null = null
+watch(filterValue, (v) => {
+  if (filterValueTimer) clearTimeout(filterValueTimer)
+  filterValueTimer = setTimeout(() => navigate(), v ? 350 : 0)
+})
+watch(filterField, () => {
+  filterValue.value = ''
+  navigate()
+})
+
+function sortBy(field: string) {
+  if (sortField.value === field) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortField.value = field
+    sortDir.value = 'asc'
+  }
+}
 
 function navigate() {
   router.get(route('pratiche.index'), {
-    search:    search.value || undefined,
-    status_id: selectedStatus.value || undefined,
+    search:       search.value || undefined,
+    status_id:    selectedStatus.value || undefined,
+    sort_field:   sortField.value || undefined,
+    sort_dir:     sortDir.value || undefined,
+    filter_field: filterField.value || undefined,
+    filter_value: filterValue.value || undefined,
   }, { preserveState: true, replace: true })
 }
 
 function resetFilters() {
   search.value = ''
   selectedStatus.value = ''
+  filterField.value = ''
+  filterValue.value = ''
 }
 
 function goTo(id: number) { router.visit(route('pratiche.show', id)) }
@@ -191,5 +283,12 @@ function formatDate(iso: string): string {
 
 function isOverdue(iso: string): boolean {
   return new Date(iso) < new Date()
+}
+
+function formatFieldValue(value: string | boolean | undefined, type: string): string {
+  if (value === undefined || value === null || value === '') return '—'
+  if (type === 'boolean') return value === true || value === 'true' ? 'Sì' : 'No'
+  if (type === 'date') return formatDate(String(value))
+  return String(value)
 }
 </script>
