@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Pratica;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdatePraticaRequest extends FormRequest
 {
@@ -30,11 +31,20 @@ class UpdatePraticaRequest extends FormRequest
         ];
 
         foreach (auth()->user()->tenant?->getCustomFieldsSchema() ?? [] as $field) {
-            $rules['custom_fields.' . $field['name']] = [
-                ($field['required'] ?? false) ? 'required' : 'nullable',
-                'string',
-                'max:1000',
-            ];
+            $requiredRule = ($field['required'] ?? false) ? 'required' : 'nullable';
+
+            if (($field['type'] ?? '') === 'select' && ! empty($field['options'])) {
+                $rules['custom_fields.' . $field['name']] = [
+                    $requiredRule,
+                    Rule::in($field['options']),
+                ];
+            } else {
+                $rules['custom_fields.' . $field['name']] = [
+                    $requiredRule,
+                    'string',
+                    'max:1000',
+                ];
+            }
         }
 
         return $rules;
