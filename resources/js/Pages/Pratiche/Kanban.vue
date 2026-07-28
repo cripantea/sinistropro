@@ -75,66 +75,30 @@
               class="bg-white rounded-lg border border-gray-200 p-3 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-gray-300 transition-all select-none"
               :class="{ 'opacity-40 shadow-lg scale-[0.98]': draggingId === pratica.id }"
             >
-              <!-- Row: ID + today indicator + open link -->
-              <div class="flex items-center justify-between mb-2">
+              <!-- Row: ID + open link -->
+              <div class="flex items-center justify-between mb-1.5">
                 <span class="text-[11px] font-mono text-gray-400">#{{ pratica.id }}</span>
-                <div class="flex items-center gap-1.5">
-                  <span
-                    v-if="isToday(pratica.data_prossimo_avviso)"
-                    class="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full border border-red-200"
-                  >
-                    <span class="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 animate-pulse"/>
-                    Avviso oggi
-                  </span>
-                  <Link
-                    :href="route('pratiche.show', pratica.id)"
-                    @click.stop
-                    class="cursor-pointer text-gray-300 hover:text-indigo-500 transition-colors"
-                    title="Apri fascicolo"
-                  >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                    </svg>
-                  </Link>
-                </div>
+                <Link
+                  :href="route('pratiche.show', pratica.id)"
+                  @click.stop
+                  class="cursor-pointer text-gray-300 hover:text-indigo-500 transition-colors"
+                  title="Apri fascicolo"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                  </svg>
+                </Link>
               </div>
 
               <!-- Cliente -->
-              <p v-if="pratica.cliente" class="text-sm font-semibold text-gray-800 truncate mb-1">
-                {{ pratica.cliente.nome }}
+              <p class="text-base font-bold text-gray-900 truncate">
+                {{ pratica.cliente?.nome ?? '—' }}
               </p>
 
-              <!-- Primary custom field -->
-              <div class="leading-snug">
-                <p
-                  v-if="schema.length"
-                  class="text-[10px] uppercase tracking-wider text-gray-400 mb-0.5"
-                >
-                  {{ schema[0].label ?? schema[0].name }}
-                </p>
-                <Link
-                  v-if="getPrimaryValue(pratica)"
-                  :href="route('pratiche.show', pratica.id)"
-                  @click.stop
-                  class="block text-sm font-semibold text-gray-800 truncate hover:text-indigo-600 hover:underline cursor-pointer transition-colors"
-                >
-                  {{ getPrimaryValue(pratica) }}
-                </Link>
-                <p v-else class="text-sm text-gray-300 italic">—</p>
-              </div>
-
-              <!-- Date badge -->
-              <div v-if="pratica.data_prossimo_avviso" class="mt-2 flex items-center gap-1">
-                <svg class="w-3 h-3 shrink-0" :class="isToday(pratica.data_prossimo_avviso) ? 'text-red-400' : 'text-gray-300'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                </svg>
-                <span
-                  class="text-[11px] tabular-nums"
-                  :class="isToday(pratica.data_prossimo_avviso) ? 'text-red-500 font-semibold' : 'text-gray-400'"
-                >
-                  {{ formatDate(pratica.data_prossimo_avviso) }}
-                </span>
-              </div>
+              <!-- Data apertura -->
+              <p class="text-[11px] text-gray-400 mt-1 tabular-nums">
+                Aperta il {{ formatDate(pratica.created_at) }}
+              </p>
             </div>
 
             <!-- Empty drop zone -->
@@ -342,17 +306,14 @@ interface PraticaKanban {
   id: number
   cliente: { id: number; nome: string } | null
   current_status_id: number | null
-  data_prossimo_avviso: string | null
-  custom_fields: Record<string, string> | null
+  created_at: string
 }
-interface FieldSchema { name: string; label: string; type: string }
 interface ExternalUser  { id: number; name: string; email: string }
 interface AutomationSummary { id: number; name: string }
 
 const props = defineProps<{
   statuses: TenantStatus[]
   pratiche: PraticaKanban[]
-  schema: FieldSchema[]
   externalUsers: ExternalUser[]
 }>()
 
@@ -411,26 +372,8 @@ const columns = computed(() =>
   }))
 )
 
-function getPrimaryValue(pratica: PraticaKanban): string | null {
-  if (!props.schema.length || !pratica.custom_fields) return null
-  const key = props.schema[0].name
-  const val = pratica.custom_fields[key]
-  return val != null && String(val).trim() !== '' ? String(val) : null
-}
-
-function isToday(dateStr: string | null): boolean {
-  if (!dateStr) return false
-  const today = new Date()
-  const d     = new Date(dateStr + 'T00:00:00')
-  return (
-    d.getFullYear() === today.getFullYear() &&
-    d.getMonth()    === today.getMonth()    &&
-    d.getDate()     === today.getDate()
-  )
-}
-
 function formatDate(iso: string): string {
-  return new Date(iso + 'T00:00:00').toLocaleDateString('it-IT')
+  return new Date(iso).toLocaleDateString('it-IT')
 }
 
 // ── Drag & Drop ──────────────────────────────────────────────────────────────
