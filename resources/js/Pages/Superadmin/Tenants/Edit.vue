@@ -57,7 +57,7 @@
                   </div>
                   <div>
                     <label class="field-label text-xs">Tipo</label>
-                    <select v-model="field.type" @change="if (field.type !== 'select') field.options = []" class="field-input">
+                    <select v-model="field.type" @change="if (field.type !== 'select') field.options = ([] as string[])" class="field-input">
                       <option value="text">Testo</option>
                       <option value="date">Data</option>
                       <option value="number">Numero</option>
@@ -1028,7 +1028,7 @@ watch(() => page.url, (url) => { activeTab.value = tabFromUrl(url) })
 const form = useForm({
   name:                 props.tenant.name,
   default_notice_days:  props.tenant.settings?.default_notice_days ?? 30,
-  custom_fields_schema: (props.tenant.settings?.custom_fields_schema ?? []).map(f => ({ ...f, _uid: uid(), options: (f as any).options ?? [] })) as CustomField[],
+  custom_fields_schema: (props.tenant.settings?.custom_fields_schema ?? []).map(f => ({ ...f, _uid: uid(), options: f.options ?? [] })) as CustomField[],
   statuses:             (props.tenant.statuses ?? []).map(s => ({ ...s, _uid: uid() })) as StatusRow[],
 })
 

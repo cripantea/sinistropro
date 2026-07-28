@@ -54,7 +54,7 @@
                   </div>
                   <div>
                     <label class="field-label text-xs">Tipo</label>
-                    <select v-model="field.type" @change="if (field.type !== 'select') field.options = []" class="field-input">
+                    <select v-model="field.type" @change="if (field.type !== 'select') field.options = ([] as string[])" class="field-input">
                       <option value="text">Testo</option>
                       <option value="date">Data</option>
                       <option value="number">Numero</option>
