@@ -72,33 +72,41 @@
               draggable="true"
               @dragstart="onDragStart($event, pratica.id, col.id)"
               @dragend="onDragEnd"
-              class="bg-white rounded-lg border border-gray-200 p-3 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-gray-300 transition-all select-none"
+              class="bg-white rounded-lg border border-gray-200 p-4 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-gray-300 transition-all select-none"
               :class="{ 'opacity-40 shadow-lg scale-[0.98]': draggingId === pratica.id }"
             >
               <!-- Row: ID + open link -->
-              <div class="flex items-center justify-between mb-1.5">
-                <span class="text-[11px] font-mono text-gray-400">#{{ pratica.id }}</span>
+              <div class="flex items-center justify-between mb-2.5">
+                <span class="text-sm font-mono font-semibold text-gray-600">#{{ pratica.id }}</span>
                 <Link
                   :href="route('pratiche.show', pratica.id)"
                   @click.stop
-                  class="cursor-pointer text-gray-300 hover:text-indigo-500 transition-colors"
+                  class="cursor-pointer text-gray-500 hover:text-indigo-600 transition-colors"
                   title="Apri fascicolo"
                 >
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                   </svg>
                 </Link>
               </div>
 
               <!-- Cliente -->
-              <p class="text-base font-bold text-gray-900 truncate">
+              <p class="text-lg font-bold text-gray-900 truncate">
                 {{ pratica.cliente?.nome ?? '—' }}
               </p>
 
               <!-- Data apertura -->
-              <p class="text-[11px] text-gray-400 mt-1 tabular-nums">
+              <p class="text-xs text-gray-500 mt-1.5 tabular-nums">
                 Aperta il {{ formatDate(pratica.created_at) }}
               </p>
+
+              <!-- Prossimo avviso: semaforo verde/giallo/rosso in base ai giorni rimanenti -->
+              <div v-if="pratica.data_prossimo_avviso" class="flex items-center gap-1.5 mt-2">
+                <span class="w-2 h-2 rounded-full shrink-0" :class="avvisoColor(pratica.data_prossimo_avviso).dot"/>
+                <span class="text-xs font-semibold tabular-nums" :class="avvisoColor(pratica.data_prossimo_avviso).text">
+                  Prossimo avviso: {{ formatDate(pratica.data_prossimo_avviso) }}
+                </span>
+              </div>
             </div>
 
             <!-- Empty drop zone -->
@@ -306,6 +314,7 @@ interface PraticaKanban {
   id: number
   cliente: { id: number; nome: string } | null
   current_status_id: number | null
+  data_prossimo_avviso: string | null
   created_at: string
 }
 interface ExternalUser  { id: number; name: string; email: string }
@@ -374,6 +383,20 @@ const columns = computed(() =>
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('it-IT')
+}
+
+function daysUntil(dateStr: string): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const target = new Date(dateStr + 'T00:00:00')
+  return Math.round((target.getTime() - today.getTime()) / 86_400_000)
+}
+
+function avvisoColor(dateStr: string): { dot: string; text: string } {
+  const days = daysUntil(dateStr)
+  if (days > 5)  return { dot: 'bg-green-500', text: 'text-green-600' }
+  if (days > 2)  return { dot: 'bg-amber-500', text: 'text-amber-600' }
+  return { dot: 'bg-red-500', text: 'text-red-600' }
 }
 
 // ── Drag & Drop ──────────────────────────────────────────────────────────────

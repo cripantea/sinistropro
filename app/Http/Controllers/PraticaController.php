@@ -118,7 +118,7 @@ class PraticaController extends Controller
 
         $pratiche = Pratica::with('cliente:id,nome')
             ->orderByDesc('data_prossimo_avviso')
-            ->get(['id', 'cliente_id', 'current_status_id', 'created_at']);
+            ->get(['id', 'cliente_id', 'current_status_id', 'data_prossimo_avviso', 'created_at']);
 
         $externalUsers = User::where('tenant_id', $user->tenant_id)
             ->where('role', 'external')
