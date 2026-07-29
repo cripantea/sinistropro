@@ -37,7 +37,9 @@ class IspezioneController extends Controller
 
         $skip = $request->boolean('skip_confirmable_automations', false);
 
-        $oldStatusId = $pratica->current_status_id;
+        $oldStatusId         = $pratica->current_status_id;
+        $oldDataAppuntamento = (string) ($pratica->ispezioni->first()?->data_appuntamento?->format('Y-m-d') ?? '');
+        $newDataAppuntamento = $request->has('data_appuntamento') ? (string) ($data['data_appuntamento'] ?? '') : null;
 
         DB::transaction(function () use ($pratica, $data, $request, $user): void {
             $update = [
@@ -72,6 +74,11 @@ class IspezioneController extends Controller
         $newStatusId = $data['current_status_id'] ?? null;
         if ($newStatusId && $newStatusId != $oldStatusId) {
             event(new PraticaStatoAggiornato($pratica, $oldStatusId, $newStatusId, $skip));
+        }
+
+        // Event-driven: lancia Automazioni se la data appuntamento è cambiata (path Kanban).
+        if ($newDataAppuntamento !== null && $oldDataAppuntamento !== $newDataAppuntamento) {
+            event(new PraticaCampoDataAggiornato($pratica, 'data_appuntamento', $skip));
         }
 
         if ($request->expectsJson()) {
