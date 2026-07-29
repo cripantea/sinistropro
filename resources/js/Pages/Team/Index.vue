@@ -47,7 +47,7 @@
                     'bg-slate-100 text-slate-600':   member.role === 'user',
                   }"
                 >
-                  {{ member.role === 'tenant-admin' ? 'Admin' : member.role === 'external' ? 'Perito' : 'Collaboratore' }}
+                  {{ member.role === 'tenant-admin' ? 'Admin' : member.role === 'external' ? 'Collaboratore esterno' : 'Collaboratore' }}
                 </span>
                 <span v-if="member.id === authUserId" class="text-[11px] text-gray-400">(tu)</span>
               </div>
@@ -142,7 +142,7 @@
               >
                 <option value="user">Collaboratore</option>
                 <option value="tenant-admin">Amministratore</option>
-                <option value="external">Tecnico Esterno / Perito</option>
+                <option value="external">Collaboratore esterno</option>
               </select>
               <p v-if="createForm.errors.role" class="text-xs text-red-600 mt-1">{{ createForm.errors.role }}</p>
             </div>
@@ -254,7 +254,7 @@
                 >
                   <option value="user">Collaboratore</option>
                   <option value="tenant-admin">Amministratore</option>
-                  <option value="external">Tecnico Esterno / Perito</option>
+                  <option value="external">Collaboratore esterno</option>
                 </select>
                 <p v-if="editForm.errors.role" class="text-xs text-red-600 mt-1">{{ editForm.errors.role }}</p>
               </div>
