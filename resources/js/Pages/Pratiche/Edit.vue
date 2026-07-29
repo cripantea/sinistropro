@@ -56,17 +56,6 @@
               <span class="text-sm text-gray-600">Sì</span>
             </label>
 
-            <select
-              v-else-if="field.type === 'select'"
-              :id="field.name"
-              v-model="form.custom_fields[field.name]"
-              :required="field.required"
-              class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-            >
-              <option value="">— Seleziona —</option>
-              <option v-for="opt in field.options" :key="opt" :value="opt">{{ opt }}</option>
-            </select>
-
             <input
               v-else
               :id="field.name"
@@ -129,7 +118,7 @@ import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import AutomationConfirmModal from '@/Components/AutomationConfirmModal.vue'
 
-interface FieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean' | 'select'; required?: boolean; options?: string[] }
+interface FieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean'; required?: boolean }
 interface TenantStatus { id: number; name: string; color: string }
 interface Tenant {
   id: number

@@ -59,14 +59,6 @@
             <option value="true">Sì</option>
             <option value="false">No</option>
           </select>
-          <select
-            v-else-if="selectedFieldSchema.type === 'select'"
-            v-model="filterValue"
-            class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-          >
-            <option value="">Tutti</option>
-            <option v-for="opt in selectedFieldSchema.options" :key="opt" :value="opt">{{ opt }}</option>
-          </select>
           <input
             v-else
             v-model="filterValue"
@@ -205,7 +197,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import SortIcon from '@/Components/SortIcon.vue'
 
 interface Status { id: number; name: string; color: string }
-interface CustomFieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean' | 'select'; options?: string[] }
+interface CustomFieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean' }
 interface PraticaRow {
   id: number
   current_status: Status | null
