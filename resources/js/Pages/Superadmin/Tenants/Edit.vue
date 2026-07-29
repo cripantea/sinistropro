@@ -390,6 +390,103 @@
       </div>
     </div>
 
+    <!-- ── Tab: Email ───────────────────────────────────────────────────────── -->
+    <form v-show="activeTab === 'email'" @submit.prevent="submitMail" class="p-6 max-w-3xl space-y-8">
+
+      <FormSection title="Server SMTP">
+        <p class="text-xs text-slate-500 -mt-2 mb-4">
+          Se non configurato, l'invio email per questo tenant fallirà con un errore esplicito
+          (nessun invio "di riserva" tramite un altro server).
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label class="field-label">Host SMTP</label>
+            <input v-model="mailForm.host" type="text" class="field-input" placeholder="smtp.esempio.it" />
+            <FieldError :message="mailForm.errors.host" />
+          </div>
+          <div>
+            <label class="field-label">Porta</label>
+            <input v-model.number="mailForm.port" type="number" min="1" max="65535" class="field-input" placeholder="587" />
+            <FieldError :message="mailForm.errors.port" />
+          </div>
+          <div>
+            <label class="field-label">Username</label>
+            <input v-model="mailForm.username" type="text" class="field-input" />
+            <FieldError :message="mailForm.errors.username" />
+          </div>
+          <div>
+            <label class="field-label">Password</label>
+            <input
+              v-model="mailForm.password"
+              type="password"
+              class="field-input"
+              :placeholder="mailHasPassword ? '••••••••  (lascia vuoto per non modificarla)' : ''"
+              autocomplete="new-password"
+            />
+            <FieldError :message="mailForm.errors.password" />
+          </div>
+          <div>
+            <label class="field-label">Crittografia</label>
+            <select v-model="mailForm.encryption" class="field-input">
+              <option value="tls">TLS</option>
+              <option value="ssl">SSL</option>
+            </select>
+            <FieldError :message="mailForm.errors.encryption" />
+          </div>
+        </div>
+      </FormSection>
+
+      <FormSection title="Identità mittente">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label class="field-label">Indirizzo mittente</label>
+            <input v-model="mailForm.from_address" type="email" class="field-input" placeholder="info@tenant.it" />
+            <FieldError :message="mailForm.errors.from_address" />
+          </div>
+          <div>
+            <label class="field-label">Nome mittente</label>
+            <input v-model="mailForm.from_name" type="text" class="field-input" placeholder="Nome Azienda" />
+            <FieldError :message="mailForm.errors.from_name" />
+          </div>
+        </div>
+
+        <label class="flex items-center gap-2.5 mt-5 cursor-pointer w-fit">
+          <input type="checkbox" v-model="mailForm.is_active" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+          <span class="text-sm font-medium text-slate-700">Configurazione attiva</span>
+        </label>
+      </FormSection>
+
+      <div class="flex items-center gap-3">
+        <button type="submit" :disabled="mailForm.processing" class="inline-flex items-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+          <svg v-if="mailForm.processing" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+          {{ mailForm.processing ? 'Salvataggio...' : 'Salva configurazione' }}
+        </button>
+        <span v-if="mailForm.recentlySuccessful" class="text-sm text-emerald-600 font-medium">Salvato.</span>
+      </div>
+
+      <FormSection title="Invia email di prova">
+        <p class="text-xs text-slate-500 -mt-2 mb-4">
+          Invia un'email di test usando la configurazione salvata, per verificare che funzioni.
+        </p>
+        <div class="flex items-center gap-3 max-w-md">
+          <input v-model="testEmailAddress" type="email" class="field-input" placeholder="destinatario@esempio.it" />
+          <button
+            type="button"
+            @click="sendTestEmail"
+            :disabled="testEmail.loading || !testEmailAddress"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            <svg v-if="testEmail.loading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+            {{ testEmail.loading ? 'Invio...' : 'Invia email di prova' }}
+          </button>
+        </div>
+        <p v-if="testEmail.message" class="text-xs mt-2" :class="testEmail.success ? 'text-emerald-600' : 'text-red-600'">
+          {{ testEmail.message }}
+        </p>
+      </FormSection>
+
+    </form>
+
     <!-- ── Automation Modal ──────────────────────────────────────────────────── -->
     <Teleport to="body">
       <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0" leave-active-class="transition duration-150" leave-to-class="opacity-0">
@@ -1002,6 +1099,12 @@ interface ModuleTemplate {
   font_size: number | null
 }
 
+interface MailSettings {
+  host: string | null; port: number | null; username: string | null
+  has_password: boolean; encryption: 'tls' | 'ssl' | null
+  from_address: string | null; from_name: string | null; is_active: boolean
+}
+
 interface TenantFull {
   id: number; name: string
   settings: { default_notice_days: number; custom_fields_schema: Omit<CustomField, '_uid'>[] } | null
@@ -1018,6 +1121,7 @@ const props = defineProps<{
   moduleTemplates: ModuleTemplate[]
   fieldDictionary: DictEntry[]
   tenantUsers: TenantUser[]
+  mailSettings: MailSettings | null
 }>()
 
 // ── UID counter (shared across all lists) ────────────────────────────────────
@@ -1033,6 +1137,7 @@ const TABS = [
   { id: 'automations', label: 'Automazioni Workflow' },
   { id: 'dictionary',  label: 'Dizionario Campi' },
   { id: 'modules',     label: 'Template Moduli PDF' },
+  { id: 'email',       label: 'Email' },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -1040,7 +1145,7 @@ type TabId = typeof TABS[number]['id']
 function tabFromUrl(url: string): TabId {
   const search = url.includes('?') ? url.split('?')[1] : ''
   const tab = new URLSearchParams(search).get('tab')
-  return (['config', 'categories', 'automations', 'dictionary', 'modules'] as const).includes(tab as TabId)
+  return (['config', 'categories', 'automations', 'dictionary', 'modules', 'email'] as const).includes(tab as TabId)
     ? (tab as TabId)
     : 'config'
 }
@@ -1534,6 +1639,54 @@ function deleteModule(tmpl: ModuleTemplate) {
     route('superadmin.tenants.module-templates.destroy', [props.tenant.id, tmpl.id]),
     { preserveScroll: true }
   )
+}
+
+// ── Configurazione email ─────────────────────────────────────────────────────
+
+const mailForm = useForm({
+  host:         props.mailSettings?.host ?? '',
+  port:         props.mailSettings?.port ?? 587,
+  username:     props.mailSettings?.username ?? '',
+  password:     '' as string, // mai precompilata: lasciare vuota mantiene quella già salvata
+  encryption:   props.mailSettings?.encryption ?? 'tls',
+  from_address: props.mailSettings?.from_address ?? '',
+  from_name:    props.mailSettings?.from_name ?? '',
+  is_active:    props.mailSettings?.is_active ?? false,
+})
+
+const mailHasPassword = ref(props.mailSettings?.has_password ?? false)
+
+function submitMail() {
+  mailForm.post(route('superadmin.tenants.mail-settings.update', props.tenant.id), {
+    preserveScroll: true,
+    onSuccess: () => {
+      if (mailForm.password) mailHasPassword.value = true
+      mailForm.password = ''
+    },
+  })
+}
+
+const testEmailAddress = ref('')
+const testEmail = reactive({ loading: false, message: '' as string, success: false })
+
+async function sendTestEmail() {
+  if (!testEmailAddress.value) return
+  testEmail.loading = true
+  testEmail.message = ''
+  try {
+    const resp = await http.post<{ message: string }>(
+      route('superadmin.tenants.mail-settings.test', props.tenant.id),
+      { to_email: testEmailAddress.value }
+    )
+    testEmail.success = true
+    testEmail.message = resp.data.message
+  } catch (err: unknown) {
+    testEmail.success = false
+    testEmail.message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      ?? 'Invio fallito.'
+  } finally {
+    testEmail.loading = false
+  }
 }
 </script>
 

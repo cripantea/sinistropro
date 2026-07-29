@@ -5,13 +5,13 @@ namespace App\Jobs;
 use App\Mail\AutomazioneNotificaMail;
 use App\Models\Automation;
 use App\Models\Pratica;
+use App\Services\TenantMailerResolver;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 class ExecuteAutomationJob implements ShouldQueue
@@ -37,7 +37,7 @@ class ExecuteAutomationJob implements ShouldQueue
     // Entry point
     // ─────────────────────────────────────────────────────────────────────────
 
-    public function handle(): void
+    public function handle(TenantMailerResolver $mailer): void
     {
         $pratica = Pratica::with([
             'tenant',
@@ -80,7 +80,7 @@ class ExecuteAutomationJob implements ShouldQueue
                 $recipient,
                 $documentLinks
             );
-            $this->sendViaChannel($automation->channel, $recipient, $compiledMessage, $pratica, $documentLinks, $ccEmails);
+            $this->sendViaChannel($automation->channel, $recipient, $compiledMessage, $pratica, $documentLinks, $ccEmails, $mailer);
         }
 
         Log::info('ExecuteAutomationJob: eseguito con successo', [
@@ -303,10 +303,11 @@ class ExecuteAutomationJob implements ShouldQueue
         string $compiledMessage,
         Pratica $pratica,
         array $documentLinks,
-        array $ccEmails = []
+        array $ccEmails,
+        TenantMailerResolver $mailer
     ): void {
         if (in_array($channel, ['email', 'both'], true)) {
-            $this->sendEmail($recipient, $compiledMessage, $pratica, $documentLinks, $ccEmails);
+            $this->sendEmail($recipient, $compiledMessage, $pratica, $documentLinks, $ccEmails, $mailer);
         }
 
         if (in_array($channel, ['whatsapp', 'both'], true)) {
@@ -314,7 +315,7 @@ class ExecuteAutomationJob implements ShouldQueue
         }
     }
 
-    private function sendEmail(array $recipient, string $compiledMessage, Pratica $pratica, array $documentLinks, array $ccEmails = []): void
+    private function sendEmail(array $recipient, string $compiledMessage, Pratica $pratica, array $documentLinks, array $ccEmails, TenantMailerResolver $mailer): void
     {
         if (! $recipient['email']) {
             Log::warning('ExecuteAutomationJob: email vuota, invio saltato', [
@@ -326,18 +327,16 @@ class ExecuteAutomationJob implements ShouldQueue
 
         $subject = "Sinistro #{$pratica->id} — {$pratica->currentStatus?->name}";
 
-        $mail = Mail::to($recipient['email']);
-        if (! empty($ccEmails)) {
-            $mail->cc($ccEmails);
-        }
-
-        $mail->send(
+        $mailer->send(
+            $pratica->tenant,
+            $recipient['email'],
             new AutomazioneNotificaMail(
                 emailSubject:  $subject,
                 compiledBody:  $compiledMessage,
                 tenantName:    $pratica->tenant?->name ?? '',
                 documentLinks: $documentLinks,
-            )
+            ),
+            $ccEmails
         );
     }
 

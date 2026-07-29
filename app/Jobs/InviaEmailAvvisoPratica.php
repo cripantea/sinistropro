@@ -5,13 +5,13 @@ namespace App\Jobs;
 use App\Mail\AvvisoPraticaAperta;
 use App\Models\Pratica;
 use App\Models\User;
+use App\Services\TenantMailerResolver;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class InviaEmailAvvisoPratica implements ShouldQueue
 {
@@ -27,7 +27,7 @@ class InviaEmailAvvisoPratica implements ShouldQueue
         $this->onQueue('emails');
     }
 
-    public function handle(): void
+    public function handle(TenantMailerResolver $mailer): void
     {
         // Il worker gira senza auth() attivo → TenantScope non si applica.
         // Carichiamo le relazioni necessarie in un'unica query eager.
@@ -45,7 +45,9 @@ class InviaEmailAvvisoPratica implements ShouldQueue
 
         foreach ($destinatari as $destinatario) {
             try {
-                Mail::to($destinatario)->send(
+                $mailer->send(
+                    $tenant,
+                    $destinatario->email,
                     new AvvisoPraticaAperta($pratica, $destinatario, $nuovaData)
                 );
             } catch (\Throwable $e) {

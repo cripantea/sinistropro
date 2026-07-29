@@ -19,6 +19,7 @@ use App\Http\Controllers\Superadmin\FieldDictionaryController;
 use App\Http\Controllers\Superadmin\ModuleTemplateController;
 use App\Http\Controllers\Superadmin\SuperadminController;
 use App\Http\Controllers\Superadmin\TenantController;
+use App\Http\Controllers\Superadmin\TenantMailSettingsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -118,6 +119,10 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
 
     // Configurazione categorie per tenant
     Route::post('/tenants/{tenant}/document-categories', [TenantController::class, 'syncDocumentCategories'])->name('tenants.document-categories.sync');
+
+    // Configurazione email per tenant
+    Route::post('/tenants/{tenant}/mail-settings', [TenantMailSettingsController::class, 'update'])->name('tenants.mail-settings.update');
+    Route::post('/tenants/{tenant}/mail-settings/test', [TenantMailSettingsController::class, 'test'])->name('tenants.mail-settings.test');
 
     // Template Moduli PDF — static segments MUST precede {moduleTemplate} wildcard
     Route::get('/module-templates/preview', [ModuleTemplateController::class, 'previewPage'])->name('tenants.module-templates.preview');

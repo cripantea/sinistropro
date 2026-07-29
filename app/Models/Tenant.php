@@ -53,6 +53,11 @@ class Tenant extends Model
         return $this->hasMany(FieldDictionaryEntry::class)->orderBy('label');
     }
 
+    public function mailSettings(): HasOne
+    {
+        return $this->hasOne(TenantMailSettings::class);
+    }
+
     public function initialStatus(): ?TenantStatus
     {
         // Fallback al primo per ordine se nessuno stato è ancora marcato esplicitamente

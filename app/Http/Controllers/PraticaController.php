@@ -16,9 +16,10 @@ use App\Models\Pratica;
 use App\Models\PraticaModule;
 use App\Models\TenantStatus;
 use App\Models\User;
+use App\Services\TenantMailerResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -302,7 +303,7 @@ class PraticaController extends Controller
      *  1. Route model binding su Pratica rispetta BelongsToTenant → 404 se pratica di altro tenant.
      *  2. La closure di validazione verifica che current_status_id appartenga allo stesso tenant.
      */
-    public function updateStatus(Request $request, Pratica $pratica): RedirectResponse|JsonResponse
+    public function updateStatus(Request $request, Pratica $pratica, TenantMailerResolver $mailer): RedirectResponse|JsonResponse
     {
         $tenantId = auth()->user()->tenant_id;
 
@@ -332,7 +333,19 @@ class PraticaController extends Controller
                 $emailCliente = $fields['email'] ?? $fields['email_cliente'] ?? $fields['email_contatto'] ?? null;
                 if ($emailCliente && filter_var($emailCliente, FILTER_VALIDATE_EMAIL)) {
                     $pratica->load('tenant');
-                    Mail::to($emailCliente)->queue(new PraticaStatoAggiornatoMail($pratica, $stato, $emailCliente));
+                    try {
+                        // Sincrono (non ->queue()): il mittente può essere specifico
+                        // del tenant, e quella configurazione al volo non
+                        // sopravvivrebbe al passaggio a un worker separato se
+                        // l'invio fosse accodato.
+                        $mailer->send($pratica->tenant, $emailCliente, new PraticaStatoAggiornatoMail($pratica, $stato, $emailCliente));
+                    } catch (\Throwable $e) {
+                        Log::error('PraticaController::updateStatus: invio email fallito', [
+                            'pratica_id' => $pratica->id,
+                            'tenant_id'  => $pratica->tenant_id,
+                            'errore'     => $e->getMessage(),
+                        ]);
+                    }
                 }
             }
         }

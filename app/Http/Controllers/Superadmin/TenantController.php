@@ -140,6 +140,8 @@ class TenantController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'role']);
 
+        $mailSettings = $tenant->mailSettings;
+
         return Inertia::render('Superadmin/Tenants/Edit', [
             'tenant'            => $tenant,
             'categoriesConfig'  => $categoriesConfig,
@@ -148,6 +150,17 @@ class TenantController extends Controller
             'moduleTemplates'   => $moduleTemplates,
             'fieldDictionary'   => $fieldDictionary,
             'tenantUsers'       => $tenantUsers,
+            // La password non arriva mai al frontend: solo un flag "già configurata".
+            'mailSettings'      => $mailSettings ? [
+                'host'         => $mailSettings->host,
+                'port'         => $mailSettings->port,
+                'username'     => $mailSettings->username,
+                'has_password' => ! empty($mailSettings->password),
+                'encryption'   => $mailSettings->encryption,
+                'from_address' => $mailSettings->from_address,
+                'from_name'    => $mailSettings->from_name,
+                'is_active'    => $mailSettings->is_active,
+            ] : null,
         ]);
     }
 
