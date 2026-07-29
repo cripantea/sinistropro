@@ -54,7 +54,7 @@
                   </div>
                   <div>
                     <label class="field-label text-xs">Tipo</label>
-                    <select v-model="field.type" @change="onFieldTypeChange(field)" class="field-input">
+                    <select v-model="field.type" @change="if (field.type !== 'select') field.options = []" class="field-input">
                       <option value="text">Testo</option>
                       <option value="date">Data</option>
                       <option value="number">Numero</option>
@@ -224,11 +224,7 @@ const form = useForm({
 })
 
 function addField() {
-  form.custom_fields_schema.push({ _uid: uid(), name: '', label: '', type: 'text', required: false, options: [] as string[] })
-}
-
-function onFieldTypeChange(field: CustomField) {
-  if (field.type !== 'select') field.options = []
+  form.custom_fields_schema.push({ _uid: uid(), name: '', label: '', type: 'text', required: false, options: [] })
 }
 
 function removeField(i: number) {

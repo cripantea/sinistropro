@@ -57,7 +57,7 @@
                   </div>
                   <div>
                     <label class="field-label text-xs">Tipo</label>
-                    <select v-model="field.type" @change="onFieldTypeChange(field)" class="field-input">
+                    <select v-model="field.type" @change="if (field.type !== 'select') field.options = []" class="field-input">
                       <option value="text">Testo</option>
                       <option value="date">Data</option>
                       <option value="number">Numero</option>
@@ -1028,17 +1028,13 @@ watch(() => page.url, (url) => { activeTab.value = tabFromUrl(url) })
 const form = useForm({
   name:                 props.tenant.name,
   default_notice_days:  props.tenant.settings?.default_notice_days ?? 30,
-  custom_fields_schema: (props.tenant.settings?.custom_fields_schema ?? []).map(f => ({ ...f, _uid: uid(), options: f.options ?? [] })) as CustomField[],
+  custom_fields_schema: (props.tenant.settings?.custom_fields_schema ?? []).map(f => ({ ...f, _uid: uid(), options: (f as any).options ?? [] })) as CustomField[],
   statuses:             (props.tenant.statuses ?? []).map(s => ({ ...s, _uid: uid() })) as StatusRow[],
 })
 
 const PALETTE = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#6B7280']
 
-function addField()             { form.custom_fields_schema.push({ _uid: uid(), name: '', label: '', type: 'text', required: false, options: [] as string[] }) }
-
-function onFieldTypeChange(field: CustomField) {
-  if (field.type !== 'select') field.options = []
-}
+function addField()             { form.custom_fields_schema.push({ _uid: uid(), name: '', label: '', type: 'text', required: false, options: [] }) }
 function removeField(i: number) { form.custom_fields_schema.splice(i, 1) }
 
 function addStatus() {
