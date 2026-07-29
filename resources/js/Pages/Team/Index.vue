@@ -147,6 +147,17 @@
               <p v-if="createForm.errors.role" class="text-xs text-red-600 mt-1">{{ createForm.errors.role }}</p>
             </div>
 
+            <div v-if="createForm.role === 'external'">
+              <label class="block text-xs font-medium text-gray-700 mb-1">Tipo</label>
+              <select
+                v-model="createForm.external_type"
+                class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+              >
+                <option value="perito">Perito</option>
+                <option value="carrozzeria">Carrozzeria</option>
+              </select>
+            </div>
+
             <button
               type="submit"
               :disabled="createForm.processing"
@@ -259,6 +270,17 @@
                 <p v-if="editForm.errors.role" class="text-xs text-red-600 mt-1">{{ editForm.errors.role }}</p>
               </div>
 
+              <div v-if="editForm.role === 'external'">
+                <label class="block text-xs font-medium text-gray-700 mb-1">Tipo</label>
+                <select
+                  v-model="editForm.external_type"
+                  class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                >
+                  <option value="perito">Perito</option>
+                  <option value="carrozzeria">Carrozzeria</option>
+                </select>
+              </div>
+
               <div class="flex items-center gap-3 pt-2">
                 <button
                   type="submit"
@@ -300,6 +322,7 @@ interface Member {
   name: string
   email: string
   role: string
+  external_type: string | null
   is_active: boolean
   created_at: string
 }
@@ -311,10 +334,11 @@ const authUserId = computed(() => page.props.auth.user.id)
 
 // ── Create form ───────────────────────────────────────────────────────────
 const createForm = useForm({
-  name:     '',
-  email:    '',
-  password: '',
-  role:     'user' as 'user' | 'tenant-admin' | 'external',
+  name:          '',
+  email:         '',
+  password:      '',
+  role:          'user' as 'user' | 'tenant-admin' | 'external',
+  external_type: 'perito' as 'perito' | 'carrozzeria',
 })
 
 function submitCreate() {
@@ -327,18 +351,20 @@ function submitCreate() {
 const editingMember = ref<Member | null>(null)
 
 const editForm = useForm({
-  name:     '',
-  email:    '',
-  password: '',
-  role:     'user' as 'user' | 'tenant-admin' | 'external',
+  name:          '',
+  email:         '',
+  password:      '',
+  role:          'user' as 'user' | 'tenant-admin' | 'external',
+  external_type: 'perito' as 'perito' | 'carrozzeria',
 })
 
 function openEdit(member: Member) {
-  editingMember.value  = member
-  editForm.name        = member.name
-  editForm.email       = member.email
-  editForm.password    = ''
-  editForm.role        = member.role as 'user' | 'tenant-admin' | 'external'
+  editingMember.value   = member
+  editForm.name         = member.name
+  editForm.email        = member.email
+  editForm.password     = ''
+  editForm.role         = member.role as 'user' | 'tenant-admin' | 'external'
+  editForm.external_type = (member.external_type ?? 'perito') as 'perito' | 'carrozzeria'
   editForm.clearErrors()
 }
 

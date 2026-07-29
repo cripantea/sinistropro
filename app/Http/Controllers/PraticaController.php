@@ -215,11 +215,13 @@ class PraticaController extends Controller
         $praticaModules = PraticaModule::where('pratica_id', $pratica->id)
             ->get(['id', 'module_template_id', 'values']);
 
-        $externalUsers = User::where('tenant_id', auth()->user()->tenant_id)
+        $externalBase = User::where('tenant_id', auth()->user()->tenant_id)
             ->where('role', 'external')
             ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'email']);
+            ->orderBy('name');
+
+        $periti      = (clone $externalBase)->where(fn ($q) => $q->where('external_type', 'perito')->orWhereNull('external_type'))->get(['id', 'name', 'email']);
+        $carrozzerie = (clone $externalBase)->where('external_type', 'carrozzeria')->get(['id', 'name', 'email']);
 
         $fieldDictionary = FieldDictionaryEntry::where('tenant_id', $tenantId)
             ->get(['key', 'source_type', 'source_field']);
@@ -229,7 +231,8 @@ class PraticaController extends Controller
             'categories'      => $enabledCategories,
             'moduleTemplates' => $moduleTemplates,
             'praticaModules'  => $praticaModules,
-            'externalUsers'   => $externalUsers,
+            'periti'          => $periti,
+            'carrozzerie'     => $carrozzerie,
             'fieldDictionary' => $fieldDictionary,
         ]);
     }

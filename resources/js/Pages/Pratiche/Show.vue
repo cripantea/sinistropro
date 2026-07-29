@@ -114,7 +114,7 @@
       </div>
 
       <!-- Perito / Carrozzeria -->
-      <div v-if="externalUsers.length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <div v-if="periti.length > 0 || carrozzerie.length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h3 class="text-sm font-semibold text-gray-700 mb-4">Perito / Carrozzeria</h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
@@ -127,7 +127,7 @@
               :disabled="ispezioneForm.processing"
             >
               <option :value="null">— Nessuno —</option>
-              <option v-for="u in externalUsers" :key="u.id" :value="u.id">{{ u.name }}</option>
+              <option v-for="u in periti" :key="u.id" :value="u.id">{{ u.name }}</option>
             </select>
           </div>
 
@@ -140,7 +140,7 @@
               :disabled="ispezioneForm.processing"
             >
               <option :value="null">— Nessuna —</option>
-              <option v-for="u in externalUsers" :key="u.id" :value="u.id">{{ u.name }}</option>
+              <option v-for="u in carrozzerie" :key="u.id" :value="u.id">{{ u.name }}</option>
             </select>
           </div>
         </div>
@@ -496,7 +496,8 @@ const props   = defineProps<{
   categories: DocumentCategory[]
   moduleTemplates: ModuleTemplate[]
   praticaModules: PraticaModule[]
-  externalUsers: ExternalUser[]
+  periti: ExternalUser[]
+  carrozzerie: ExternalUser[]
   fieldDictionary: DictEntry[]
 }>()
 const page    = usePage<PageProps>()

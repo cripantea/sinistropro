@@ -21,7 +21,7 @@ class TeamController extends Controller
             ->where('role', '!=', 'superadmin')
             ->orderByRaw("FIELD(role, 'tenant-admin', 'user', 'external')")
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'role', 'is_active', 'created_at']);
+            ->get(['id', 'name', 'email', 'role', 'external_type', 'is_active', 'created_at']);
 
         return Inertia::render('Team/Index', [
             'members' => $members,
@@ -34,10 +34,11 @@ class TeamController extends Controller
         abort_unless($authed->isTenantAdmin(), 403);
 
         $data = $request->validate([
-            'name'     => ['required', 'string', 'max:255'],
-            'email'    => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8'],
-            'role'     => ['required', Rule::in(['tenant-admin', 'user', 'external'])],
+            'name'          => ['required', 'string', 'max:255'],
+            'email'         => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password'      => ['required', 'string', 'min:8'],
+            'role'          => ['required', Rule::in(['tenant-admin', 'user', 'external'])],
+            'external_type' => ['nullable', Rule::in(['perito', 'carrozzeria'])],
         ]);
 
         User::create([
@@ -45,7 +46,8 @@ class TeamController extends Controller
             'email'             => $data['email'],
             'password'          => Hash::make($data['password']),
             'role'              => $data['role'],
-            'tenant_id'         => $authed->tenant_id, // forzato — mai dal request
+            'external_type'     => $data['role'] === 'external' ? ($data['external_type'] ?? 'perito') : null,
+            'tenant_id'         => $authed->tenant_id,
             'email_verified_at' => now(),
             'is_active'         => true,
         ]);
@@ -61,16 +63,18 @@ class TeamController extends Controller
         abort_unless($member->tenant_id === $authed->tenant_id, 403);
 
         $data = $request->validate([
-            'name'     => ['required', 'string', 'max:255'],
-            'email'    => ['required', 'email', 'max:255', Rule::unique('users')->ignore($member->id)],
-            'password' => ['nullable', 'string', 'min:8'],
-            'role'     => ['required', Rule::in(['tenant-admin', 'user', 'external'])],
+            'name'          => ['required', 'string', 'max:255'],
+            'email'         => ['required', 'email', 'max:255', Rule::unique('users')->ignore($member->id)],
+            'password'      => ['nullable', 'string', 'min:8'],
+            'role'          => ['required', Rule::in(['tenant-admin', 'user', 'external'])],
+            'external_type' => ['nullable', Rule::in(['perito', 'carrozzeria'])],
         ]);
 
         $updates = [
-            'name'  => $data['name'],
-            'email' => $data['email'],
-            'role'  => $data['role'],
+            'name'          => $data['name'],
+            'email'         => $data['email'],
+            'role'          => $data['role'],
+            'external_type' => $data['role'] === 'external' ? ($data['external_type'] ?? 'perito') : null,
         ];
 
         if (! empty($data['password'])) {
