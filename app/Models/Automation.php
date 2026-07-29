@@ -21,14 +21,18 @@ class Automation extends Model
         'watched_field',
         'channel',
         'recipient',
+        'recipients_to',
+        'recipients_cc',
         'message_template',
         'is_active',
         'requires_confirmation',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
+        'is_active'             => 'boolean',
         'requires_confirmation' => 'boolean',
+        'recipients_to'         => 'array',
+        'recipients_cc'         => 'array',
     ];
 
     public function tenant(): BelongsTo

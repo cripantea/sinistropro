@@ -10,6 +10,7 @@ use App\Models\DocumentCategory;
 use App\Models\FieldDictionaryEntry;
 use App\Models\ModuleTemplate;
 use App\Models\Tenant;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -99,6 +100,8 @@ class TenantController extends Controller
                 'watched_field'         => $a->watched_field,
                 'channel'               => $a->channel,
                 'recipient'             => $a->recipient,
+                'recipients_to'         => $a->recipients_to,
+                'recipients_cc'         => $a->recipients_cc,
                 'message_template'      => $a->message_template,
                 'is_active'             => $a->is_active,
                 'requires_confirmation' => $a->requires_confirmation,
@@ -131,6 +134,12 @@ class TenantController extends Controller
             ->orderBy('label')
             ->get(['id', 'key', 'label', 'type', 'source_type', 'source_field']);
 
+        $tenantUsers = User::where('tenant_id', $tenant->id)
+            ->where('role', '!=', 'superadmin')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'role']);
+
         return Inertia::render('Superadmin/Tenants/Edit', [
             'tenant'            => $tenant,
             'categoriesConfig'  => $categoriesConfig,
@@ -138,6 +147,7 @@ class TenantController extends Controller
             'allDocCategories'  => $allDocCategories,
             'moduleTemplates'   => $moduleTemplates,
             'fieldDictionary'   => $fieldDictionary,
+            'tenantUsers'       => $tenantUsers,
         ]);
     }
 

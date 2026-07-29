@@ -39,8 +39,6 @@ class ExecuteAutomationJob implements ShouldQueue
 
     public function handle(): void
     {
-        // Ricarica pratica con tutte le relazioni necessarie.
-        // auth() non è attivo nel worker → TenantScope è no-op, findOrFail funziona.
         $pratica = Pratica::with([
             'tenant',
             'utenteCreatore',
@@ -51,40 +49,96 @@ class ExecuteAutomationJob implements ShouldQueue
 
         $automation = $this->automation->loadMissing('documentCategories');
 
-        // 1. Risolvi destinatario
-        $recipient = $this->resolveRecipient($pratica, $automation->recipient);
+        // Carica gli utenti del tenant per risolvere i destinatari user
+        $tenantUsers = \App\Models\User::where('tenant_id', $pratica->tenant_id)
+            ->whereIn('id', $this->collectUserIds($automation))
+            ->get(['id', 'name', 'email'])
+            ->keyBy('id');
 
-        if (! $recipient['email'] && $automation->channel !== 'whatsapp') {
-            Log::warning('ExecuteAutomationJob: email destinatario non trovata, skip', [
+        // 1. Risolvi destinatari TO (nuovo sistema o legacy)
+        $recipientsTo = $this->resolveRecipientsTo($pratica, $automation, $tenantUsers);
+
+        if (empty($recipientsTo) && $automation->channel !== 'whatsapp') {
+            Log::warning('ExecuteAutomationJob: nessun destinatario TO trovato, skip', [
                 'pratica_id'    => $pratica->id,
                 'automation_id' => $automation->id,
-                'recipient'     => $automation->recipient,
             ]);
             return;
         }
 
-        // 2. Genera link S3 temporanei per i documenti delle categorie collegate
+        // 2. Risolvi CC
+        $ccEmails = $this->resolveCcEmails($automation, $tenantUsers);
+
+        // 3. Genera link S3
         $documentLinks = $this->generateDocumentLinks($pratica, $automation);
 
-        // 3. Compila il messaggio sostituendo i placeholder
-        $compiledMessage = $this->compileTemplate(
-            $automation->message_template,
-            $pratica,
-            $recipient,
-            $documentLinks
-        );
-
-        // 4. Spedisci sul canale configurato
-        $this->sendViaChannel($automation->channel, $recipient, $compiledMessage, $pratica, $documentLinks);
+        // 4. Invia a ogni destinatario TO
+        foreach ($recipientsTo as $recipient) {
+            $compiledMessage = $this->compileTemplate(
+                $automation->message_template,
+                $pratica,
+                $recipient,
+                $documentLinks
+            );
+            $this->sendViaChannel($automation->channel, $recipient, $compiledMessage, $pratica, $documentLinks, $ccEmails);
+        }
 
         Log::info('ExecuteAutomationJob: eseguito con successo', [
             'pratica_id'    => $pratica->id,
             'automation_id' => $automation->id,
-            'channel'       => $automation->channel,
-            'recipient'     => $automation->recipient,
-            'email_to'      => $recipient['email'],
-            'docs_count'    => count($documentLinks),
+            'to_count'      => count($recipientsTo),
+            'cc_count'      => count($ccEmails),
         ]);
+    }
+
+    private function collectUserIds(\App\Models\Automation $automation): array
+    {
+        $ids = [];
+        foreach ($automation->recipients_to ?? [] as $r) {
+            if (($r['type'] ?? '') === 'user' && isset($r['user_id'])) $ids[] = (int) $r['user_id'];
+        }
+        foreach ($automation->recipients_cc ?? [] as $r) {
+            if (isset($r['user_id'])) $ids[] = (int) $r['user_id'];
+        }
+        return array_unique($ids);
+    }
+
+    private function resolveRecipientsTo(Pratica $pratica, \App\Models\Automation $automation, \Illuminate\Support\Collection $users): array
+    {
+        $spec = $automation->recipients_to;
+
+        // Fallback al vecchio campo recipient
+        if (empty($spec)) {
+            $resolved = $this->resolveRecipient($pratica, $automation->recipient ?? 'cliente');
+            return $resolved['email'] ? [$resolved] : [];
+        }
+
+        $result = [];
+        foreach ($spec as $r) {
+            $type = $r['type'] ?? '';
+            if ($type === 'cliente') {
+                $resolved = $this->resolveCliente($pratica);
+                if ($resolved['email']) $result[] = $resolved;
+            } elseif ($type === 'user' && isset($r['user_id'])) {
+                $user = $users->get((int) $r['user_id']);
+                if ($user?->email) {
+                    $result[] = ['email' => $user->email, 'name' => $user->name, 'phone' => null];
+                }
+            }
+        }
+        return $result;
+    }
+
+    private function resolveCcEmails(\App\Models\Automation $automation, \Illuminate\Support\Collection $users): array
+    {
+        $emails = [];
+        foreach ($automation->recipients_cc ?? [] as $r) {
+            if (isset($r['user_id'])) {
+                $email = $users->get((int) $r['user_id'])?->email;
+                if ($email) $emails[] = $email;
+            }
+        }
+        return array_unique($emails);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -248,10 +302,11 @@ class ExecuteAutomationJob implements ShouldQueue
         array $recipient,
         string $compiledMessage,
         Pratica $pratica,
-        array $documentLinks
+        array $documentLinks,
+        array $ccEmails = []
     ): void {
         if (in_array($channel, ['email', 'both'], true)) {
-            $this->sendEmail($recipient, $compiledMessage, $pratica, $documentLinks);
+            $this->sendEmail($recipient, $compiledMessage, $pratica, $documentLinks, $ccEmails);
         }
 
         if (in_array($channel, ['whatsapp', 'both'], true)) {
@@ -259,7 +314,7 @@ class ExecuteAutomationJob implements ShouldQueue
         }
     }
 
-    private function sendEmail(array $recipient, string $compiledMessage, Pratica $pratica, array $documentLinks): void
+    private function sendEmail(array $recipient, string $compiledMessage, Pratica $pratica, array $documentLinks, array $ccEmails = []): void
     {
         if (! $recipient['email']) {
             Log::warning('ExecuteAutomationJob: email vuota, invio saltato', [
@@ -271,7 +326,12 @@ class ExecuteAutomationJob implements ShouldQueue
 
         $subject = "Sinistro #{$pratica->id} — {$pratica->currentStatus?->name}";
 
-        Mail::to($recipient['email'])->send(
+        $mail = Mail::to($recipient['email']);
+        if (! empty($ccEmails)) {
+            $mail->cc($ccEmails);
+        }
+
+        $mail->send(
             new AutomazioneNotificaMail(
                 emailSubject:  $subject,
                 compiledBody:  $compiledMessage,

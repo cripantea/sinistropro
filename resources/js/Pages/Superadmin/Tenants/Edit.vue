@@ -224,8 +224,9 @@
               <td class="px-4 py-3">
                 <span :class="channelBadgeClass(auto.channel)" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium">{{ channelLabel(auto.channel) }}</span>
               </td>
-              <td class="px-4 py-3">
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{{ recipientLabel(auto.recipient) }}</span>
+              <td class="px-4 py-3 max-w-[160px]">
+                <span class="text-xs text-slate-700 truncate block">{{ recipientsToLabel(auto) }}</span>
+                <span v-if="auto.recipients_cc && auto.recipients_cc.length > 0" class="text-xs text-slate-400">CC: {{ auto.recipients_cc.length }}</span>
               </td>
               <td class="px-4 py-3 text-center">
                 <span v-if="auto.requires_confirmation" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Richiesta</span>
@@ -450,24 +451,46 @@
                   </span>
                 </label>
 
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="field-label">Canale *</label>
-                    <select v-model="autoForm.channel" class="field-input">
-                      <option value="email">Email</option>
-                      <option value="whatsapp">WhatsApp</option>
-                      <option value="both">Email + WhatsApp</option>
-                    </select>
-                    <FieldError :message="autoForm.errors.channel" />
+                <div>
+                  <label class="field-label">Canale *</label>
+                  <select v-model="autoForm.channel" class="field-input">
+                    <option value="email">Email</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="both">Email + WhatsApp</option>
+                  </select>
+                  <FieldError :message="autoForm.errors.channel" />
+                </div>
+
+                <!-- Destinatari TO -->
+                <div>
+                  <label class="field-label">Destinatari (A) *</label>
+                  <div class="border border-slate-200 rounded-lg divide-y divide-slate-100 overflow-hidden">
+                    <!-- Cliente -->
+                    <label class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50 transition">
+                      <input type="checkbox" :checked="isToCliente()" @change="toggleToCliente()" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                      <span class="text-sm text-slate-700 font-medium">Cliente</span>
+                      <span class="text-xs text-slate-400 ml-auto">dinamico</span>
+                    </label>
+                    <!-- Utenti del team -->
+                    <label v-for="u in tenantUsers" :key="u.id" class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50 transition">
+                      <input type="checkbox" :checked="isToUser(u.id)" @change="toggleToUser(u.id)" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                      <span class="text-sm text-slate-700">{{ u.name }}</span>
+                      <span class="text-xs text-slate-400 ml-auto">{{ u.email }}</span>
+                    </label>
+                    <p v-if="tenantUsers.length === 0" class="px-3 py-2 text-xs text-slate-400 italic">Nessun utente nel team ancora.</p>
                   </div>
-                  <div>
-                    <label class="field-label">Destinatario *</label>
-                    <select v-model="autoForm.recipient" class="field-input">
-                      <option value="cliente">Cliente</option>
-                      <option value="perito">Perito</option>
-                      <option value="gestore">Gestore</option>
-                    </select>
-                    <FieldError :message="autoForm.errors.recipient" />
+                  <p v-if="autoForm.recipients_to.length === 0" class="text-xs text-amber-600 mt-1">Seleziona almeno un destinatario.</p>
+                </div>
+
+                <!-- CC (solo email) -->
+                <div v-if="autoForm.channel !== 'whatsapp' && tenantUsers.length > 0">
+                  <label class="field-label">CC <span class="font-normal text-slate-400">(opzionale)</span></label>
+                  <div class="border border-slate-200 rounded-lg divide-y divide-slate-100 overflow-hidden">
+                    <label v-for="u in tenantUsers" :key="u.id" class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50 transition">
+                      <input type="checkbox" :checked="isCcUser(u.id)" @change="toggleCcUser(u.id)" class="rounded border-slate-300 text-slate-500 focus:ring-slate-400" />
+                      <span class="text-sm text-slate-700">{{ u.name }}</span>
+                      <span class="text-xs text-slate-400 ml-auto">{{ u.email }}</span>
+                    </label>
                   </div>
                 </div>
 
@@ -935,12 +958,19 @@ interface StatusRow     { _uid: number; id?: number; name: string; color: string
 interface CategoryConfig { id: number; name: string; description: string | null; is_enabled: boolean; max_file_size_mb: number }
 interface DocCategory   { id: number; name: string }
 
+interface RecipientTo { type: 'cliente' | 'user'; user_id?: number }
+interface RecipientCc { type: 'user'; user_id: number }
+
+interface TenantUser { id: number; name: string; email: string; role: string }
+
 interface Automation {
   id: number; name: string
   trigger_type: 'status' | 'date_field'
   tenant_status_id: number | null
   watched_field: string | null
   channel: string; recipient: string
+  recipients_to: RecipientTo[] | null
+  recipients_cc: RecipientCc[] | null
   message_template: string; is_active: boolean; requires_confirmation: boolean
   document_category_ids: number[]
   status: { id: number; name: string; color: string } | null
@@ -987,6 +1017,7 @@ const props = defineProps<{
   allDocCategories: DocCategory[]
   moduleTemplates: ModuleTemplate[]
   fieldDictionary: DictEntry[]
+  tenantUsers: TenantUser[]
 }>()
 
 // ── UID counter (shared across all lists) ────────────────────────────────────
@@ -1087,7 +1118,8 @@ const autoForm = useForm({
   tenant_status_id:      null as number | null,
   watched_field:         null as string | null,
   channel:               'email' as string,
-  recipient:             'cliente' as string,
+  recipients_to:         [{ type: 'cliente' as const }] as RecipientTo[],
+  recipients_cc:         [] as RecipientCc[],
   message_template:      '' as string,
   document_category_ids: [] as number[],
   is_active:             true as boolean,
@@ -1097,6 +1129,8 @@ const autoForm = useForm({
 function openCreateAuto() {
   editingAutomation.value = null
   autoForm.reset()
+  autoForm.recipients_to         = [{ type: 'cliente' as const }]
+  autoForm.recipients_cc         = []
   autoForm.document_category_ids = []
   autoModalOpen.value = true
 }
@@ -1107,7 +1141,8 @@ function openEditAuto(auto: Automation) {
   autoForm.tenant_status_id      = auto.tenant_status_id
   autoForm.watched_field         = auto.watched_field
   autoForm.channel               = auto.channel
-  autoForm.recipient             = auto.recipient
+  autoForm.recipients_to         = auto.recipients_to ? [...auto.recipients_to] : legacyToRecipients(auto.recipient)
+  autoForm.recipients_cc         = auto.recipients_cc ? [...auto.recipients_cc] : []
   autoForm.message_template      = auto.message_template
   autoForm.document_category_ids = [...auto.document_category_ids]
   autoForm.is_active             = auto.is_active
@@ -1118,7 +1153,57 @@ function closeAutoModal() {
   autoModalOpen.value = false
   editingAutomation.value = null
   autoForm.reset()
+  autoForm.recipients_to         = [{ type: 'cliente' as const }]
+  autoForm.recipients_cc         = []
   autoForm.document_category_ids = []
+}
+
+function legacyToRecipients(r: string): RecipientTo[] {
+  if (r === 'cliente') return [{ type: 'cliente' }]
+  return []
+}
+
+// ── Helpers destinatari ──────────────────────────────────────────────────────
+
+function isToCliente(): boolean {
+  return autoForm.recipients_to.some(r => r.type === 'cliente')
+}
+function isToUser(id: number): boolean {
+  return autoForm.recipients_to.some(r => r.type === 'user' && r.user_id === id)
+}
+function isCcUser(id: number): boolean {
+  return autoForm.recipients_cc.some(r => r.user_id === id)
+}
+function toggleToCliente() {
+  if (isToCliente()) {
+    autoForm.recipients_to = autoForm.recipients_to.filter(r => r.type !== 'cliente')
+  } else {
+    autoForm.recipients_to = [...autoForm.recipients_to, { type: 'cliente' as const }]
+  }
+}
+function toggleToUser(id: number) {
+  if (isToUser(id)) {
+    autoForm.recipients_to = autoForm.recipients_to.filter(r => !(r.type === 'user' && r.user_id === id))
+  } else {
+    autoForm.recipients_to = [...autoForm.recipients_to, { type: 'user' as const, user_id: id }]
+  }
+}
+function toggleCcUser(id: number) {
+  if (isCcUser(id)) {
+    autoForm.recipients_cc = autoForm.recipients_cc.filter(r => r.user_id !== id)
+  } else {
+    autoForm.recipients_cc = [...autoForm.recipients_cc, { type: 'user' as const, user_id: id }]
+  }
+}
+
+function recipientsToLabel(auto: Automation): string {
+  const list = auto.recipients_to
+  if (!list || list.length === 0) return recipientLabel(auto.recipient)
+  return list.map(r => {
+    if (r.type === 'cliente') return 'Cliente'
+    const u = props.tenantUsers.find(u => u.id === r.user_id)
+    return u?.name ?? `Utente #${r.user_id}`
+  }).join(', ')
 }
 function toggleDocCategory(id: number, checked: boolean) {
   autoForm.document_category_ids = checked
