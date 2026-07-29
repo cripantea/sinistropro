@@ -16,7 +16,7 @@
 
         <!-- ── Lista membri ──────────────────────────────── -->
         <div class="lg:col-span-2 space-y-3">
-          <p class="text-sm text-gray-500 mb-1">{{ members.length }} membro{{ members.length !== 1 ? 'i' : '' }} nel team</p>
+          <p class="text-sm text-gray-500 mb-1">{{ members.length }} {{ members.length !== 1 ? 'membri' : 'membro' }} nel team</p>
 
           <div
             v-for="member in members"
