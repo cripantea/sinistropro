@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Pratica;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdatePraticaRequest extends FormRequest
 {
@@ -30,11 +31,17 @@ class UpdatePraticaRequest extends FormRequest
         ];
 
         foreach (auth()->user()->tenant?->getCustomFieldsSchema() ?? [] as $field) {
-            $rules['custom_fields.' . $field['name']] = [
+            $fieldRules = [
                 ($field['required'] ?? false) ? 'required' : 'nullable',
                 'string',
                 'max:1000',
             ];
+
+            if (($field['type'] ?? null) === 'select') {
+                $fieldRules[] = Rule::in($field['options'] ?? []);
+            }
+
+            $rules['custom_fields.' . $field['name']] = $fieldRules;
         }
 
         return $rules;
@@ -47,6 +54,9 @@ class UpdatePraticaRequest extends FormRequest
         foreach (auth()->user()->tenant?->getCustomFieldsSchema() ?? [] as $field) {
             if ($field['required'] ?? false) {
                 $messages['custom_fields.' . $field['name'] . '.required'] = "Il campo \"{$field['label']}\" è obbligatorio.";
+            }
+            if (($field['type'] ?? null) === 'select') {
+                $messages['custom_fields.' . $field['name'] . '.in'] = "Il campo \"{$field['label']}\" deve essere uno dei valori consentiti.";
             }
         }
 

@@ -43,24 +43,46 @@
         <div class="space-y-3">
           <TransitionGroup name="list" tag="div" class="space-y-3">
             <div v-for="(field, i) in form.custom_fields_schema" :key="field._uid" class="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-lg p-3">
-              <div class="grid grid-cols-3 gap-3 flex-1">
-                <div>
-                  <label class="field-label text-xs">Nome tecnico</label>
-                  <input v-model="field.name" type="text" class="field-input font-mono text-sm" @input="field.name = field.name.toLowerCase().replace(/[^a-z0-9_]/g, '_')" />
-                  <FieldError :message="form.errors[`custom_fields_schema.${i}.name`]" />
+              <div class="flex-1 space-y-3">
+                <div class="grid grid-cols-3 gap-3">
+                  <div>
+                    <label class="field-label text-xs">Nome tecnico</label>
+                    <input v-model="field.name" type="text" class="field-input font-mono text-sm" @input="field.name = field.name.toLowerCase().replace(/[^a-z0-9_]/g, '_')" />
+                    <FieldError :message="form.errors[`custom_fields_schema.${i}.name`]" />
+                  </div>
+                  <div>
+                    <label class="field-label text-xs">Etichetta</label>
+                    <input v-model="field.label" type="text" class="field-input" />
+                  </div>
+                  <div>
+                    <label class="field-label text-xs">Tipo</label>
+                    <select v-model="field.type" class="field-input">
+                      <option value="text">Testo</option>
+                      <option value="date">Data</option>
+                      <option value="number">Numero</option>
+                      <option value="boolean">Sì / No</option>
+                      <option value="select">Selezione (lista fissa)</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label class="field-label text-xs">Etichetta</label>
-                  <input v-model="field.label" type="text" class="field-input" />
-                </div>
-                <div>
-                  <label class="field-label text-xs">Tipo</label>
-                  <select v-model="field.type" class="field-input">
-                    <option value="text">Testo</option>
-                    <option value="date">Data</option>
-                    <option value="number">Numero</option>
-                    <option value="boolean">Sì / No</option>
-                  </select>
+
+                <!-- Opzioni: solo per il tipo "Selezione" -->
+                <div v-if="field.type === 'select'">
+                  <label class="field-label text-xs">Opzioni disponibili</label>
+                  <div class="space-y-1.5">
+                    <div v-for="(_opt, oi) in field.options" :key="oi" class="flex items-center gap-2">
+                      <input v-model="field.options[oi]" type="text" class="field-input text-sm py-1.5" placeholder="Valore opzione" />
+                      <button type="button" @click="removeOption(field, oi)" class="text-red-400 hover:text-red-600 transition p-1 shrink-0" title="Rimuovi opzione">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <button type="button" @click="addOption(field)" class="mt-1.5 inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    Aggiungi opzione
+                  </button>
+                  <p v-if="!field.options.length" class="text-xs text-amber-600 mt-1">Aggiungi almeno un'opzione.</p>
+                  <FieldError :message="form.errors[`custom_fields_schema.${i}.options`]" />
                 </div>
               </div>
               <label class="mt-5 flex items-center gap-1.5 text-xs text-slate-600 shrink-0 cursor-pointer" title="Il campo diventa obbligatorio nel form del sinistro">
@@ -908,7 +930,7 @@ import FieldCoordEditor from '@/Components/Superadmin/FieldCoordEditor.vue'
 
 // ── Interfaces ───────────────────────────────────────────────────────────────
 
-interface CustomField   { _uid: number; name: string; label: string; type: string; required: boolean }
+interface CustomField   { _uid: number; name: string; label: string; type: string; required: boolean; options: string[] }
 interface StatusRow     { _uid: number; id?: number; name: string; color: string; is_closed: boolean; is_initial: boolean; order: number }
 interface CategoryConfig { id: number; name: string; description: string | null; is_enabled: boolean; max_file_size_mb: number }
 interface DocCategory   { id: number; name: string }
@@ -1001,14 +1023,21 @@ watch(() => page.url, (url) => { activeTab.value = tabFromUrl(url) })
 const form = useForm({
   name:                 props.tenant.name,
   default_notice_days:  props.tenant.settings?.default_notice_days ?? 30,
-  custom_fields_schema: (props.tenant.settings?.custom_fields_schema ?? []).map(f => ({ ...f, _uid: uid() })) as CustomField[],
+  custom_fields_schema: (props.tenant.settings?.custom_fields_schema ?? []).map(f => ({ ...f, options: f.options ?? [], _uid: uid() })) as CustomField[],
   statuses:             (props.tenant.statuses ?? []).map(s => ({ ...s, _uid: uid() })) as StatusRow[],
 })
 
 const PALETTE = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#6B7280']
 
-function addField()             { form.custom_fields_schema.push({ _uid: uid(), name: '', label: '', type: 'text', required: false }) }
+function addField()             { form.custom_fields_schema.push({ _uid: uid(), name: '', label: '', type: 'text', required: false, options: [] }) }
 function removeField(i: number) { form.custom_fields_schema.splice(i, 1) }
+
+function addOption(field: CustomField) {
+  field.options.push('')
+}
+function removeOption(field: CustomField, i: number) {
+  field.options.splice(i, 1)
+}
 
 function addStatus() {
   const color = PALETTE[form.statuses.length % PALETTE.length]

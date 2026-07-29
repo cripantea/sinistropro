@@ -423,7 +423,7 @@ import PraticaChatPanel from '@/Components/Whatsapp/PraticaChatPanel.vue'
 import type { PageProps } from '@/types'
 
 // ----- Types -----
-interface FieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean'; required?: boolean; options?: string[] }
+interface FieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean' | 'select'; required?: boolean; options?: string[] }
 
 interface ModuleTemplate {
   id: number

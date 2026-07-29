@@ -22,14 +22,35 @@ class UpdateTenantRequest extends FormRequest
             'custom_fields_schema'          => ['nullable', 'array', 'max:20'],
             'custom_fields_schema.*.name'   => ['required', 'string', 'max:50', 'regex:/^[a-z][a-z0-9_]*$/'],
             'custom_fields_schema.*.label'  => ['required', 'string', 'max:100'],
-            'custom_fields_schema.*.type'   => ['required', 'in:text,date,number,boolean'],
+            'custom_fields_schema.*.type'   => ['required', 'in:text,date,number,boolean,select'],
             'custom_fields_schema.*.required' => ['boolean'],
+            'custom_fields_schema.*.options'   => [
+                'nullable',
+                'array',
+                function ($attribute, $value, $fail): void {
+                    preg_match('/^custom_fields_schema\.(\d+)\.options$/', $attribute, $matches);
+                    $type = $this->input("custom_fields_schema.{$matches[1]}.type");
+                    if ($type === 'select' && empty(array_filter($value ?? [], fn ($v) => trim((string) $v) !== ''))) {
+                        $fail('Aggiungi almeno un\'opzione per i campi di tipo "Selezione".');
+                    }
+                },
+            ],
+            'custom_fields_schema.*.options.*' => ['string', 'max:255'],
             'statuses'                      => ['nullable', 'array', 'max:20'],
             'statuses.*.id'                 => ['nullable', 'integer', 'exists:tenant_statuses,id'],
             'statuses.*.name'               => ['required', 'string', 'max:100'],
             'statuses.*.color'              => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'statuses.*.is_closed'          => ['boolean'],
             'statuses.*.is_initial'         => ['boolean'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'custom_fields_schema.*.name.regex' => 'Il nome del campo deve usare solo lettere minuscole, numeri e underscore.',
+            'custom_fields_schema.*.type.in'    => 'Tipo campo non valido (text, date, number, boolean, select).',
+            'statuses.*.color.regex'            => 'Il colore deve essere un hex valido (es. #3B82F6).',
         ];
     }
 }

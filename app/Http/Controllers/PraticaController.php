@@ -70,9 +70,9 @@ class PraticaController extends Controller
                 function (Builder $q) use ($filterFieldSchema, $filterValue): void {
                     $key = "custom_fields->{$filterFieldSchema['name']}";
                     match ($filterFieldSchema['type']) {
-                        'boolean'         => $q->where($key, '=', filter_var($filterValue, FILTER_VALIDATE_BOOLEAN)),
-                        'date', 'number'  => $q->where($key, '=', $filterValue),
-                        default           => $q->where($key, 'like', '%' . $filterValue . '%'),
+                        'boolean'                  => $q->where($key, '=', filter_var($filterValue, FILTER_VALIDATE_BOOLEAN)),
+                        'date', 'number', 'select' => $q->where($key, '=', $filterValue),
+                        default                    => $q->where($key, 'like', '%' . $filterValue . '%'),
                     };
                 }
             )
