@@ -36,6 +36,25 @@
 
     <div class="py-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
 
+      <!-- Nominativo cliente -->
+      <div v-if="pratica.cliente" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-center gap-4">
+        <div class="flex-shrink-0 w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-sm font-bold">
+          {{ initials(pratica.cliente.nome) }}
+        </div>
+        <div>
+          <span class="text-gray-400 text-xs uppercase tracking-wide">Cliente</span>
+          <p class="text-base font-semibold text-gray-900 mt-0.5">{{ pratica.cliente.nome }}</p>
+        </div>
+        <div v-if="pratica.cliente.telefono" class="ml-auto text-right">
+          <span class="text-gray-400 text-xs uppercase tracking-wide">Telefono</span>
+          <p class="text-sm font-medium text-gray-800 mt-0.5">{{ pratica.cliente.telefono }}</p>
+        </div>
+        <div v-if="pratica.cliente.email" :class="pratica.cliente.telefono ? '' : 'ml-auto'" class="text-right">
+          <span class="text-gray-400 text-xs uppercase tracking-wide">Email</span>
+          <p class="text-sm font-medium text-gray-800 mt-0.5">{{ pratica.cliente.email }}</p>
+        </div>
+      </div>
+
       <!-- Metadati essenziali -->
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -94,10 +113,10 @@
         </div>
       </div>
 
-      <!-- Ispezione / Perito assegnato -->
+      <!-- Perito / Carrozzeria -->
       <div v-if="externalUsers.length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-        <h3 class="text-sm font-semibold text-gray-700 mb-4">Sopralluogo / Perito</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <h3 class="text-sm font-semibold text-gray-700 mb-4">Perito / Carrozzeria</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
           <!-- Perito -->
           <div>
@@ -112,31 +131,21 @@
             </select>
           </div>
 
-          <!-- Data appuntamento -->
+          <!-- Carrozzeria -->
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Data appuntamento</label>
-            <input
-              v-model="ispezioneForm.data_appuntamento"
-              type="date"
+            <label class="block text-xs font-medium text-gray-600 mb-1">Carrozzeria</label>
+            <select
+              v-model="ispezioneForm.carrozzeria_user_id"
+              class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
               :disabled="ispezioneForm.processing"
-              class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:bg-gray-50"
-            />
-          </div>
-
-          <!-- Note -->
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Note sopralluogo</label>
-            <input
-              v-model="ispezioneForm.note_sopralluogo"
-              type="text"
-              placeholder="Es. accesso posteriore"
-              :disabled="ispezioneForm.processing"
-              class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:bg-gray-50"
-            />
+            >
+              <option :value="null">— Nessuna —</option>
+              <option v-for="u in externalUsers" :key="u.id" :value="u.id">{{ u.name }}</option>
+            </select>
           </div>
         </div>
 
-        <div class="flex items-center gap-3 mt-4">
+        <div class="flex items-center gap-4 mt-4">
           <button
             type="button"
             :disabled="ispezioneForm.processing"
@@ -146,11 +155,14 @@
             <svg v-if="ispezioneForm.processing" class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
             Salva
           </button>
-          <!-- Perito corrente -->
-          <span v-if="ispezione?.assegnatoa" class="text-xs text-gray-500">
-            Assegnato a <span class="font-medium text-gray-700">{{ ispezione.assegnatoa.name }}</span>
-            ({{ ispezione.assegnatoa.email }})
-          </span>
+          <div class="flex gap-4 text-xs text-gray-500">
+            <span v-if="ispezione?.assegnatoa">
+              Perito: <span class="font-medium text-gray-700">{{ ispezione.assegnatoa.name }}</span>
+            </span>
+            <span v-if="ispezione?.carrozzeria">
+              Carrozzeria: <span class="font-medium text-gray-700">{{ ispezione.carrozzeria.name }}</span>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -442,10 +454,10 @@ interface ExternalUser { id: number; name: string; email: string }
 interface Ispezione {
   id: number
   assegnato_a_user_id: number | null
-  data_appuntamento: string | null
-  note_sopralluogo: string | null
+  carrozzeria_user_id: number | null
   stato: string
   assegnatoa: ExternalUser | null
+  carrozzeria: ExternalUser | null
 }
 interface TenantStatus { id: number; name: string; color: string }
 interface Nota { id: number; nota: string; user: { id: number; name: string } | null; created_at: string }
@@ -519,10 +531,8 @@ const ispezione = computed<Ispezione | null>(() => props.pratica.ispezioni?.[0] 
 
 const ispezioneForm = useForm({
   assegnato_a_user_id: ispezione.value?.assegnato_a_user_id ?? null as number | null,
-  data_appuntamento:   ispezione.value?.data_appuntamento?.substring(0, 10) ?? '' as string,
-  note_sopralluogo:    ispezione.value?.note_sopralluogo ?? '' as string,
+  carrozzeria_user_id: ispezione.value?.carrozzeria_user_id ?? null as number | null,
 })
-const originalDataAppuntamento = ispezione.value?.data_appuntamento?.substring(0, 10) ?? ''
 
 interface AutomationSummary { id: number; name: string }
 const ispezioneAutomationConfirm = reactive({
@@ -530,38 +540,15 @@ const ispezioneAutomationConfirm = reactive({
   automations: [] as AutomationSummary[],
 })
 
-async function saveIspezione() {
-  if (ispezioneForm.data_appuntamento !== originalDataAppuntamento) {
-    try {
-      const resp = await axios.post<{ automations: AutomationSummary[] }>(
-        route('pratiche.automations.preview', props.pratica.id),
-        { date_fields: { data_appuntamento: ispezioneForm.data_appuntamento } }
-      )
-      if (resp.data.automations.length > 0) {
-        ispezioneAutomationConfirm.automations = resp.data.automations
-        ispezioneAutomationConfirm.open = true
-        return
-      }
-    } catch {
-      // Se la verifica automazioni fallisce, procedi comunque con il salvataggio normale.
-    }
-  }
-  doSaveIspezione(false)
-}
-
-function doSaveIspezione(skip: boolean) {
-  ispezioneForm
-    .transform(data => ({ ...data, skip_confirmable_automations: skip }))
-    .post(route('ispezioni.store', props.pratica.id), { preserveScroll: true })
+function saveIspezione() {
+  ispezioneForm.post(route('ispezioni.store', props.pratica.id), { preserveScroll: true })
 }
 
 function onIspezioneConfirmAccept() {
   ispezioneAutomationConfirm.open = false
-  doSaveIspezione(false)
 }
 function onIspezioneConfirmBlockAutomations() {
   ispezioneAutomationConfirm.open = false
-  doSaveIspezione(true)
 }
 function onIspezioneConfirmBlockAction() {
   ispezioneAutomationConfirm.open = false

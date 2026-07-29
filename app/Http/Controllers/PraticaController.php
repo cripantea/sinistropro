@@ -188,6 +188,7 @@ class PraticaController extends Controller
             'note.user:id,name',
             'allegati.category:id,name',
             'ispezioni.assegnatoa:id,name,email',
+            'ispezioni.carrozzeria:id,name,email',
         ]);
 
         $pratica->logView();

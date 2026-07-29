@@ -16,6 +16,7 @@ class Ispezione extends Model
         'tenant_id',
         'pratica_id',
         'assegnato_a_user_id',
+        'carrozzeria_user_id',
         'stato',
         'data_appuntamento',
         'note_sopralluogo',
@@ -40,5 +41,10 @@ class Ispezione extends Model
     public function assegnatoa(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assegnato_a_user_id');
+    }
+
+    public function carrozzeria(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'carrozzeria_user_id');
     }
 }

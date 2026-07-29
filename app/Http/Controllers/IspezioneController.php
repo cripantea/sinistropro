@@ -30,28 +30,36 @@ class IspezioneController extends Controller
         $data = $request->validate([
             'current_status_id'    => ['nullable', 'integer', 'exists:tenant_statuses,id'],
             'assegnato_a_user_id'  => ['nullable', 'integer', Rule::exists('users', 'id')->where('tenant_id', $user->tenant_id)->where('role', 'external')],
+            'carrozzeria_user_id'  => ['nullable', 'integer', Rule::exists('users', 'id')->where('tenant_id', $user->tenant_id)->where('role', 'external')],
             'data_appuntamento'    => ['nullable', 'date'],
             'note_sopralluogo'     => ['nullable', 'string', 'max:2000'],
         ]);
 
         $skip = $request->boolean('skip_confirmable_automations', false);
 
-        $oldStatusId          = $pratica->current_status_id;
-        $oldDataAppuntamento  = (string) ($pratica->ispezioni->first()?->data_appuntamento?->format('Y-m-d') ?? '');
-        $newDataAppuntamento  = (string) ($data['data_appuntamento'] ?? '');
+        $oldStatusId = $pratica->current_status_id;
 
-        DB::transaction(function () use ($pratica, $data, $user): void {
+        DB::transaction(function () use ($pratica, $data, $request, $user): void {
+            $update = [
+                'assegnato_a_user_id' => $data['assegnato_a_user_id'] ?? null,
+                'carrozzeria_user_id' => $data['carrozzeria_user_id'] ?? null,
+                'stato'               => 'pianificata',
+            ];
+
+            // Aggiorna data e note solo se esplicitamente incluse nella richiesta
+            if ($request->has('data_appuntamento')) {
+                $update['data_appuntamento'] = $data['data_appuntamento'] ?? null;
+            }
+            if ($request->has('note_sopralluogo')) {
+                $update['note_sopralluogo'] = $data['note_sopralluogo'] ?? null;
+            }
+
             Ispezione::updateOrCreate(
                 [
                     'tenant_id'  => $user->tenant_id,
                     'pratica_id' => $pratica->id,
                 ],
-                [
-                    'assegnato_a_user_id' => $data['assegnato_a_user_id'] ?? null,
-                    'data_appuntamento'   => $data['data_appuntamento'] ?? null,
-                    'note_sopralluogo'    => $data['note_sopralluogo'] ?? null,
-                    'stato'               => 'pianificata',
-                ]
+                $update
             );
 
             // Aggiorna stato pratica solo se esplicitamente richiesto (Kanban)
@@ -64,11 +72,6 @@ class IspezioneController extends Controller
         $newStatusId = $data['current_status_id'] ?? null;
         if ($newStatusId && $newStatusId != $oldStatusId) {
             event(new PraticaStatoAggiornato($pratica, $oldStatusId, $newStatusId, $skip));
-        }
-
-        // Event-driven: lancia il sistema Automazioni se la data della perizia è cambiata.
-        if ($oldDataAppuntamento !== $newDataAppuntamento) {
-            event(new PraticaCampoDataAggiornato($pratica, 'data_appuntamento', $skip));
         }
 
         if ($request->expectsJson()) {
