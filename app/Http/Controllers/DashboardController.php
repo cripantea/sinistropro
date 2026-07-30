@@ -4,13 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Pratica;
 use App\Models\TenantStatus;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): Response
+    public function __invoke(): Response|RedirectResponse
     {
         $user     = auth()->user();
         $tenantId = $user->tenant_id;
