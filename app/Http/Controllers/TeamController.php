@@ -38,7 +38,7 @@ class TeamController extends Controller
             'email'         => ['required', 'email', 'max:255', 'unique:users,email'],
             'password'      => ['required', 'string', 'min:8'],
             'role'          => ['required', Rule::in(['tenant-admin', 'user', 'external'])],
-            'external_type' => ['nullable', Rule::in(['perito', 'carrozzeria'])],
+            'external_type' => ['nullable', Rule::in(['perito', 'carrozzeria', 'altro'])],
         ]);
 
         User::create([
@@ -67,7 +67,7 @@ class TeamController extends Controller
             'email'         => ['required', 'email', 'max:255', Rule::unique('users')->ignore($member->id)],
             'password'      => ['nullable', 'string', 'min:8'],
             'role'          => ['required', Rule::in(['tenant-admin', 'user', 'external'])],
-            'external_type' => ['nullable', Rule::in(['perito', 'carrozzeria'])],
+            'external_type' => ['nullable', Rule::in(['perito', 'carrozzeria', 'altro'])],
         ]);
 
         $updates = [

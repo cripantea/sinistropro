@@ -155,6 +155,7 @@
               >
                 <option value="perito">Perito</option>
                 <option value="carrozzeria">Carrozzeria</option>
+                <option value="altro">Altro</option>
               </select>
             </div>
 
@@ -278,6 +279,7 @@
                 >
                   <option value="perito">Perito</option>
                   <option value="carrozzeria">Carrozzeria</option>
+                  <option value="altro">Altro</option>
                 </select>
               </div>
 
@@ -338,7 +340,7 @@ const createForm = useForm({
   email:         '',
   password:      '',
   role:          'user' as 'user' | 'tenant-admin' | 'external',
-  external_type: 'perito' as 'perito' | 'carrozzeria',
+  external_type: 'perito' as 'perito' | 'carrozzeria' | 'altro',
 })
 
 function submitCreate() {
@@ -355,7 +357,7 @@ const editForm = useForm({
   email:         '',
   password:      '',
   role:          'user' as 'user' | 'tenant-admin' | 'external',
-  external_type: 'perito' as 'perito' | 'carrozzeria',
+  external_type: 'perito' as 'perito' | 'carrozzeria' | 'altro',
 })
 
 function openEdit(member: Member) {
@@ -364,7 +366,7 @@ function openEdit(member: Member) {
   editForm.email        = member.email
   editForm.password     = ''
   editForm.role         = member.role as 'user' | 'tenant-admin' | 'external'
-  editForm.external_type = (member.external_type ?? 'perito') as 'perito' | 'carrozzeria'
+  editForm.external_type = (member.external_type ?? 'perito') as 'perito' | 'carrozzeria' | 'altro'
   editForm.clearErrors()
 }
 
