@@ -104,7 +104,7 @@ class AutomationController extends Controller
             'channel'                    => ['required', Rule::in(['email', 'whatsapp', 'both'])],
             'recipient'                  => ['nullable', Rule::in(['cliente', 'perito', 'gestore'])],
             'recipients_to'              => ['nullable', 'array'],
-            'recipients_to.*.type'       => ['required', Rule::in(['cliente', 'user'])],
+            'recipients_to.*.type'       => ['required', Rule::in(['cliente', 'carrozzeria', 'user'])],
             'recipients_to.*.user_id'    => ['nullable', 'integer', 'exists:users,id'],
             'recipients_cc'              => ['nullable', 'array'],
             'recipients_cc.*.type'       => ['required', Rule::in(['user'])],

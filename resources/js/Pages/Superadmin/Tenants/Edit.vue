@@ -568,6 +568,12 @@
                       <span class="text-sm text-slate-700 font-medium">Cliente</span>
                       <span class="text-xs text-slate-400 ml-auto">dinamico</span>
                     </label>
+                    <!-- Carrozzeria (assegnata alla pratica) -->
+                    <label class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50 transition">
+                      <input type="checkbox" :checked="isToCarrozzeria()" @change="toggleToCarrozzeria()" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                      <span class="text-sm text-slate-700 font-medium">Carrozzeria</span>
+                      <span class="text-xs text-slate-400 ml-auto">dinamico</span>
+                    </label>
                     <!-- Utenti del team -->
                     <label v-for="u in tenantUsers" :key="u.id" class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50 transition">
                       <input type="checkbox" :checked="isToUser(u.id)" @change="toggleToUser(u.id)" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
@@ -1055,7 +1061,7 @@ interface StatusRow     { _uid: number; id?: number; name: string; color: string
 interface CategoryConfig { id: number; name: string; description: string | null; is_enabled: boolean; max_file_size_mb: number }
 interface DocCategory   { id: number; name: string }
 
-interface RecipientTo { type: 'cliente' | 'user'; user_id?: number }
+interface RecipientTo { type: 'cliente' | 'carrozzeria' | 'user'; user_id?: number }
 interface RecipientCc { type: 'user'; user_id: number }
 
 interface TenantUser { id: number; name: string; email: string; role: string }
@@ -1273,6 +1279,9 @@ function legacyToRecipients(r: string): RecipientTo[] {
 function isToCliente(): boolean {
   return autoForm.recipients_to.some(r => r.type === 'cliente')
 }
+function isToCarrozzeria(): boolean {
+  return autoForm.recipients_to.some(r => r.type === 'carrozzeria')
+}
 function isToUser(id: number): boolean {
   return autoForm.recipients_to.some(r => r.type === 'user' && r.user_id === id)
 }
@@ -1284,6 +1293,13 @@ function toggleToCliente() {
     autoForm.recipients_to = autoForm.recipients_to.filter(r => r.type !== 'cliente')
   } else {
     autoForm.recipients_to = [...autoForm.recipients_to, { type: 'cliente' as const }]
+  }
+}
+function toggleToCarrozzeria() {
+  if (isToCarrozzeria()) {
+    autoForm.recipients_to = autoForm.recipients_to.filter(r => r.type !== 'carrozzeria')
+  } else {
+    autoForm.recipients_to = [...autoForm.recipients_to, { type: 'carrozzeria' as const }]
   }
 }
 function toggleToUser(id: number) {
@@ -1306,6 +1322,7 @@ function recipientsToLabel(auto: Automation): string {
   if (!list || list.length === 0) return recipientLabel(auto.recipient)
   return list.map(r => {
     if (r.type === 'cliente') return 'Cliente'
+    if (r.type === 'carrozzeria') return 'Carrozzeria'
     const u = props.tenantUsers.find(u => u.id === r.user_id)
     return u?.name ?? `Utente #${r.user_id}`
   }).join(', ')

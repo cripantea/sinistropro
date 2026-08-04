@@ -44,7 +44,7 @@ class ExecuteAutomationJob implements ShouldQueue
             'utenteCreatore',
             'currentStatus',
             'allegati',
-            'ispezioni' => fn ($q) => $q->latest()->limit(1)->with('assegnatoa'),
+            'ispezioni' => fn ($q) => $q->latest()->limit(1)->with(['assegnatoa', 'carrozzeria']),
         ])->findOrFail($this->pratica->id);
 
         $automation = $this->automation->loadMissing('documentCategories');
@@ -119,6 +119,9 @@ class ExecuteAutomationJob implements ShouldQueue
             if ($type === 'cliente') {
                 $resolved = $this->resolveCliente($pratica);
                 if ($resolved['email']) $result[] = $resolved;
+            } elseif ($type === 'carrozzeria') {
+                $resolved = $this->resolveCarrozzeria($pratica);
+                if ($resolved['email']) $result[] = $resolved;
             } elseif ($type === 'user' && isset($r['user_id'])) {
                 $user = $users->get((int) $r['user_id']);
                 if ($user?->email) {
@@ -151,10 +154,11 @@ class ExecuteAutomationJob implements ShouldQueue
     private function resolveRecipient(Pratica $pratica, string $recipient): array
     {
         return match ($recipient) {
-            'cliente' => $this->resolveCliente($pratica),
-            'gestore' => $this->resolveGestore($pratica),
-            'perito'  => $this->resolvePerito($pratica),
-            default   => ['email' => null, 'phone' => null, 'name' => null],
+            'cliente'     => $this->resolveCliente($pratica),
+            'gestore'     => $this->resolveGestore($pratica),
+            'perito'      => $this->resolvePerito($pratica),
+            'carrozzeria' => $this->resolveCarrozzeria($pratica),
+            default       => ['email' => null, 'phone' => null, 'name' => null],
         };
     }
 
@@ -193,6 +197,22 @@ class ExecuteAutomationJob implements ShouldQueue
             'email' => $perito?->email,
             'phone' => null, // Il modello User non ha un campo telefono
             'name'  => $perito?->name,
+        ];
+    }
+
+    private function resolveCarrozzeria(Pratica $pratica): array
+    {
+        // Usa l'ispezione più recente con una carrozzeria assegnata
+        $ispezione = $pratica->ispezioni
+            ->whereNotNull('carrozzeria_user_id')
+            ->first();
+
+        $carrozzeria = $ispezione?->carrozzeria;
+
+        return [
+            'email' => $carrozzeria?->email,
+            'phone' => null, // Il modello User non ha un campo telefono
+            'name'  => $carrozzeria?->name,
         ];
     }
 
