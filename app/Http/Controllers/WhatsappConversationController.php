@@ -13,11 +13,10 @@ class WhatsappConversationController extends Controller
 {
     /** Stesse convenzioni di nome campo usate nel resto dell'app (Automazioni, mockup wa.me). */
     private const PHONE_KEYS = ['telefono', 'tel', 'phone', 'cellulare', 'mobile', 'numero_tel'];
-    private const NAME_KEYS  = ['nome', 'cliente', 'contraente', 'assicurato', 'nominativo'];
 
-    public function __construct(private WhatsappCloudApiClient $client)
-    {
-    }
+    private const NAME_KEYS = ['nome', 'cliente', 'contraente', 'assicurato', 'nominativo'];
+
+    public function __construct(private WhatsappCloudApiClient $client) {}
 
     /**
      * Risolve (creando se necessario) la conversazione WhatsApp collegata al
@@ -37,16 +36,16 @@ class WhatsappConversationController extends Controller
 
         if (! $phoneNumber) {
             return response()->json([
-                'phoneNumber'      => null,
+                'phoneNumber' => null,
                 'sessionConnected' => $sessionConnected,
-                'conversation'     => null,
+                'conversation' => null,
             ]);
         }
 
         $conversation = WhatsappConversation::firstOrCreate(
             ['tenant_id' => $authed->tenant_id, 'phone_number' => $phoneNumber],
             [
-                'pratica_id'   => $pratica->id,
+                'pratica_id' => $pratica->id,
                 'contact_name' => $this->extractValue($fields, self::NAME_KEYS),
             ]
         );
@@ -56,9 +55,9 @@ class WhatsappConversationController extends Controller
         }
 
         return response()->json([
-            'phoneNumber'      => $phoneNumber,
+            'phoneNumber' => $phoneNumber,
             'sessionConnected' => $sessionConnected,
-            'conversation'     => $this->conversationPayload($conversation),
+            'conversation' => $this->conversationPayload($conversation),
         ]);
     }
 
@@ -72,6 +71,7 @@ class WhatsappConversationController extends Controller
                 }
             }
         }
+
         return null;
     }
 
@@ -90,7 +90,7 @@ class WhatsappConversationController extends Controller
         // (es. 3331234567), mentre WhatsApp usa sempre il formato internazionale
         // (393331234567): senza normalizzare, il numero non combacerebbe mai.
         if (strlen($digits) <= 10 && ! str_starts_with($digits, '39')) {
-            $digits = '39' . $digits;
+            $digits = '39'.$digits;
         }
 
         return $digits;
@@ -135,20 +135,21 @@ class WhatsappConversationController extends Controller
         $session = WhatsappSession::where('tenant_id', $authed->tenant_id)->where('status', 'active')->first();
         abort_unless($session, 409, 'Nessun numero WhatsApp collegato per questo tenant.');
 
-        $result = $this->client->sendText($session->phone_number_id, $conversation->phone_number, $data['body']);
+        $result = $this->client->sendText($session, $conversation->phone_number, $data['body']);
         $waMessageId = $result['messages'][0]['id'] ?? null;
 
         $message = $conversation->messages()->create([
-            'tenant_id'     => $authed->tenant_id,
-            'user_id'       => $authed->id,
-            'direction'     => 'outbound',
-            'body'          => $data['body'],
+            'tenant_id' => $authed->tenant_id,
+            'user_id' => $authed->id,
+            'direction' => 'outbound',
+            'body' => $data['body'],
             'wa_message_id' => $waMessageId,
-            'status'        => $waMessageId ? 'sent' : 'failed',
+            'wa_timestamp' => now(),
+            'status' => $waMessageId ? 'sent' : 'failed',
         ]);
 
         $conversation->update([
-            'last_message_at'      => now(),
+            'last_message_at' => now(),
             'last_message_preview' => str($data['body'])->limit(200)->toString(),
         ]);
 
@@ -158,24 +159,25 @@ class WhatsappConversationController extends Controller
     private function conversationPayload(WhatsappConversation $c): array
     {
         return [
-            'id'                 => $c->id,
-            'phoneNumber'        => $c->phone_number,
-            'contactName'        => $c->contact_name,
+            'id' => $c->id,
+            'phoneNumber' => $c->phone_number,
+            'contactName' => $c->contact_name,
             'lastMessagePreview' => $c->last_message_preview,
-            'lastMessageAt'      => $c->last_message_at?->toIso8601String(),
-            'unreadCount'        => $c->unread_count,
+            'lastMessageAt' => $c->last_message_at?->toIso8601String(),
+            'unreadCount' => $c->unread_count,
         ];
     }
 
     private function messagePayload($m): array
     {
         return [
-            'id'        => $m->id,
+            'id' => $m->id,
             'direction' => $m->direction,
-            'body'      => $m->body,
+            'source' => $m->source,
+            'body' => $m->body,
             'mediaType' => $m->media_type,
-            'status'    => $m->status,
-            'userName'  => $m->user?->name,
+            'status' => $m->status,
+            'userName' => $m->user?->name,
             'createdAt' => $m->created_at?->toIso8601String(),
         ];
     }

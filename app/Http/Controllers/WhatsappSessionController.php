@@ -19,6 +19,9 @@ class WhatsappSessionController extends Controller
                 'status'      => $session?->status ?? 'pending',
                 'phoneNumber' => $session?->display_phone_number,
             ],
+            'facebookAppId'          => config('services.facebook.app_id'),
+            'facebookGraphVersion'   => config('services.facebook.graph_version'),
+            'embeddedSignupConfigId' => config('services.facebook.embedded_signup_config_id'),
         ]);
     }
 }

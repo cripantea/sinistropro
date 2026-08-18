@@ -39,6 +39,8 @@ class WhatsappConversation extends Model
 
     public function messages(): HasMany
     {
-        return $this->hasMany(WhatsappMessage::class)->orderBy('created_at');
+        return $this->hasMany(WhatsappMessage::class)
+            ->orderBy('wa_timestamp')
+            ->orderBy('created_at');
     }
 }

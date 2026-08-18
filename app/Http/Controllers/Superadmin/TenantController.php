@@ -40,9 +40,9 @@ class TenantController extends Controller
     {
         $tenant = DB::transaction(function () use ($request): Tenant {
             $tenant = Tenant::create([
-                'name'     => $request->name,
+                'name' => $request->name,
                 'settings' => [
-                    'default_notice_days'  => $request->integer('default_notice_days'),
+                    'default_notice_days' => $request->integer('default_notice_days'),
                     'custom_fields_schema' => $request->input('custom_fields_schema', []),
                 ],
             ]);
@@ -54,11 +54,11 @@ class TenantController extends Controller
                 $initialAssigned = $initialAssigned || $isInitial;
 
                 $tenant->statuses()->create([
-                    'name'       => $statusData['name'],
-                    'color'      => $statusData['color'],
-                    'is_closed'  => (bool) ($statusData['is_closed'] ?? false),
+                    'name' => $statusData['name'],
+                    'color' => $statusData['color'],
+                    'is_closed' => (bool) ($statusData['is_closed'] ?? false),
                     'is_initial' => $isInitial,
-                    'order'      => $i,
+                    'order' => $i,
                 ]);
             }
 
@@ -74,17 +74,17 @@ class TenantController extends Controller
     {
         $tenant->load('statuses');
 
-        $allCats   = DocumentCategory::orderBy('name')->get(['id', 'name', 'description']);
+        $allCats = DocumentCategory::orderBy('name')->get(['id', 'name', 'description']);
         $pivotRows = DB::table('tenant_document_categories')
             ->where('tenant_id', $tenant->id)
             ->get()
             ->keyBy('document_category_id');
 
         $categoriesConfig = $allCats->map(fn ($cat) => [
-            'id'              => $cat->id,
-            'name'            => $cat->name,
-            'description'     => $cat->description,
-            'is_enabled'      => $pivotRows->has($cat->id) ? (bool) $pivotRows[$cat->id]->is_enabled : true,
+            'id' => $cat->id,
+            'name' => $cat->name,
+            'description' => $cat->description,
+            'is_enabled' => $pivotRows->has($cat->id) ? (bool) $pivotRows[$cat->id]->is_enabled : true,
             'max_file_size_mb' => $pivotRows->has($cat->id) ? (int) $pivotRows[$cat->id]->max_file_size_mb : 50,
         ])->values();
 
@@ -93,20 +93,20 @@ class TenantController extends Controller
             ->orderBy('name')
             ->get()
             ->map(fn ($a) => [
-                'id'                    => $a->id,
-                'name'                  => $a->name,
-                'trigger_type'          => $a->trigger_type,
-                'tenant_status_id'      => $a->tenant_status_id,
-                'watched_field'         => $a->watched_field,
-                'channel'               => $a->channel,
-                'recipient'             => $a->recipient,
-                'recipients_to'         => $a->recipients_to,
-                'recipients_cc'         => $a->recipients_cc,
-                'message_template'      => $a->message_template,
-                'is_active'             => $a->is_active,
+                'id' => $a->id,
+                'name' => $a->name,
+                'trigger_type' => $a->trigger_type,
+                'tenant_status_id' => $a->tenant_status_id,
+                'watched_field' => $a->watched_field,
+                'channel' => $a->channel,
+                'recipient' => $a->recipient,
+                'recipients_to' => $a->recipients_to,
+                'recipients_cc' => $a->recipients_cc,
+                'message_template' => $a->message_template,
+                'is_active' => $a->is_active,
                 'requires_confirmation' => $a->requires_confirmation,
                 'document_category_ids' => $a->documentCategories->pluck('id')->all(),
-                'status'                => $a->status
+                'status' => $a->status
                     ? ['id' => $a->status->id, 'name' => $a->status->name, 'color' => $a->status->color]
                     : null,
             ])
@@ -119,12 +119,12 @@ class TenantController extends Controller
             ->orderBy('name')
             ->get()
             ->map(fn ($t) => [
-                'id'                          => $t->id,
-                'name'                        => $t->name,
-                'pdf_template_s3_key'         => $t->pdf_template_s3_key,
+                'id' => $t->id,
+                'name' => $t->name,
+                'pdf_template_s3_key' => $t->pdf_template_s3_key,
                 'output_document_category_id' => $t->output_document_category_id,
-                'fields_schema'               => $t->fields_schema ?? [],
-                'output_category'             => $t->outputCategory
+                'fields_schema' => $t->fields_schema ?? [],
+                'output_category' => $t->outputCategory
                     ? ['id' => $t->outputCategory->id, 'name' => $t->outputCategory->name]
                     : null,
             ])
@@ -141,25 +141,36 @@ class TenantController extends Controller
             ->get(['id', 'name', 'email', 'role']);
 
         $mailSettings = $tenant->mailSettings;
+        $whatsappSession = $tenant->whatsappSession;
 
         return Inertia::render('Superadmin/Tenants/Edit', [
-            'tenant'            => $tenant,
-            'categoriesConfig'  => $categoriesConfig,
-            'automations'       => $automations,
-            'allDocCategories'  => $allDocCategories,
-            'moduleTemplates'   => $moduleTemplates,
-            'fieldDictionary'   => $fieldDictionary,
-            'tenantUsers'       => $tenantUsers,
+            'tenant' => $tenant,
+            'categoriesConfig' => $categoriesConfig,
+            'automations' => $automations,
+            'allDocCategories' => $allDocCategories,
+            'moduleTemplates' => $moduleTemplates,
+            'fieldDictionary' => $fieldDictionary,
+            'tenantUsers' => $tenantUsers,
             // La password non arriva mai al frontend: solo un flag "già configurata".
-            'mailSettings'      => $mailSettings ? [
-                'host'         => $mailSettings->host,
-                'port'         => $mailSettings->port,
-                'username'     => $mailSettings->username,
+            'mailSettings' => $mailSettings ? [
+                'host' => $mailSettings->host,
+                'port' => $mailSettings->port,
+                'username' => $mailSettings->username,
                 'has_password' => ! empty($mailSettings->password),
-                'encryption'   => $mailSettings->encryption,
+                'encryption' => $mailSettings->encryption,
                 'from_address' => $mailSettings->from_address,
-                'from_name'    => $mailSettings->from_name,
-                'is_active'    => $mailSettings->is_active,
+                'from_name' => $mailSettings->from_name,
+                'is_active' => $mailSettings->is_active,
+            ] : null,
+            // access_token non arriva mai al frontend: escluso già a livello di modello ($hidden).
+            'whatsappSession' => $whatsappSession ? [
+                'status' => $whatsappSession->status,
+                'displayPhoneNumber' => $whatsappSession->display_phone_number,
+                'wabaId' => $whatsappSession->waba_id,
+                'historySyncStatus' => $whatsappSession->history_sync_status,
+                'lastEventAt' => $whatsappSession->last_event_at?->toIso8601String(),
+                'disconnectionReason' => $whatsappSession->disconnection_reason,
+                'connectedByUserName' => $whatsappSession->connectedByUser?->name,
             ] : null,
         ]);
     }
@@ -167,16 +178,16 @@ class TenantController extends Controller
     public function syncDocumentCategories(Request $request, Tenant $tenant): RedirectResponse
     {
         $data = $request->validate([
-            'categories'                  => ['required', 'array'],
-            'categories.*.id'             => ['required', 'integer', 'exists:document_categories,id'],
-            'categories.*.is_enabled'     => ['required', 'boolean'],
+            'categories' => ['required', 'array'],
+            'categories.*.id' => ['required', 'integer', 'exists:document_categories,id'],
+            'categories.*.is_enabled' => ['required', 'boolean'],
             'categories.*.max_file_size_mb' => ['required', 'integer', 'min:1', 'max:500'],
         ]);
 
         $syncPayload = [];
         foreach ($data['categories'] as $cat) {
             $syncPayload[$cat['id']] = [
-                'is_enabled'       => $cat['is_enabled'],
+                'is_enabled' => $cat['is_enabled'],
                 'max_file_size_mb' => $cat['max_file_size_mb'],
             ];
         }
@@ -191,9 +202,9 @@ class TenantController extends Controller
     {
         DB::transaction(function () use ($request, $tenant): void {
             $tenant->update([
-                'name'     => $request->name,
+                'name' => $request->name,
                 'settings' => [
-                    'default_notice_days'  => $request->integer('default_notice_days'),
+                    'default_notice_days' => $request->integer('default_notice_days'),
                     'custom_fields_schema' => $request->input('custom_fields_schema', []),
                 ],
             ]);
@@ -216,11 +227,11 @@ class TenantController extends Controller
                 $tenant->statuses()->updateOrCreate(
                     ['id' => $statusData['id'] ?? null],
                     [
-                        'name'       => $statusData['name'],
-                        'color'      => $statusData['color'],
-                        'is_closed'  => (bool) ($statusData['is_closed'] ?? false),
+                        'name' => $statusData['name'],
+                        'color' => $statusData['color'],
+                        'is_closed' => (bool) ($statusData['is_closed'] ?? false),
                         'is_initial' => $isInitial,
-                        'order'      => $i,
+                        'order' => $i,
                     ]
                 );
             }

@@ -40,16 +40,26 @@ return [
         'model' => env('ANTHROPIC_MODEL', 'claude-3-5-haiku-20241022'),
     ],
 
-    'whatsapp' => [
-        'url'    => env('WHATSAPP_SERVICE_URL', 'http://127.0.0.1:3002'),
-        'secret' => env('WHATSAPP_SERVICE_SECRET'),
-    ],
-
     'whatsapp_cloud' => [
+        // Fallback: usato solo dai tenant collegati manualmente col comando
+        // whatsapp:link-number (token condiviso). I tenant in coexistence usano
+        // il proprio whatsapp_sessions.access_token, per-WABA.
         'token'        => env('WHATSAPP_CLOUD_ACCESS_TOKEN'),
         'api_version'  => env('WHATSAPP_CLOUD_API_VERSION', 'v21.0'),
         'app_secret'   => env('WHATSAPP_CLOUD_APP_SECRET'),
         'verify_token' => env('WHATSAPP_CLOUD_VERIFY_TOKEN'),
+        // Logga il body grezzo dei webhook history/smb_app_state_sync/smb_message_echoes:
+        // utile solo in fase di validazione della coexistence contro un ambiente Meta reale.
+        'log_raw_webhooks' => env('WHATSAPP_CLOUD_LOG_RAW_WEBHOOKS', false),
+    ],
+
+    // App Meta per l'Embedded Signup (coesistenza WhatsApp Business App + Cloud API).
+    // Credenziali a livello di app, uniche per tutta la piattaforma.
+    'facebook' => [
+        'app_id'                    => env('FACEBOOK_APP_ID'),
+        'app_secret'                => env('FACEBOOK_APP_SECRET'),
+        'graph_version'             => env('FACEBOOK_GRAPH_VERSION', 'v25.0'),
+        'embedded_signup_config_id' => env('FACEBOOK_EMBEDDED_SIGNUP_CONFIG_ID'),
     ],
 
 ];

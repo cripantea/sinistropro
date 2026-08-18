@@ -58,8 +58,22 @@
           </svg>
         </div>
         <h3 class="text-lg font-semibold text-gray-800">Nessun numero WhatsApp collegato</h3>
-        <p class="text-sm text-gray-500 mt-1">
-          Contatta l'amministratore della piattaforma per collegare un numero WhatsApp a questo tenant.
+
+        <template v-if="canConnect">
+          <p class="text-sm text-gray-500 mt-1 mb-5">
+            Collega il numero WhatsApp Business del tuo team: resterà attivo anche sull'app del telefono.
+          </p>
+          <div class="flex justify-center">
+            <EmbeddedSignupButton
+              :facebook-app-id="facebookAppId"
+              :facebook-graph-version="facebookGraphVersion"
+              :config-id="embeddedSignupConfigId"
+              @connected="onConnected"
+            />
+          </div>
+        </template>
+        <p v-else class="text-sm text-gray-500 mt-1">
+          Contatta l'amministratore del tuo team per collegare un numero WhatsApp a questo tenant.
         </p>
 
       </div>
@@ -78,6 +92,7 @@ import ConversationList from '@/Components/Whatsapp/ConversationList.vue'
 import type { ConversationSummary } from '@/Components/Whatsapp/ConversationList.vue'
 import MessageThread from '@/Components/Whatsapp/MessageThread.vue'
 import type { Message } from '@/Components/Whatsapp/MessageThread.vue'
+import EmbeddedSignupButton from '@/Components/Whatsapp/EmbeddedSignupButton.vue'
 import type { PageProps } from '@/types'
 
 interface SessionProps {
@@ -85,14 +100,25 @@ interface SessionProps {
   phoneNumber: string | null
 }
 
-const props = defineProps<{ session: SessionProps }>()
+const props = defineProps<{
+  session: SessionProps
+  facebookAppId: string
+  facebookGraphVersion: string
+  embeddedSignupConfigId: string
+}>()
 const page  = usePage<PageProps>()
 const flash = computed(() => page.props.flash)
 
 const tenantId = computed(() => page.props.auth.user.tenant_id)
+const canConnect = computed(() => page.props.auth.user.role === 'tenant-admin')
 
 const status      = ref(props.session.status)
 const phoneNumber = ref(props.session.phoneNumber)
+
+function onConnected(session: { status: string; phoneNumber: string | null }) {
+  status.value = session.status as SessionProps['status']
+  phoneNumber.value = session.phoneNumber
+}
 
 // ── Conversazioni + messaggi ────────────────────────────────────────────────
 const conversations         = ref<ConversationSummary[]>([])

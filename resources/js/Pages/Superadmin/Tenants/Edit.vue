@@ -487,6 +487,63 @@
 
     </form>
 
+    <!-- ── Tab: WhatsApp (sola lettura, supporto) ──────────────────────────────── -->
+    <div v-show="activeTab === 'whatsapp'" class="p-6 max-w-3xl space-y-8">
+      <FormSection title="Stato collegamento">
+        <p class="text-xs text-slate-500 -mt-2 mb-4">
+          Il collegamento (Embedded Signup) è self-service: lo avvia il tenant-admin del tenant
+          dalla pagina WhatsApp. Qui solo visibilità e, in caso di problemi, disconnessione forzata.
+        </p>
+
+        <div v-if="whatsappSession" class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label class="field-label">Stato</label>
+            <p class="text-sm font-medium" :class="{
+              'text-emerald-600': whatsappSession.status === 'active',
+              'text-amber-600': whatsappSession.status === 'pending',
+              'text-red-600': whatsappSession.status === 'disabled',
+            }">{{ whatsappSession.status }}</p>
+          </div>
+          <div>
+            <label class="field-label">Numero</label>
+            <p class="text-sm text-slate-700">{{ whatsappSession.displayPhoneNumber ? `+${whatsappSession.displayPhoneNumber}` : '—' }}</p>
+          </div>
+          <div>
+            <label class="field-label">WABA ID</label>
+            <p class="text-sm text-slate-700 font-mono">{{ whatsappSession.wabaId ?? '—' }}</p>
+          </div>
+          <div>
+            <label class="field-label">Sync storico/contatti</label>
+            <p class="text-sm text-slate-700">{{ whatsappSession.historySyncStatus ?? '—' }}</p>
+          </div>
+          <div>
+            <label class="field-label">Ultimo evento</label>
+            <p class="text-sm text-slate-700">{{ whatsappSession.lastEventAt ? new Date(whatsappSession.lastEventAt).toLocaleString('it-IT') : '—' }}</p>
+          </div>
+          <div>
+            <label class="field-label">Collegato da</label>
+            <p class="text-sm text-slate-700">{{ whatsappSession.connectedByUserName ?? '—' }}</p>
+          </div>
+          <div v-if="whatsappSession.disconnectionReason" class="sm:col-span-2">
+            <label class="field-label">Motivo disconnessione</label>
+            <p class="text-sm text-red-600">{{ whatsappSession.disconnectionReason }}</p>
+          </div>
+        </div>
+        <p v-else class="text-sm text-slate-500">Nessun numero collegato per questo tenant.</p>
+
+        <div v-if="whatsappSession && whatsappSession.status !== 'disabled'" class="mt-6">
+          <button
+            type="button"
+            @click="disconnectWhatsapp"
+            :disabled="whatsappDisconnecting"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {{ whatsappDisconnecting ? 'Disconnessione...' : 'Disconnetti' }}
+          </button>
+        </div>
+      </FormSection>
+    </div>
+
     <!-- ── Automation Modal ──────────────────────────────────────────────────── -->
     <Teleport to="body">
       <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0" leave-active-class="transition duration-150" leave-to-class="opacity-0">
@@ -1111,6 +1168,16 @@ interface MailSettings {
   from_address: string | null; from_name: string | null; is_active: boolean
 }
 
+interface WhatsappSessionInfo {
+  status: 'pending' | 'active' | 'disabled'
+  displayPhoneNumber: string | null
+  wabaId: string | null
+  historySyncStatus: string | null
+  lastEventAt: string | null
+  disconnectionReason: string | null
+  connectedByUserName: string | null
+}
+
 interface TenantFull {
   id: number; name: string
   settings: { default_notice_days: number; custom_fields_schema: Omit<CustomField, '_uid'>[] } | null
@@ -1128,6 +1195,7 @@ const props = defineProps<{
   fieldDictionary: DictEntry[]
   tenantUsers: TenantUser[]
   mailSettings: MailSettings | null
+  whatsappSession: WhatsappSessionInfo | null
 }>()
 
 // ── UID counter (shared across all lists) ────────────────────────────────────
@@ -1144,6 +1212,7 @@ const TABS = [
   { id: 'dictionary',  label: 'Dizionario Campi' },
   { id: 'modules',     label: 'Template Moduli PDF' },
   { id: 'email',       label: 'Email' },
+  { id: 'whatsapp',    label: 'WhatsApp' },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -1151,7 +1220,7 @@ type TabId = typeof TABS[number]['id']
 function tabFromUrl(url: string): TabId {
   const search = url.includes('?') ? url.split('?')[1] : ''
   const tab = new URLSearchParams(search).get('tab')
-  return (['config', 'categories', 'automations', 'dictionary', 'modules', 'email'] as const).includes(tab as TabId)
+  return (['config', 'categories', 'automations', 'dictionary', 'modules', 'email', 'whatsapp'] as const).includes(tab as TabId)
     ? (tab as TabId)
     : 'config'
 }
@@ -1704,6 +1773,18 @@ async function sendTestEmail() {
   } finally {
     testEmail.loading = false
   }
+}
+
+const whatsappSession = computed(() => props.whatsappSession)
+const whatsappDisconnecting = ref(false)
+
+function disconnectWhatsapp() {
+  if (!confirm('Disconnettere il numero WhatsApp di questo tenant? Il tenant-admin dovrà ricollegarlo.')) return
+  whatsappDisconnecting.value = true
+  router.post(route('superadmin.tenants.whatsapp.disconnect', props.tenant.id), {}, {
+    preserveScroll: true,
+    onFinish: () => { whatsappDisconnecting.value = false },
+  })
 }
 </script>
 

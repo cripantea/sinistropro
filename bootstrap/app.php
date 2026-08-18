@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Middleware\EnsureSuperAdmin;
-use App\Http\Middleware\VerifyWhatsappServiceSecret;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -24,7 +23,6 @@ return Application::configure(basePath: dirname(__DIR__))
         // Alias middleware registrabili nei route group.
         $middleware->alias([
             'superadmin' => EnsureSuperAdmin::class,
-            'whatsapp.service' => VerifyWhatsappServiceSecret::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

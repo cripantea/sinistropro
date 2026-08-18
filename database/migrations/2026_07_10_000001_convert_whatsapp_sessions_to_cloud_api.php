@@ -9,10 +9,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement("UPDATE whatsapp_sessions SET status = 'connected' WHERE status NOT IN ('disconnected', 'starting', 'qr', 'connected')");
-        DB::statement("ALTER TABLE whatsapp_sessions MODIFY status ENUM('disconnected', 'starting', 'qr', 'connected', 'pending', 'active', 'disabled') NOT NULL DEFAULT 'pending'");
+        // `string` invece di un secondo ENUM: la sintassi MODIFY ... ENUM(...) usata
+        // in precedenza è MySQL-specifica e rompe la suite di test (SQLite in-memory).
+        // Nessun impatto sui DB già migrati: le migration già eseguite non vengono ripetute.
+        Schema::table('whatsapp_sessions', function (Blueprint $table) {
+            $table->string('status')->default('pending')->change();
+        });
+
         DB::statement("UPDATE whatsapp_sessions SET status = CASE WHEN status = 'connected' THEN 'active' ELSE 'pending' END");
-        DB::statement("ALTER TABLE whatsapp_sessions MODIFY status ENUM('pending', 'active', 'disabled') NOT NULL DEFAULT 'pending'");
 
         Schema::table('whatsapp_sessions', function (Blueprint $table) {
             $table->string('phone_number_id')->nullable()->unique()->after('tenant_id');
@@ -29,8 +33,10 @@ return new class extends Migration
             $table->dropColumn(['phone_number_id', 'display_phone_number']);
         });
 
-        DB::statement("ALTER TABLE whatsapp_sessions MODIFY status ENUM('disconnected', 'starting', 'qr', 'connected', 'pending', 'active', 'disabled') NOT NULL DEFAULT 'disconnected'");
         DB::statement("UPDATE whatsapp_sessions SET status = CASE WHEN status = 'active' THEN 'connected' ELSE 'disconnected' END");
-        DB::statement("ALTER TABLE whatsapp_sessions MODIFY status ENUM('disconnected', 'starting', 'qr', 'connected') NOT NULL DEFAULT 'disconnected'");
+
+        Schema::table('whatsapp_sessions', function (Blueprint $table) {
+            $table->enum('status', ['disconnected', 'starting', 'qr', 'connected'])->default('disconnected')->change();
+        });
     }
 };

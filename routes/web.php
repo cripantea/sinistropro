@@ -12,6 +12,7 @@ use App\Http\Controllers\PraticaNotaController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\WhatsappConversationController;
+use App\Http\Controllers\WhatsappEmbeddedSignupController;
 use App\Http\Controllers\WhatsappSessionController;
 use App\Http\Controllers\Superadmin\AutomationController;
 use App\Http\Controllers\Superadmin\DocumentCategoryController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\Superadmin\ModuleTemplateController;
 use App\Http\Controllers\Superadmin\SuperadminController;
 use App\Http\Controllers\Superadmin\TenantController;
 use App\Http\Controllers\Superadmin\TenantMailSettingsController;
+use App\Http\Controllers\Superadmin\TenantWhatsappController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -82,6 +84,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 // --- WhatsApp ---
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/whatsapp', [WhatsappSessionController::class, 'index'])->name('whatsapp.index');
+    Route::post('/whatsapp/embedded-signup', [WhatsappEmbeddedSignupController::class, 'callback'])->name('whatsapp.embedded-signup.callback');
 
     Route::get('/whatsapp/conversations', [WhatsappConversationController::class, 'index'])->name('whatsapp.conversations.index');
     Route::get('/whatsapp/conversations/{conversation}/messages', [WhatsappConversationController::class, 'messages'])->name('whatsapp.conversations.messages');
@@ -123,6 +126,9 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     // Configurazione email per tenant
     Route::post('/tenants/{tenant}/mail-settings', [TenantMailSettingsController::class, 'update'])->name('tenants.mail-settings.update');
     Route::post('/tenants/{tenant}/mail-settings/test', [TenantMailSettingsController::class, 'test'])->name('tenants.mail-settings.test');
+
+    // WhatsApp: pannello di sola lettura per supporto
+    Route::post('/tenants/{tenant}/whatsapp/disconnect', [TenantWhatsappController::class, 'disconnect'])->name('tenants.whatsapp.disconnect');
 
     // Template Moduli PDF — static segments MUST precede {moduleTemplate} wildcard
     Route::get('/module-templates/preview', [ModuleTemplateController::class, 'previewPage'])->name('tenants.module-templates.preview');

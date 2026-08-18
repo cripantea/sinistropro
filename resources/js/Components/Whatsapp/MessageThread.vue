@@ -43,6 +43,7 @@
               {{ m.body || (m.mediaType ? `[${m.mediaType}]` : '') }}
             </p>
             <div class="flex items-center justify-end gap-1 mt-1">
+              <span v-if="m.source === 'echo'" class="text-[10px] text-gray-500 italic">inviato da telefono</span>
               <span class="text-[10px] text-gray-400">{{ formatTime(m.createdAt) }}</span>
               <StatusTicks v-if="m.direction === 'outbound'" :status="m.status" />
             </div>
@@ -89,6 +90,7 @@ import type { ConversationSummary } from './ConversationList.vue'
 export interface Message {
   id: number
   direction: 'inbound' | 'outbound'
+  source?: 'api' | 'echo' | 'history'
   body: string | null
   mediaType: string | null
   status: string

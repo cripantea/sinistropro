@@ -17,12 +17,18 @@ class WhatsappMessage extends Model
         'whatsapp_conversation_id',
         'user_id',
         'direction',
+        'source',
         'body',
         'media_type',
         'media_url',
         'media_mime_type',
         'wa_message_id',
+        'wa_timestamp',
         'status',
+    ];
+
+    protected $casts = [
+        'wa_timestamp' => 'datetime',
     ];
 
     public function conversation(): BelongsTo
