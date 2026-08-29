@@ -62,4 +62,12 @@ return [
         'embedded_signup_config_id' => env('FACEBOOK_EMBEDDED_SIGNUP_CONFIG_ID'),
     ],
 
+    // FusionWA: plugin di connettività WhatsApp (Coexistence + invio messaggi).
+    // Il token WABA per-cliente è custodito da FusionWA, mai esposto qui.
+    'fusionwa' => [
+        'base_url'   => env('FUSIONWA_BASE_URL', 'https://wa.fusionsoft.it'),
+        'api_key'    => env('FUSIONWA_API_KEY'),
+        'api_secret' => env('FUSIONWA_API_SECRET'),
+    ],
+
 ];

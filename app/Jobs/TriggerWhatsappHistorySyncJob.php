@@ -46,15 +46,9 @@ class TriggerWhatsappHistorySyncJob implements ShouldQueue
 
     private function requestSync(WhatsappSession $session, string $syncType, ?int $phase): void
     {
-        $graphVersion = config('services.facebook.graph_version');
-        $token = $session->access_token ?: config('services.whatsapp_cloud.token');
-
-        $response = Http::withToken($token)
-            ->timeout(15)
-            ->post("https://graph.facebook.com/{$graphVersion}/{$session->phone_number_id}/smb_app_data", [
-                'messaging_product' => 'whatsapp',
-                'sync_type' => $syncType,
-            ]);
+        $response = filled($session->waba_id)
+            ? $this->requestSyncViaFusionWa($session, $syncType, $phase)
+            : $this->requestSyncViaGraph($session, $syncType);
 
         $sync = WhatsappHistorySync::forTenant($session->tenant_id)->firstWhere([
             'whatsapp_session_id' => $session->id,
@@ -94,5 +88,41 @@ class TriggerWhatsappHistorySyncJob implements ShouldQueue
         }
 
         $sync->update(['status' => 'in_progress']);
+    }
+
+    private function requestSyncViaGraph(WhatsappSession $session, string $syncType)
+    {
+        $graphVersion = config('services.facebook.graph_version');
+        $token = $session->access_token ?: config('services.whatsapp_cloud.token');
+
+        return Http::withToken($token)
+            ->timeout(15)
+            ->post("https://graph.facebook.com/{$graphVersion}/{$session->phone_number_id}/smb_app_data", [
+                'messaging_product' => 'whatsapp',
+                'sync_type' => $syncType,
+            ]);
+    }
+
+    /**
+     * Per le sessioni in coexistence via FusionWA il token WABA non è più qui:
+     * la richiesta di sync passa da un endpoint dedicato di FusionWA, che la
+     * esegue per nostro conto. Risposta nella stessa forma di Graph API
+     * (error.code/error.message) apposta, per non dover toccare il resto del
+     * metodo che la interpreta.
+     */
+    private function requestSyncViaFusionWa(WhatsappSession $session, string $syncType, ?int $phase)
+    {
+        $baseUrl = rtrim((string) config('services.fusionwa.base_url'), '/');
+
+        return Http::withHeaders([
+            'x-fusionwa-api-key' => config('services.fusionwa.api_key'),
+            'x-fusionwa-api-secret' => config('services.fusionwa.api_secret'),
+        ])
+            ->timeout(15)
+            ->post("{$baseUrl}/api/v1/connections/request-history-sync", array_filter([
+                'externalCustomerId' => (string) $session->tenant_id,
+                'syncType' => $syncType,
+                'phase' => $phase,
+            ], fn ($v) => $v !== null));
     }
 }

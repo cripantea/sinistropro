@@ -84,7 +84,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 // --- WhatsApp ---
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/whatsapp', [WhatsappSessionController::class, 'index'])->name('whatsapp.index');
-    Route::post('/whatsapp/embedded-signup', [WhatsappEmbeddedSignupController::class, 'callback'])->name('whatsapp.embedded-signup.callback');
+    Route::post('/whatsapp/embedded-signup', [WhatsappEmbeddedSignupController::class, 'sync'])->name('whatsapp.embedded-signup.sync');
 
     Route::get('/whatsapp/conversations', [WhatsappConversationController::class, 'index'])->name('whatsapp.conversations.index');
     Route::get('/whatsapp/conversations/{conversation}/messages', [WhatsappConversationController::class, 'messages'])->name('whatsapp.conversations.messages');

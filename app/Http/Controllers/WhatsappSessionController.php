@@ -19,9 +19,10 @@ class WhatsappSessionController extends Controller
                 'status'      => $session?->status ?? 'pending',
                 'phoneNumber' => $session?->display_phone_number,
             ],
-            'facebookAppId'          => config('services.facebook.app_id'),
-            'facebookGraphVersion'   => config('services.facebook.graph_version'),
-            'embeddedSignupConfigId' => config('services.facebook.embedded_signup_config_id'),
+            // Chiave pubblica del plugin FusionWA (safe lato browser, non è il
+            // secret): il widget la usa per aprire l'Embedded Signup di Meta.
+            'fusionwaApiKey'  => config('services.fusionwa.api_key'),
+            'fusionwaBaseUrl' => config('services.fusionwa.base_url'),
         ]);
     }
 }

@@ -65,9 +65,9 @@
           </p>
           <div class="flex justify-center">
             <EmbeddedSignupButton
-              :facebook-app-id="facebookAppId"
-              :facebook-graph-version="facebookGraphVersion"
-              :config-id="embeddedSignupConfigId"
+              :api-key="fusionwaApiKey"
+              :fusionwa-base-url="fusionwaBaseUrl"
+              :tenant-id="tenantId ?? ''"
               @connected="onConnected"
             />
           </div>
@@ -102,9 +102,8 @@ interface SessionProps {
 
 const props = defineProps<{
   session: SessionProps
-  facebookAppId: string
-  facebookGraphVersion: string
-  embeddedSignupConfigId: string
+  fusionwaApiKey: string
+  fusionwaBaseUrl: string
 }>()
 const page  = usePage<PageProps>()
 const flash = computed(() => page.props.flash)
