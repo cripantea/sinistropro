@@ -19,6 +19,11 @@ class TenantMailSettings extends Model
         'from_address',
         'from_name',
         'is_active',
+        'imap_host',
+        'imap_port',
+        'imap_encryption',
+        'imap_last_uid_inbox',
+        'imap_last_uid_sent',
     ];
 
     protected $casts = [

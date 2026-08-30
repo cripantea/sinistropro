@@ -17,3 +17,12 @@ Schedule::command('app:process-daily-reminders')
     ->withoutOverlapping(10)   // lock per max 10 minuti
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/daily-reminders.log'));
+
+// Sync caselle email tenant (IMAP, INBOX + Inviata) — ogni 2 minuti.
+// Il comando è thin: dispatcha un job per tenant sulla coda "emails",
+// così una casella lenta/rotta non blocca la sync delle altre.
+Schedule::command('app:sync-mailboxes')
+    ->everyTwoMinutes()
+    ->withoutOverlapping(5)
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/sync-mailboxes.log'));

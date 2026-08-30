@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Webklex\PHPIMAP\ClientManager;
 
 class TenantMailSettingsController extends Controller
 {
@@ -25,6 +26,9 @@ class TenantMailSettingsController extends Controller
             'from_address' => ['nullable', 'email', 'max:255'],
             'from_name' => ['nullable', 'string', 'max:255'],
             'is_active' => ['boolean'],
+            'imap_host' => ['nullable', 'string', 'max:255'],
+            'imap_port' => ['nullable', 'integer', 'min:1', 'max:65535'],
+            'imap_encryption' => ['nullable', Rule::in(['tls', 'ssl'])],
         ]);
 
         $settings = $tenant->mailSettings ?? new TenantMailSettings(['tenant_id' => $tenant->id]);
@@ -37,6 +41,9 @@ class TenantMailSettingsController extends Controller
             'from_address' => $data['from_address'] ?? null,
             'from_name' => $data['from_name'] ?? null,
             'is_active' => $data['is_active'] ?? false,
+            'imap_host' => $data['imap_host'] ?? null,
+            'imap_port' => $data['imap_port'] ?? null,
+            'imap_encryption' => $data['imap_encryption'] ?? null,
         ]);
 
         // La password non torna mai al frontend: si aggiorna solo se ne viene
@@ -82,6 +89,41 @@ class TenantMailSettingsController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Invio fallito: '.$e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * Verifica la connessione IMAP con le credenziali già salvate, prima di
+     * affidarsi al poller silenzioso di sync (ogni 2 minuti in produzione).
+     */
+    public function testImap(Tenant $tenant): JsonResponse
+    {
+        $settings = $tenant->mailSettings;
+
+        if (! $settings || ! $settings->imap_host) {
+            return response()->json([
+                'message' => 'Salva prima host/porta IMAP: non c\'è ancora nulla da testare.',
+            ], 422);
+        }
+
+        try {
+            $client = (new ClientManager())->make([
+                'host' => $settings->imap_host,
+                'port' => $settings->imap_port ?: 993,
+                'encryption' => $settings->imap_encryption ?: 'ssl',
+                'validate_cert' => true,
+                'username' => $settings->username,
+                'password' => $settings->password,
+            ]);
+
+            $client->connect();
+            $client->disconnect();
+
+            return response()->json(['message' => 'Connessione IMAP riuscita.']);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Connessione fallita: '.$e->getMessage(),
             ], 422);
         }
     }

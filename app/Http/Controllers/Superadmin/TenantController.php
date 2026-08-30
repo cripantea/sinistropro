@@ -161,6 +161,9 @@ class TenantController extends Controller
                 'from_address' => $mailSettings->from_address,
                 'from_name' => $mailSettings->from_name,
                 'is_active' => $mailSettings->is_active,
+                'imap_host' => $mailSettings->imap_host,
+                'imap_port' => $mailSettings->imap_port,
+                'imap_encryption' => $mailSettings->imap_encryption,
             ] : null,
             // access_token non arriva mai al frontend: escluso già a livello di modello ($hidden).
             'whatsappSession' => $whatsappSession ? [

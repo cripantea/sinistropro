@@ -4,6 +4,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AutomationPreviewController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EmailController;
 use App\Http\Controllers\ImpersonateController;
 use App\Http\Controllers\IspezioneController;
 use App\Http\Controllers\PdfExportController;
@@ -91,6 +92,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/whatsapp/conversations/{conversation}/messages', [WhatsappConversationController::class, 'store'])->name('whatsapp.conversations.store');
 });
 
+// --- Email ---
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/email', [EmailController::class, 'index'])->name('email.index');
+    Route::get('/email/threads', [EmailController::class, 'threads'])->name('email.threads.index');
+    Route::get('/email/threads/{thread}/messages', [EmailController::class, 'messages'])->name('email.threads.messages');
+    Route::post('/email/threads/{thread}/reply', [EmailController::class, 'reply'])->name('email.threads.reply');
+    Route::post('/email/compose', [EmailController::class, 'compose'])->name('email.compose');
+    Route::get('/email/attachments/{attachment}/download', [EmailController::class, 'downloadAttachment'])->name('email.attachments.download');
+});
+
 // --- Audit Log (solo tenant-admin) ---
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
@@ -126,6 +137,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     // Configurazione email per tenant
     Route::post('/tenants/{tenant}/mail-settings', [TenantMailSettingsController::class, 'update'])->name('tenants.mail-settings.update');
     Route::post('/tenants/{tenant}/mail-settings/test', [TenantMailSettingsController::class, 'test'])->name('tenants.mail-settings.test');
+    Route::post('/tenants/{tenant}/mail-settings/test-imap', [TenantMailSettingsController::class, 'testImap'])->name('tenants.mail-settings.test-imap');
 
     // WhatsApp: pannello di sola lettura per supporto
     Route::post('/tenants/{tenant}/whatsapp/disconnect', [TenantWhatsappController::class, 'disconnect'])->name('tenants.whatsapp.disconnect');

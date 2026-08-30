@@ -9,3 +9,7 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 Broadcast::channel('whatsapp.{tenantId}', function ($user, $tenantId) {
     return (int) $user->tenant_id === (int) $tenantId;
 });
+
+Broadcast::channel('email.{tenantId}', function ($user, $tenantId) {
+    return (int) $user->tenant_id === (int) $tenantId;
+});

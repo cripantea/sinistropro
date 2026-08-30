@@ -456,6 +456,33 @@
         </label>
       </FormSection>
 
+      <FormSection title="Server IMAP (lettura casella)">
+        <p class="text-xs text-slate-500 -mt-2 mb-4">
+          Usa lo stesso username/password SMTP configurato sopra — quasi tutti i provider condividono
+          le credenziali tra invio e lettura, cambia solo l'host/porta.
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div>
+            <label class="field-label">Host IMAP</label>
+            <input v-model="mailForm.imap_host" type="text" class="field-input" placeholder="imap.esempio.it" />
+            <FieldError :message="mailForm.errors.imap_host" />
+          </div>
+          <div>
+            <label class="field-label">Porta</label>
+            <input v-model.number="mailForm.imap_port" type="number" min="1" max="65535" class="field-input" placeholder="993" />
+            <FieldError :message="mailForm.errors.imap_port" />
+          </div>
+          <div>
+            <label class="field-label">Crittografia</label>
+            <select v-model="mailForm.imap_encryption" class="field-input">
+              <option value="ssl">SSL</option>
+              <option value="tls">TLS</option>
+            </select>
+            <FieldError :message="mailForm.errors.imap_encryption" />
+          </div>
+        </div>
+      </FormSection>
+
       <div class="flex items-center gap-3">
         <button type="submit" :disabled="mailForm.processing" class="inline-flex items-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
           <svg v-if="mailForm.processing" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
@@ -463,6 +490,24 @@
         </button>
         <span v-if="mailForm.recentlySuccessful" class="text-sm text-emerald-600 font-medium">Salvato.</span>
       </div>
+
+      <FormSection title="Testa connessione IMAP">
+        <p class="text-xs text-slate-500 -mt-2 mb-4">
+          Verifica la connessione con le credenziali già salvate, prima di affidarsi al sync automatico (ogni 2 minuti).
+        </p>
+        <button
+          type="button"
+          @click="sendTestImap"
+          :disabled="testImap.loading || !mailForm.imap_host"
+          class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+        >
+          <svg v-if="testImap.loading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+          {{ testImap.loading ? 'Verifica...' : 'Testa connessione IMAP' }}
+        </button>
+        <p v-if="testImap.message" class="text-xs mt-2" :class="testImap.success ? 'text-emerald-600' : 'text-red-600'">
+          {{ testImap.message }}
+        </p>
+      </FormSection>
 
       <FormSection title="Invia email di prova">
         <p class="text-xs text-slate-500 -mt-2 mb-4">
@@ -1166,6 +1211,7 @@ interface MailSettings {
   host: string | null; port: number | null; username: string | null
   has_password: boolean; encryption: 'tls' | 'ssl' | null
   from_address: string | null; from_name: string | null; is_active: boolean
+  imap_host: string | null; imap_port: number | null; imap_encryption: 'tls' | 'ssl' | null
 }
 
 interface WhatsappSessionInfo {
@@ -1738,9 +1784,32 @@ const mailForm = useForm({
   from_address: props.mailSettings?.from_address ?? '',
   from_name:    props.mailSettings?.from_name ?? '',
   is_active:    props.mailSettings?.is_active ?? false,
+  imap_host:       props.mailSettings?.imap_host ?? '',
+  imap_port:       props.mailSettings?.imap_port ?? 993,
+  imap_encryption: props.mailSettings?.imap_encryption ?? 'ssl',
 })
 
 const mailHasPassword = ref(props.mailSettings?.has_password ?? false)
+
+const testImap = reactive({ loading: false, message: '' as string, success: false })
+
+async function sendTestImap() {
+  testImap.loading = true
+  testImap.message = ''
+  try {
+    const resp = await http.post<{ message: string }>(
+      route('superadmin.tenants.mail-settings.test-imap', props.tenant.id)
+    )
+    testImap.success = true
+    testImap.message = resp.data.message
+  } catch (err: unknown) {
+    testImap.success = false
+    testImap.message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      ?? 'Connessione fallita.'
+  } finally {
+    testImap.loading = false
+  }
+}
 
 function submitMail() {
   mailForm.post(route('superadmin.tenants.mail-settings.update', props.tenant.id), {

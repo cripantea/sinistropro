@@ -30,6 +30,7 @@ const isOnPratiche  = computed(() => currentPath.value.startsWith('/pratiche') &
 const isOnKanban    = computed(() => currentPath.value === '/pratiche/kanban')
 const isOnTeam      = computed(() => currentPath.value.startsWith('/team'))
 const isOnWhatsapp  = computed(() => currentPath.value.startsWith('/whatsapp'))
+const isOnEmail     = computed(() => currentPath.value.startsWith('/email'))
 
 function navigate(url: string) {
   window.location.href = url
@@ -182,6 +183,26 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
             </svg>
             <span v-show="!collapsed" class="truncate">WhatsApp</span>
+          </a>
+
+          <!-- Email -->
+          <a
+            v-if="!isSuperadmin"
+            :href="route('email.index')"
+            @click.prevent="navigate(route('email.index'))"
+            :class="[
+              'flex items-center rounded-lg text-sm font-medium transition-colors',
+              collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
+              isOnEmail
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+            ]"
+            :title="collapsed ? 'Email' : undefined"
+          >
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+            <span v-show="!collapsed" class="truncate">Email</span>
           </a>
 
           <!-- Team (tenant-admin only) -->
