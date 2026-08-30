@@ -76,6 +76,11 @@ jobs:
             # va cancellato e riavviato da zero per puntare sempre alla release "current".
             pm2 delete reverb 2>/dev/null || true
             pm2 start "$CURRENT/ecosystem.reverb.config.cjs"
+
+            echo "==> Restarting queue worker…"
+            pm2 delete queue-worker 2>/dev/null || true
+            pm2 start "$CURRENT/ecosystem.queue-worker.config.cjs"
+
             pm2 save
 
             echo "==> Cleaning old releases (keep 5)…"
