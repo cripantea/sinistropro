@@ -113,12 +113,18 @@ class SyncTenantMailboxJob implements ShouldQueue
     private function syncFolder(Folder $folder, string $folderKey, TenantMailSettings $settings): int
     {
         $lastUidColumn = $folderKey === 'inbox' ? 'imap_last_uid_inbox' : 'imap_last_uid_sent';
-        $lastUid = $settings->{$lastUidColumn} ?? 0;
+        $lastUid = $settings->{$lastUidColumn};
 
-        $messages = $folder->messages()->getByUidGreater($lastUid);
+        // Primo sync su questa cartella: niente backfill dell'intera cronologia
+        // (su una casella con anni di storico il job supererebbe il timeout ad
+        // ogni tentativo, senza mai completare) — si parte dagli ultimi 7
+        // giorni, poi si procede incrementalmente per UID.
+        $messages = $lastUid === null
+            ? $folder->messages()->whereSince(now()->subDays(7)->format('d-M-Y'))->get()
+            : $folder->messages()->getByUidGreater($lastUid);
 
         $imported = 0;
-        $maxUid = $lastUid;
+        $maxUid = $lastUid ?? 0;
 
         foreach ($messages as $message) {
             $maxUid = max($maxUid, $message->getUid());
