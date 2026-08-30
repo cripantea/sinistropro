@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SyncTenantMailboxJob;
 use App\Mail\OutboundEmailMessage;
 use App\Models\EmailAttachment;
 use App\Models\EmailMessage;
@@ -37,6 +38,25 @@ class EmailController extends Controller
     public function threads(): JsonResponse
     {
         $tenantId = auth()->user()->tenant_id;
+
+        $threads = EmailThread::where('tenant_id', $tenantId)
+            ->orderByRaw('last_message_at IS NULL, last_message_at DESC')
+            ->get()
+            ->map(fn (EmailThread $t) => $this->threadPayload($t));
+
+        return response()->json(['threads' => $threads]);
+    }
+
+    /**
+     * Sync IMAP immediato su richiesta dell'utente — non sostituisce il
+     * poller schedulato ogni 2 minuti, gira in aggiunta per chi non vuole
+     * aspettare.
+     */
+    public function sync(): JsonResponse
+    {
+        $tenantId = auth()->user()->tenant_id;
+
+        SyncTenantMailboxJob::dispatchSync($tenantId);
 
         $threads = EmailThread::where('tenant_id', $tenantId)
             ->orderByRaw('last_message_at IS NULL, last_message_at DESC')

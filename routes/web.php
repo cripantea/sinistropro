@@ -96,6 +96,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/email', [EmailController::class, 'index'])->name('email.index');
     Route::get('/email/threads', [EmailController::class, 'threads'])->name('email.threads.index');
+    Route::post('/email/sync', [EmailController::class, 'sync'])->name('email.sync');
     Route::get('/email/threads/{thread}/messages', [EmailController::class, 'messages'])->name('email.threads.messages');
     Route::post('/email/threads/{thread}/reply', [EmailController::class, 'reply'])->name('email.threads.reply');
     Route::post('/email/compose', [EmailController::class, 'compose'])->name('email.compose');

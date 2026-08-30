@@ -21,8 +21,10 @@
         <ThreadList
           :threads="threads"
           :selected-id="selectedThreadId"
+          :syncing="syncing"
           @select="selectThread"
           @compose="composing = true"
+          @refresh="syncNow"
         />
       </div>
       <div class="flex-1 min-h-0">
@@ -100,6 +102,19 @@ const selectedThread = computed(
 async function loadThreads() {
   const { data } = await axios.get(route('email.threads.index'))
   threads.value = data.threads
+}
+
+const syncing = ref(false)
+
+async function syncNow() {
+  if (syncing.value) return
+  syncing.value = true
+  try {
+    const { data } = await axios.post(route('email.sync'))
+    threads.value = data.threads
+  } finally {
+    syncing.value = false
+  }
 }
 
 async function selectThread(id: number) {

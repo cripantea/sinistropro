@@ -1,14 +1,27 @@
 <template>
   <div class="flex flex-col h-full">
-    <div class="px-4 py-3 border-b border-gray-200 shrink-0 flex items-center justify-between">
+    <div class="px-4 py-3 border-b border-gray-200 shrink-0 flex items-center justify-between gap-2">
       <h3 class="text-sm font-semibold text-gray-700">Email</h3>
-      <button
-        type="button"
-        @click="$emit('compose')"
-        class="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
-      >
-        + Nuovo
-      </button>
+      <div class="flex items-center gap-3">
+        <button
+          type="button"
+          @click="$emit('refresh')"
+          :disabled="syncing"
+          class="text-slate-400 hover:text-slate-600 disabled:opacity-50"
+          title="Aggiorna ora (non sostituisce il sync automatico ogni 2 minuti)"
+        >
+          <svg class="w-4 h-4" :class="syncing ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+        </button>
+        <button
+          type="button"
+          @click="$emit('compose')"
+          class="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+        >
+          + Nuovo
+        </button>
+      </div>
     </div>
 
     <div v-if="threads.length === 0" class="flex-1 flex items-center justify-center px-4 text-center text-sm text-gray-400">
@@ -57,8 +70,8 @@ export interface ThreadSummary {
   unreadCount: number
 }
 
-defineProps<{ threads: ThreadSummary[]; selectedId: number | null }>()
-defineEmits<{ select: [id: number]; compose: [] }>()
+defineProps<{ threads: ThreadSummary[]; selectedId: number | null; syncing?: boolean }>()
+defineEmits<{ select: [id: number]; compose: []; refresh: [] }>()
 
 function initials(name: string): string {
   return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
