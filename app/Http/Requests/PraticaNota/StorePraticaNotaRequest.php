@@ -3,6 +3,7 @@
 namespace App\Http\Requests\PraticaNota;
 
 use App\Models\Pratica;
+use App\Support\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StorePraticaNotaRequest extends FormRequest
@@ -16,7 +17,7 @@ class StorePraticaNotaRequest extends FormRequest
         // appartenga al tenant dell'utente. La doppia verifica qui protegge
         // da chiamate dirette all'endpoint che bypassino il route binding.
         return $pratica !== null
-            && $pratica->tenant_id === auth()->user()->tenant_id;
+            && $pratica->tenant_id === TenantContext::id();
     }
 
     public function rules(): array

@@ -6,6 +6,7 @@ use App\Http\Requests\Allegato\StoreAllegatoRequest;
 use App\Models\Allegato;
 use App\Models\Pratica;
 use App\Services\AllegatoService;
+use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,7 @@ class AllegatoController extends Controller
     public function store(StoreAllegatoRequest $request, Pratica $pratica): JsonResponse
     {
         $categoryId = $request->integer('document_category_id') ?: null;
-        $tenantId   = auth()->user()->tenant_id;
+        $tenantId   = TenantContext::id();
 
         if ($categoryId !== null) {
             $pivot = DB::table('tenant_document_categories')

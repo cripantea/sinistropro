@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Pratica;
 
+use App\Support\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -9,12 +10,12 @@ class StorePraticaRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->check() && auth()->user()->tenant_id !== null;
+        return auth()->check() && TenantContext::id() !== null;
     }
 
     public function rules(): array
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = TenantContext::id();
 
         return [
             'cliente_id' => [

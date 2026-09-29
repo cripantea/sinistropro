@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\WhatsappSession;
+use App\Support\TenantContext;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -10,7 +11,7 @@ class WhatsappSessionController extends Controller
 {
     public function index(): Response
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = TenantContext::id();
 
         $session = WhatsappSession::where('tenant_id', $tenantId)->first();
 

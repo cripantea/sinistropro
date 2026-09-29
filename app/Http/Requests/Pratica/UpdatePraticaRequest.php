@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Pratica;
 
+use App\Support\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,7 +16,7 @@ class UpdatePraticaRequest extends FormRequest
 
     public function rules(): array
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = TenantContext::id();
 
         $rules = [
             'current_status_id' => [

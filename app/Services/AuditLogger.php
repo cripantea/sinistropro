@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AuditLog;
+use App\Support\TenantContext;
 use Illuminate\Database\Eloquent\Model;
 
 class AuditLogger
@@ -25,7 +26,7 @@ class AuditLogger
         $request = request();
 
         return AuditLog::create([
-            'tenant_id'               => auth()->user()->tenant_id,
+            'tenant_id'               => TenantContext::id(),
             'user_id'                 => auth()->id(),
             'impersonated_by_user_id' => session('impersonator_id'),
             'action'                  => $action,

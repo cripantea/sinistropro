@@ -15,6 +15,7 @@ use App\Models\ModuleTemplate;
 use App\Models\Pratica;
 use App\Models\PraticaModule;
 use App\Models\TenantStatus;
+use App\Support\TenantContext;
 use App\Models\User;
 use App\Services\TenantMailerResolver;
 use Illuminate\Database\Eloquent\Builder;
@@ -194,7 +195,7 @@ class PraticaController extends Controller
 
         $pratica->logView();
 
-        $tenantId  = auth()->user()->tenant_id;
+        $tenantId  = TenantContext::id();
         $allCats   = DocumentCategory::orderBy('name')->get(['id', 'name']);
         $pivotRows = DB::table('tenant_document_categories')
             ->where('tenant_id', $tenantId)
@@ -216,7 +217,7 @@ class PraticaController extends Controller
         $praticaModules = PraticaModule::where('pratica_id', $pratica->id)
             ->get(['id', 'module_template_id', 'values']);
 
-        $externalBase = User::where('tenant_id', auth()->user()->tenant_id)
+        $externalBase = User::where('tenant_id', TenantContext::id())
             ->where('role', 'external')
             ->where('is_active', true)
             ->orderBy('name');
@@ -305,7 +306,7 @@ class PraticaController extends Controller
      */
     public function updateStatus(Request $request, Pratica $pratica, TenantMailerResolver $mailer): RedirectResponse|JsonResponse
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = TenantContext::id();
 
         $request->validate([
             'current_status_id' => [

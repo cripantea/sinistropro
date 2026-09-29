@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Allegato;
 use App\Models\Pratica;
+use App\Support\TenantContext;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -62,7 +63,7 @@ class AllegatoService
         // Il TenantScope già filtra le query, ma questo check protegge
         // le chiamate dirette al service (es. da job o comandi Artisan).
         abort_unless(
-            $allegato->tenant_id === auth()->user()->tenant_id,
+            $allegato->tenant_id === TenantContext::id(),
             403,
             'Accesso non autorizzato a questo allegato.'
         );
