@@ -39,7 +39,14 @@
               <td class="px-5 py-3.5 text-slate-400 text-xs">{{ formatDate(tenant.created_at) }}</td>
               <td class="px-5 py-3.5 text-right">
                 <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Link :href="route('superadmin.tenants.edit', tenant.id)" class="text-xs text-indigo-600 hover:underline">Modifica</Link>
+                  <Link
+                    :href="route('superadmin.tenants.context.set', tenant.id)"
+                    method="post"
+                    as="button"
+                    class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline"
+                    title="Naviga i dati del tenant restando superadmin"
+                  >Sfoglia</Link>
+                  <Link :href="route('superadmin.tenants.edit', tenant.id)" class="text-xs text-slate-600 hover:underline">Modifica</Link>
                   <Link
                     :href="route('superadmin.tenants.destroy', tenant.id)"
                     method="delete"

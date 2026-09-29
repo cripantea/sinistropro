@@ -16,12 +16,15 @@ class AutomationController extends Controller
     {
         $data = $this->validated($request, $tenant);
 
+        $isDateTrigger = in_array($data['trigger_type'], ['date_field', 'cliente_date_field'], true);
+
         $automation = Automation::create([
             'tenant_id'             => $tenant->id,
             'name'                  => $data['name'],
             'trigger_type'          => $data['trigger_type'],
             'tenant_status_id'      => $data['trigger_type'] === 'status' ? ($data['tenant_status_id'] ?? null) : null,
-            'watched_field'         => $data['trigger_type'] === 'date_field' ? $data['watched_field'] : null,
+            'watched_field'         => $isDateTrigger ? ($data['watched_field'] ?? null) : null,
+            'days_before'           => $data['trigger_type'] === 'cliente_date_field' ? ($data['days_before'] ?? 0) : 0,
             'channel'               => $data['channel'],
             'recipient'             => $data['recipient'] ?? 'cliente',
             'recipients_to'         => $data['recipients_to'] ?? null,
@@ -53,11 +56,14 @@ class AutomationController extends Controller
 
         $data = $this->validated($request, $tenant);
 
+        $isDateTrigger = in_array($data['trigger_type'], ['date_field', 'cliente_date_field'], true);
+
         $automation->update([
             'name'                  => $data['name'],
             'trigger_type'          => $data['trigger_type'],
             'tenant_status_id'      => $data['trigger_type'] === 'status' ? ($data['tenant_status_id'] ?? null) : null,
-            'watched_field'         => $data['trigger_type'] === 'date_field' ? $data['watched_field'] : null,
+            'watched_field'         => $isDateTrigger ? ($data['watched_field'] ?? null) : null,
+            'days_before'           => $data['trigger_type'] === 'cliente_date_field' ? ($data['days_before'] ?? 0) : 0,
             'channel'               => $data['channel'],
             'recipient'             => $data['recipient'] ?? $automation->recipient,
             'recipients_to'         => $data['recipients_to'] ?? null,
@@ -98,9 +104,10 @@ class AutomationController extends Controller
     {
         $data = $request->validate([
             'name'                    => ['required', 'string', 'max:255'],
-            'trigger_type'            => ['required', Rule::in(['status', 'date_field'])],
+            'trigger_type'            => ['required', Rule::in(['status', 'date_field', 'cliente_date_field'])],
             'tenant_status_id'        => ['nullable', 'integer'],
-            'watched_field'           => ['nullable', 'string', 'required_if:trigger_type,date_field'],
+            'watched_field'           => ['nullable', 'string', 'required_if:trigger_type,date_field', 'required_if:trigger_type,cliente_date_field'],
+            'days_before'             => ['nullable', 'integer', 'min:0', 'max:365'],
             'channel'                    => ['required', Rule::in(['email', 'whatsapp', 'both'])],
             'recipient'                  => ['nullable', Rule::in(['cliente', 'perito', 'gestore'])],
             'recipients_to'              => ['nullable', 'array'],
@@ -136,6 +143,19 @@ class AutomationController extends Controller
                 in_array($data['watched_field'], array_merge(['data_appuntamento'], $dateCustomFields), true),
                 422,
                 'Campo data non valido per questo tenant.'
+            );
+        }
+
+        if ($data['trigger_type'] === 'cliente_date_field') {
+            $clienteDateFields = collect($tenant->getClienteCustomFieldsSchema())
+                ->where('type', 'date')
+                ->pluck('name')
+                ->all();
+
+            abort_unless(
+                in_array($data['watched_field'], $clienteDateFields, true),
+                422,
+                'Campo data cliente non valido per questo tenant.'
             );
         }
 

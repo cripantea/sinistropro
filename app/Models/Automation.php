@@ -19,6 +19,7 @@ class Automation extends Model
         'trigger_type',
         'tenant_status_id',
         'watched_field',
+        'days_before',
         'channel',
         'recipient',
         'recipients_to',
@@ -31,6 +32,7 @@ class Automation extends Model
     protected $casts = [
         'is_active'             => 'boolean',
         'requires_confirmation' => 'boolean',
+        'days_before'           => 'integer',
         'recipients_to'         => 'array',
         'recipients_cc'         => 'array',
     ];

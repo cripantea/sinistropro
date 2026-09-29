@@ -14,7 +14,7 @@ Artisan::command('inspire', function () {
 Schedule::command('app:process-daily-reminders')
     ->dailyAt('07:00')
     ->timezone('Europe/Rome')
-    ->withoutOverlapping(10)   // lock per max 10 minuti
+    ->withoutOverlapping(10)
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/daily-reminders.log'));
 
@@ -26,3 +26,11 @@ Schedule::command('app:sync-mailboxes')
     ->withoutOverlapping(5)
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/sync-mailboxes.log'));
+
+// Promemoria scadenze date clienti (patente, revisione, ecc.) — ogni mattina alle 08:00.
+Schedule::command('app:process-cliente-date-reminders')
+    ->dailyAt('08:00')
+    ->timezone('Europe/Rome')
+    ->withoutOverlapping(10)
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/cliente-date-reminders.log'));

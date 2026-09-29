@@ -4,6 +4,8 @@ import { Link, usePage } from '@inertiajs/vue3'
 import Dropdown from '@/Components/Dropdown.vue'
 import DropdownLink from '@/Components/DropdownLink.vue'
 import ImpersonationBanner from '@/Components/ImpersonationBanner.vue'
+import TenantContextBanner from '@/Components/TenantContextBanner.vue'
+import SuperadminOverlay from '@/Components/SuperadminOverlay.vue'
 import type { PageProps, AppNotification } from '@/types'
 
 const collapsed = ref(localStorage.getItem('kd-sidebar-collapsed') === 'true')
@@ -15,8 +17,9 @@ function toggleSidebar() {
 
 const page           = usePage<PageProps>()
 const user           = computed(() => page.props.auth.user)
-const isSuperadmin   = computed(() => user.value.role === 'superadmin')
-const isTenantAdmin  = computed(() => user.value.role === 'tenant-admin')
+const isSuperadmin     = computed(() => user.value.role === 'superadmin')
+const isTenantAdmin    = computed(() => user.value.role === 'tenant-admin')
+const hasTenantContext = computed(() => !!page.props.tenantContext)
 const initials       = computed(() =>
   user.value.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
 )
@@ -28,9 +31,14 @@ const currentPath = computed(() => {
 const isOnDashboard = computed(() => currentPath.value === '/dashboard')
 const isOnPratiche  = computed(() => currentPath.value.startsWith('/pratiche') && currentPath.value !== '/pratiche/kanban')
 const isOnKanban    = computed(() => currentPath.value === '/pratiche/kanban')
+const isOnClienti   = computed(() => currentPath.value.startsWith('/clienti'))
+const isOnListe     = computed(() => currentPath.value.startsWith('/liste'))
 const isOnTeam      = computed(() => currentPath.value.startsWith('/team'))
 const isOnWhatsapp  = computed(() => currentPath.value.startsWith('/whatsapp'))
 const isOnEmail     = computed(() => currentPath.value.startsWith('/email'))
+
+const hasClienti    = computed(() => !!page.props.tenantFeatures?.clienti)
+const hasListe      = computed(() => !!page.props.tenantFeatures?.lista_personalizzate)
 
 function navigate(url: string) {
   window.location.href = url
@@ -78,8 +86,9 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 <template>
   <div class="h-screen flex flex-col overflow-hidden bg-slate-50">
 
-    <!-- ── Impersonation banner (fixed, sempre sopra tutto) ── -->
+    <!-- ── Banners (impersonazione e contesto tenant superadmin) ── -->
     <ImpersonationBanner />
+    <TenantContextBanner />
 
     <!-- ── App Shell ────────────────────────────────────────── -->
     <div class="flex flex-1 overflow-hidden min-h-0">
@@ -146,6 +155,46 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
             <span v-show="!collapsed" class="truncate">Sinistri</span>
           </a>
 
+          <!-- Clienti -->
+          <a
+            v-if="hasClienti"
+            :href="route('clienti.index')"
+            @click.prevent="navigate(route('clienti.index'))"
+            :class="[
+              'flex items-center rounded-lg text-sm font-medium transition-colors',
+              collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
+              isOnClienti
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+            ]"
+            :title="collapsed ? 'Clienti' : undefined"
+          >
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            <span v-show="!collapsed" class="truncate">Clienti</span>
+          </a>
+
+          <!-- Liste Valori -->
+          <a
+            v-if="hasListe"
+            :href="route('liste.index')"
+            @click.prevent="navigate(route('liste.index'))"
+            :class="[
+              'flex items-center rounded-lg text-sm font-medium transition-colors',
+              collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
+              isOnListe
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+            ]"
+            :title="collapsed ? 'Liste' : undefined"
+          >
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+            </svg>
+            <span v-show="!collapsed" class="truncate">Liste</span>
+          </a>
+
           <!-- Board Kanban -->
           <a
             :href="route('pratiche.kanban')"
@@ -167,7 +216,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 
           <!-- WhatsApp -->
           <a
-            v-if="!isSuperadmin"
+            v-if="!isSuperadmin || hasTenantContext"
             :href="route('whatsapp.index')"
             @click.prevent="navigate(route('whatsapp.index'))"
             :class="[
@@ -205,9 +254,9 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
             <span v-show="!collapsed" class="truncate">Email</span>
           </a>
 
-          <!-- Team (tenant-admin only) -->
+          <!-- Team -->
           <a
-            v-if="isTenantAdmin"
+            v-if="isTenantAdmin || hasTenantContext"
             :href="route('team.index')"
             @click.prevent="navigate(route('team.index'))"
             :class="[
@@ -223,6 +272,18 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
             </svg>
             <span v-show="!collapsed" class="truncate">Team</span>
+          </a>
+
+          <!-- Link SA panel (solo superadmin in contesto) -->
+          <a
+            v-if="isSuperadmin && hasTenantContext"
+            :href="route('superadmin.dashboard')"
+            class="flex items-center rounded-lg text-sm font-medium transition-colors mt-2 border-t border-slate-700 pt-2"
+            :class="collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5'"
+            :title="collapsed ? 'Pannello SA' : undefined"
+          >
+            <svg class="w-5 h-5 shrink-0 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span v-show="!collapsed" class="truncate text-indigo-300 font-semibold">Pannello SA</span>
           </a>
 
         </nav>
@@ -364,4 +425,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
       </div>
     </div>
   </div>
+
+  <!-- Overlay superadmin (fisso, visibile solo in impersonazione) -->
+  <SuperadminOverlay />
 </template>

@@ -18,7 +18,17 @@ class Cliente extends Model
         'nome',
         'telefono',
         'email',
+        'custom_fields',
     ];
+
+    protected $casts = [
+        'custom_fields' => 'array',
+    ];
+
+    public function getCustomField(string $key, mixed $default = null): mixed
+    {
+        return data_get($this->custom_fields, $key, $default);
+    }
 
     public function tenant(): BelongsTo
     {

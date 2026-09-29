@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,6 +28,32 @@ class ImpersonateController extends Controller
         return redirect()
             ->route('dashboard')
             ->with('success', "Stai operando come {$user->name}.");
+    }
+
+    /**
+     * POST /superadmin/tenants/{tenant}/enter
+     * Entra nel tenant impersonando il primo admin disponibile.
+     */
+    public function enterTenant(Tenant $tenant): RedirectResponse
+    {
+        $admin = User::where('tenant_id', $tenant->id)
+            ->whereIn('role', ['tenant-admin', 'user'])
+            ->where('is_active', true)
+            ->orderByRaw("FIELD(role, 'tenant-admin', 'user')")
+            ->first();
+
+        if (! $admin) {
+            return redirect()
+                ->route('superadmin.tenants.index')
+                ->with('error', "Il tenant \"{$tenant->name}\" non ha utenti attivi.");
+        }
+
+        session(['impersonator_id' => auth()->id()]);
+        auth()->loginUsingId($admin->id);
+
+        return redirect()
+            ->route('dashboard')
+            ->with('success', "Stai operando nel tenant \"{$tenant->name}\".");
     }
 
     /**

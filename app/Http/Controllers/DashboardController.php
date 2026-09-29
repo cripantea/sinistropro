@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Pratica;
+use App\Support\TenantContext;
 use App\Models\TenantStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
@@ -13,8 +14,7 @@ class DashboardController extends Controller
 {
     public function __invoke(): Response|RedirectResponse
     {
-        $user     = auth()->user();
-        $tenantId = $user->tenant_id;
+        $tenantId = TenantContext::id();
 
         if (! $tenantId) {
             return redirect()->route('superadmin.dashboard');

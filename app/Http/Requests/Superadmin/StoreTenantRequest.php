@@ -38,6 +38,15 @@ class StoreTenantRequest extends FormRequest
             'statuses.*.color'              => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'statuses.*.is_closed'          => ['boolean'],
             'statuses.*.is_initial'         => ['boolean'],
+            'cliente_custom_fields_schema'          => ['nullable', 'array', 'max:20'],
+            'cliente_custom_fields_schema.*.name'   => ['required', 'string', 'max:50', 'regex:/^[a-z][a-z0-9_]*$/'],
+            'cliente_custom_fields_schema.*.label'  => ['required', 'string', 'max:100'],
+            'cliente_custom_fields_schema.*.type'   => ['required', 'in:text,date,number,boolean,select'],
+            'cliente_custom_fields_schema.*.required' => ['boolean'],
+            'cliente_custom_fields_schema.*.options'  => ['nullable', 'array'],
+            'cliente_custom_fields_schema.*.options.*' => ['string', 'max:255'],
+            'features'                      => ['nullable', 'array'],
+            'features.*'                    => ['boolean'],
         ];
     }
 

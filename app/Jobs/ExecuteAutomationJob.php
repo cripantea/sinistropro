@@ -5,7 +5,9 @@ namespace App\Jobs;
 use App\Mail\AutomazioneNotificaMail;
 use App\Models\Automation;
 use App\Models\Pratica;
+use App\Models\WhatsappSession;
 use App\Services\TenantMailerResolver;
+use App\Services\WhatsappCloudApiClient;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -362,16 +364,44 @@ class ExecuteAutomationJob implements ShouldQueue
 
     private function sendWhatsapp(array $recipient, string $compiledMessage, Pratica $pratica): void
     {
-        // TODO: integrare con provider WhatsApp (Twilio, Meta Cloud API, ecc.)
-        // Il numero di telefono del destinatario è in $recipient['phone'].
-        // Per utenti interni (gestore/perito) il telefono non è sul modello User:
-        // aggiungere colonna `phone` alla tabella `users` quando si integra il provider.
-        Log::info('ExecuteAutomationJob: WhatsApp placeholder', [
-            'pratica_id'    => $pratica->id,
-            'automation_id' => $this->automation->id,
-            'phone'         => $recipient['phone'] ?? 'N/D',
-            'message_len'   => strlen($compiledMessage),
-        ]);
+        $phone = $recipient['phone'] ?? null;
+
+        if (! $phone) {
+            Log::warning('ExecuteAutomationJob: WhatsApp skip — numero telefono mancante', [
+                'pratica_id'    => $pratica->id,
+                'automation_id' => $this->automation->id,
+            ]);
+            return;
+        }
+
+        $session = WhatsappSession::where('tenant_id', $pratica->tenant_id)
+            ->where('status', 'connected')
+            ->first();
+
+        if (! $session) {
+            Log::warning('ExecuteAutomationJob: WhatsApp skip — nessuna sessione connessa', [
+                'pratica_id'    => $pratica->id,
+                'tenant_id'     => $pratica->tenant_id,
+            ]);
+            return;
+        }
+
+        try {
+            $to = preg_replace('/[^\d+]/', '', $phone);
+            app(WhatsappCloudApiClient::class)->sendText($session->phone_number_id, $to, $compiledMessage);
+
+            Log::info('ExecuteAutomationJob: WhatsApp inviato', [
+                'pratica_id'    => $pratica->id,
+                'automation_id' => $this->automation->id,
+                'to'            => $to,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('ExecuteAutomationJob: WhatsApp errore', [
+                'pratica_id'    => $pratica->id,
+                'automation_id' => $this->automation->id,
+                'errore'        => $e->getMessage(),
+            ]);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

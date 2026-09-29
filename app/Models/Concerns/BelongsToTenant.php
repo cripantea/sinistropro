@@ -3,6 +3,7 @@
 namespace App\Models\Concerns;
 
 use App\Models\Scopes\TenantScope;
+use App\Support\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
 
 trait BelongsToTenant
@@ -14,7 +15,7 @@ trait BelongsToTenant
         // Popola tenant_id automaticamente al momento della creazione.
         static::creating(function (self $model): void {
             if (auth()->check() && empty($model->tenant_id)) {
-                $model->tenant_id = auth()->user()->tenant_id;
+                $model->tenant_id = TenantContext::id();
             }
         });
     }

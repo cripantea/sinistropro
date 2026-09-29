@@ -1,8 +1,23 @@
 <template>
   <SuperadminLayout :title="`Modifica Tenant: ${tenant.name}`">
 
+    <!-- ── Header con azioni rapide ────────────────────────────────────────── -->
+    <div class="px-6 pt-5 flex items-center justify-between max-w-4xl">
+      <p class="text-xs text-slate-500">ID: {{ tenant.id }}</p>
+      <Link
+        :href="route('superadmin.tenants.context.set', tenant.id)"
+        method="post"
+        as="button"
+        class="inline-flex items-center gap-1.5 text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg transition"
+        title="Naviga i dati del tenant restando superadmin"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+        Sfoglia tenant
+      </Link>
+    </div>
+
     <!-- ── Tab bar ──────────────────────────────────────────────────────────── -->
-    <div class="px-6 pt-6">
+    <div class="px-6 pt-4">
       <nav class="flex gap-1 bg-slate-100 rounded-xl p-1 max-w-4xl">
         <button
           v-for="tab in TABS"
@@ -138,7 +153,137 @@
 
     </form>
 
-    <!-- ── Tab 2: Categorie Documenti ─────────────────────────────────────────── -->
+    <!-- ── Tab 2: Funzionalità ──────────────────────────────────────────────────── -->
+    <div v-show="activeTab === 'features'" class="p-6 max-w-3xl">
+      <FormSection title="Funzionalità abilitate">
+        <p class="text-xs text-slate-500 mb-5">Controlla quali funzionalità sono visibili e accessibili a questo tenant. Le funzionalità nuove sono disabilitate di default.</p>
+
+        <div class="space-y-3">
+          <label
+            v-for="feat in availableFeatures"
+            :key="feat.key"
+            class="flex items-center justify-between gap-4 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors"
+          >
+            <div>
+              <span class="text-sm font-medium text-slate-800">{{ feat.label }}</span>
+              <span v-if="!feat.default" class="ml-2 text-[10px] font-semibold uppercase tracking-wide text-indigo-600 bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.5">Nuova</span>
+            </div>
+            <div class="relative shrink-0">
+              <input
+                type="checkbox"
+                :checked="form.features[feat.key]"
+                @change="form.features[feat.key] = ($event.target as HTMLInputElement).checked"
+                class="sr-only peer"
+              />
+              <div
+                class="w-10 h-6 rounded-full border-2 transition-colors cursor-pointer peer-focus:ring-2 peer-focus:ring-indigo-500"
+                :class="form.features[feat.key] ? 'bg-indigo-600 border-indigo-600' : 'bg-slate-200 border-slate-300'"
+                @click="form.features[feat.key] = !form.features[feat.key]"
+              >
+                <div
+                  class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                  :class="form.features[feat.key] ? 'translate-x-4' : 'translate-x-0'"
+                />
+              </div>
+            </div>
+          </label>
+        </div>
+      </FormSection>
+
+      <div class="mt-6 flex items-center gap-3">
+        <button
+          type="button"
+          :disabled="form.processing"
+          @click="submit"
+          class="inline-flex items-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-6 py-2.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-60"
+        >
+          <svg v-if="form.processing" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+          Salva funzionalità
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Tab: Campi Clienti ────────────────────────────────────────────────── -->
+    <form v-show="activeTab === 'clienti'" @submit.prevent="submit" class="p-6 max-w-3xl space-y-6">
+      <FormSection title="Campi personalizzati dei clienti">
+        <p class="text-xs text-slate-500 mb-4">
+          Definisci i campi aggiuntivi dell'anagrafica cliente per questo tenant. I campi di tipo "Data" possono essere
+          usati per trigger WhatsApp automatici (es. scadenza patente, revisione).
+        </p>
+        <div class="space-y-3">
+          <TransitionGroup name="list" tag="div" class="space-y-3">
+            <div v-for="(field, i) in form.cliente_custom_fields_schema" :key="field._uid" class="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-lg p-3">
+              <div class="flex-1 space-y-3">
+                <div class="grid grid-cols-3 gap-3">
+                  <div>
+                    <label class="field-label text-xs">Nome tecnico</label>
+                    <input v-model="field.name" type="text" class="field-input font-mono text-sm" @input="field.name = field.name.toLowerCase().replace(/[^a-z0-9_]/g, '_')" />
+                    <FieldError :message="form.errors[`cliente_custom_fields_schema.${i}.name`]" />
+                  </div>
+                  <div>
+                    <label class="field-label text-xs">Etichetta</label>
+                    <input v-model="field.label" type="text" class="field-input" />
+                  </div>
+                  <div>
+                    <label class="field-label text-xs">Tipo</label>
+                    <select v-model="field.type" class="field-input">
+                      <option value="text">Testo</option>
+                      <option value="date">Data</option>
+                      <option value="number">Numero</option>
+                      <option value="boolean">Sì / No</option>
+                      <option value="select">Selezione (lista fissa)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div v-if="field.type === 'select'">
+                  <label class="field-label text-xs">Opzioni disponibili</label>
+                  <div class="space-y-1.5">
+                    <div v-for="(_opt, oi) in field.options" :key="oi" class="flex items-center gap-2">
+                      <input v-model="field.options[oi]" type="text" class="field-input text-sm py-1.5" placeholder="Valore opzione" />
+                      <button type="button" @click="removeOption(field, oi)" class="text-red-400 hover:text-red-600 transition p-1 shrink-0" title="Rimuovi opzione">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <button type="button" @click="addOption(field)" class="mt-1.5 inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    Aggiungi opzione
+                  </button>
+                  <FieldError :message="form.errors[`cliente_custom_fields_schema.${i}.options`]" />
+                </div>
+
+                <div v-if="field.type === 'date'" class="flex items-start gap-1.5 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2">
+                  <svg class="w-3.5 h-3.5 text-indigo-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  <p class="text-xs text-indigo-700">I campi data possono innescare automazioni WhatsApp (es. 30 gg prima della scadenza).</p>
+                </div>
+
+              </div>
+              <label class="mt-5 flex items-center gap-1.5 text-xs text-slate-600 shrink-0 cursor-pointer">
+                <input v-model="field.required" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                Obbligatorio
+              </label>
+              <button type="button" @click="removeClienteField(i)" class="mt-5 text-red-400 hover:text-red-600 transition p-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+          </TransitionGroup>
+        </div>
+        <button type="button" @click="addClienteField" class="mt-4 inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-medium transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Aggiungi campo
+        </button>
+      </FormSection>
+
+      <div class="flex items-center gap-4 pt-2">
+        <button type="submit" :disabled="form.processing" class="inline-flex items-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-6 py-2.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-60">
+          <svg v-if="form.processing" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+          Salva campi clienti
+        </button>
+      </div>
+    </form>
+
+    <!-- ── Tab 3: Categorie Documenti ─────────────────────────────────────────── -->
     <form v-show="activeTab === 'categories'" @submit.prevent="submitCategories" class="p-6 max-w-3xl mt-4">
       <FormSection title="Categorie Documenti">
         <p class="text-xs text-slate-500 mb-4">Abilita le categorie disponibili per questo tenant e imposta il limite di dimensione per ogni categoria.</p>
@@ -214,6 +359,10 @@
                 <span v-if="auto.trigger_type === 'date_field'" class="inline-flex items-center gap-1.5 text-xs text-slate-700">
                   <svg class="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                   {{ watchedFieldLabel(auto.watched_field) }}
+                </span>
+                <span v-else-if="auto.trigger_type === 'cliente_date_field'" class="inline-flex items-center gap-1.5 text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
+                  <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                  {{ watchedFieldLabel(auto.watched_field) }}<span v-if="auto.days_before > 0"> – {{ auto.days_before }}gg prima</span>
                 </span>
                 <span v-else-if="auto.status" class="inline-flex items-center gap-1.5 text-xs text-slate-700">
                   <span class="inline-block w-2 h-2 rounded-full shrink-0" :style="{ backgroundColor: auto.status.color }"></span>
@@ -614,12 +763,14 @@
                 <div>
                   <label class="field-label">Cosa osservare *</label>
                   <select v-model="autoForm.trigger_type" class="field-input">
-                    <option value="status">Cambio di stato</option>
-                    <option value="date_field">Cambio di una data</option>
+                    <option value="status">Cambio di stato sinistro</option>
+                    <option value="date_field">Cambio di una data (sinistro)</option>
+                    <option value="cliente_date_field">Scadenza data cliente (giornaliero)</option>
                   </select>
                   <FieldError :message="autoForm.errors.trigger_type" />
                 </div>
 
+                <!-- status -->
                 <div v-if="autoForm.trigger_type === 'status'">
                   <label class="field-label">Stato trigger</label>
                   <select v-model="autoForm.tenant_status_id" class="field-input">
@@ -629,18 +780,52 @@
                   <FieldError :message="autoForm.errors.tenant_status_id" />
                 </div>
 
-                <div v-else>
-                  <label class="field-label">Quale data *</label>
+                <!-- date_field (pratica) -->
+                <div v-else-if="autoForm.trigger_type === 'date_field'">
+                  <label class="field-label">Quale data del sinistro *</label>
                   <select v-model="autoForm.watched_field" class="field-input">
                     <option :value="null" disabled>— Scegli —</option>
                     <option value="data_appuntamento">Data perizia (sopralluogo)</option>
                     <option v-for="f in dateCustomFields" :key="f.name" :value="f.name">{{ f.label }}</option>
                   </select>
                   <p v-if="dateCustomFields.length === 0" class="text-xs text-amber-600 mt-1">
-                    Nessun campo di tipo "Data" configurato tra i campi personalizzati dei sinistri (tab "Configurazione").
+                    Nessun campo di tipo "Data" nei sinistri (tab "Configurazione").
                   </p>
                   <FieldError :message="autoForm.errors.watched_field" />
                 </div>
+
+                <!-- cliente_date_field -->
+                <template v-else>
+                  <div>
+                    <label class="field-label">Quale data del cliente *</label>
+                    <select v-model="autoForm.watched_field" class="field-input">
+                      <option :value="null" disabled>— Scegli —</option>
+                      <option v-for="f in clienteDateCustomFields" :key="f.name" :value="f.name">{{ f.label }}</option>
+                    </select>
+                    <p v-if="clienteDateCustomFields.length === 0" class="text-xs text-amber-600 mt-1">
+                      Nessun campo di tipo "Data" nei clienti. Aggiungine uno nel tab "Campi Clienti".
+                    </p>
+                    <FieldError :message="autoForm.errors.watched_field" />
+                  </div>
+
+                  <div>
+                    <label class="field-label">Quanti giorni prima della scadenza inviare?</label>
+                    <div class="flex items-center gap-2">
+                      <input
+                        v-model.number="autoForm.days_before"
+                        type="number" min="0" max="365"
+                        class="field-input w-24"
+                      />
+                      <span class="text-sm text-slate-500">giorni prima (0 = il giorno stesso)</span>
+                    </div>
+                    <FieldError :message="autoForm.errors.days_before" />
+                  </div>
+
+                  <div class="flex items-start gap-1.5 bg-indigo-50 border border-indigo-200 rounded-lg px-3.5 py-3 text-xs text-indigo-700">
+                    <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span>Questo trigger viene controllato ogni giorno automaticamente alle 08:00. Usa <code class="bg-indigo-100 px-1 rounded">{nome_cliente}</code>, <code class="bg-indigo-100 px-1 rounded">{data_scadenza}</code>, <code class="bg-indigo-100 px-1 rounded">{nome_tenant}</code> nel messaggio.</span>
+                  </div>
+                </template>
 
                 <label class="flex items-start gap-2.5 bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-3 cursor-pointer">
                   <input type="checkbox" v-model="autoForm.requires_confirmation" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
@@ -1170,9 +1355,10 @@ interface TenantUser { id: number; name: string; email: string; role: string }
 
 interface Automation {
   id: number; name: string
-  trigger_type: 'status' | 'date_field'
+  trigger_type: 'status' | 'date_field' | 'cliente_date_field'
   tenant_status_id: number | null
   watched_field: string | null
+  days_before: number
   channel: string; recipient: string
   recipients_to: RecipientTo[] | null
   recipients_cc: RecipientCc[] | null
@@ -1226,9 +1412,16 @@ interface WhatsappSessionInfo {
 
 interface TenantFull {
   id: number; name: string
-  settings: { default_notice_days: number; custom_fields_schema: Omit<CustomField, '_uid'>[] } | null
+  settings: {
+    default_notice_days: number
+    custom_fields_schema: Omit<CustomField, '_uid'>[]
+    cliente_custom_fields_schema?: Omit<CustomField, '_uid'>[]
+    features?: Record<string, boolean>
+  } | null
   statuses: Omit<StatusRow, '_uid'>[]
 }
+
+interface AvailableFeature { key: string; label: string; default: boolean }
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -1242,6 +1435,7 @@ const props = defineProps<{
   tenantUsers: TenantUser[]
   mailSettings: MailSettings | null
   whatsappSession: WhatsappSessionInfo | null
+  availableFeatures: AvailableFeature[]
 }>()
 
 // ── UID counter (shared across all lists) ────────────────────────────────────
@@ -1253,6 +1447,8 @@ const uid = () => ++_uid
 
 const TABS = [
   { id: 'config',      label: 'Configurazione' },
+  { id: 'features',    label: 'Funzionalità' },
+  { id: 'clienti',     label: 'Campi Clienti' },
   { id: 'categories',  label: 'Categorie Documenti' },
   { id: 'automations', label: 'Automazioni Workflow' },
   { id: 'dictionary',  label: 'Dizionario Campi' },
@@ -1266,7 +1462,7 @@ type TabId = typeof TABS[number]['id']
 function tabFromUrl(url: string): TabId {
   const search = url.includes('?') ? url.split('?')[1] : ''
   const tab = new URLSearchParams(search).get('tab')
-  return (['config', 'categories', 'automations', 'dictionary', 'modules', 'email', 'whatsapp'] as const).includes(tab as TabId)
+  return (['config', 'features', 'clienti', 'categories', 'automations', 'dictionary', 'modules', 'email', 'whatsapp'] as const).includes(tab as TabId)
     ? (tab as TabId)
     : 'config'
 }
@@ -1278,16 +1474,26 @@ watch(() => page.url, (url) => { activeTab.value = tabFromUrl(url) })
 // ── Configurazione form ──────────────────────────────────────────────────────
 
 const form = useForm({
-  name:                 props.tenant.name,
-  default_notice_days:  props.tenant.settings?.default_notice_days ?? 30,
-  custom_fields_schema: (props.tenant.settings?.custom_fields_schema ?? []).map(f => ({ ...f, options: f.options ?? [], _uid: uid() })) as CustomField[],
-  statuses:             (props.tenant.statuses ?? []).map(s => ({ ...s, _uid: uid() })) as StatusRow[],
+  name:                          props.tenant.name,
+  default_notice_days:           props.tenant.settings?.default_notice_days ?? 30,
+  custom_fields_schema:          (props.tenant.settings?.custom_fields_schema ?? []).map(f => ({ ...f, options: f.options ?? [], _uid: uid() })) as CustomField[],
+  cliente_custom_fields_schema:  (props.tenant.settings?.cliente_custom_fields_schema ?? []).map(f => ({ ...f, options: f.options ?? [], _uid: uid() })) as CustomField[],
+  statuses:                      (props.tenant.statuses ?? []).map(s => ({ ...s, _uid: uid() })) as StatusRow[],
+  features: Object.fromEntries(
+    props.availableFeatures.map(f => [
+      f.key,
+      props.tenant.settings?.features?.[f.key] ?? f.default,
+    ])
+  ) as Record<string, boolean>,
 })
 
 const PALETTE = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#6B7280']
 
 function addField()             { form.custom_fields_schema.push({ _uid: uid(), name: '', label: '', type: 'text', required: false, options: [] }) }
 function removeField(i: number) { form.custom_fields_schema.splice(i, 1) }
+
+function addClienteField()             { form.cliente_custom_fields_schema.push({ _uid: uid(), name: '', label: '', type: 'text', required: false, options: [] }) }
+function removeClienteField(i: number) { form.cliente_custom_fields_schema.splice(i, 1) }
 
 function addOption(field: CustomField) {
   field.options.push('')
@@ -1310,8 +1516,9 @@ function submit() {
   form
     .transform((data) => ({
       ...data,
-      custom_fields_schema: data.custom_fields_schema.map(({ _uid: _u, ...f }: CustomField) => f),
-      statuses:             data.statuses.map(({ _uid: _u, ...s }: StatusRow) => s),
+      custom_fields_schema:         data.custom_fields_schema.map(({ _uid: _u, ...f }: CustomField) => f),
+      cliente_custom_fields_schema: data.cliente_custom_fields_schema.map(({ _uid: _u, ...f }: CustomField) => f),
+      statuses:                     data.statuses.map(({ _uid: _u, ...s }: StatusRow) => s),
     }))
     .put(route('superadmin.tenants.update', props.tenant.id))
 }
@@ -1333,16 +1540,25 @@ const dateCustomFields = computed(() =>
   (props.tenant.settings?.custom_fields_schema ?? []).filter(f => f.type === 'date')
 )
 
+const clienteDateCustomFields = computed(() =>
+  (props.tenant.settings?.cliente_custom_fields_schema ?? []).filter(f => f.type === 'date')
+)
+
 function watchedFieldLabel(field: string | null): string {
   if (field === 'data_appuntamento') return 'Data perizia'
-  return dateCustomFields.value.find(f => f.name === field)?.label ?? field ?? '—'
+  return (
+    dateCustomFields.value.find(f => f.name === field)?.label ??
+    clienteDateCustomFields.value.find(f => f.name === field)?.label ??
+    field ?? '—'
+  )
 }
 
 const autoForm = useForm({
   name:                  '' as string,
-  trigger_type:          'status' as 'status' | 'date_field',
+  trigger_type:          'status' as 'status' | 'date_field' | 'cliente_date_field',
   tenant_status_id:      null as number | null,
   watched_field:         null as string | null,
+  days_before:           0 as number,
   channel:               'email' as string,
   recipients_to:         [{ type: 'cliente' as const }] as RecipientTo[],
   recipients_cc:         [] as RecipientCc[],
@@ -1366,6 +1582,7 @@ function openEditAuto(auto: Automation) {
   autoForm.trigger_type          = auto.trigger_type
   autoForm.tenant_status_id      = auto.tenant_status_id
   autoForm.watched_field         = auto.watched_field
+  autoForm.days_before           = auto.days_before ?? 0
   autoForm.channel               = auto.channel
   autoForm.recipients_to         = auto.recipients_to ? [...auto.recipients_to] : legacyToRecipients(auto.recipient)
   autoForm.recipients_cc         = auto.recipients_cc ? [...auto.recipients_cc] : []

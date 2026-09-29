@@ -14,6 +14,17 @@ class Tenant extends Model
 
     protected $fillable = ['name', 'settings'];
 
+    /** Feature slug → [label, default]. Default true = già attiva per tutti i tenant esistenti. */
+    const AVAILABLE_FEATURES = [
+        'whatsapp'             => ['label' => 'Integrazione WhatsApp',            'default' => true],
+        'moduli_pdf'           => ['label' => 'Moduli PDF dinamici',               'default' => true],
+        'automazioni'          => ['label' => 'Automazioni Workflow',              'default' => true],
+        'kanban'               => ['label' => 'Board Kanban',                      'default' => true],
+        'clienti'              => ['label' => 'Gestione Clienti',                   'default' => false],
+        'lista_personalizzate' => ['label' => 'Liste con valori personalizzati',   'default' => false],
+        'import_clienti'       => ['label' => 'Import clienti (JSON/XML/CSV)',     'default' => false],
+    ];
+
     protected $casts = [
         'settings' => 'array',
     ];
@@ -78,6 +89,12 @@ class Tenant extends Model
         return data_get($this->settings, $key, $default);
     }
 
+    public function hasFeature(string $feature): bool
+    {
+        $default = self::AVAILABLE_FEATURES[$feature]['default'] ?? true;
+        return (bool) $this->getSetting("features.{$feature}", $default);
+    }
+
     public function getDefaultNoticeDays(): int
     {
         return (int) $this->getSetting('default_notice_days', 30);
@@ -87,5 +104,11 @@ class Tenant extends Model
     public function getCustomFieldsSchema(): array
     {
         return $this->getSetting('custom_fields_schema', []);
+    }
+
+    /** @return array<int, array{name: string, label: string, type: string}> */
+    public function getClienteCustomFieldsSchema(): array
+    {
+        return $this->getSetting('cliente_custom_fields_schema', []);
     }
 }

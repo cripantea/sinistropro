@@ -5,7 +5,7 @@ namespace App\Http\Requests\Cliente;
 use App\Support\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 
-class StoreClienteRequest extends FormRequest
+class UpdateClienteRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -26,7 +26,7 @@ class StoreClienteRequest extends FormRequest
     {
         return [
             'nome.required' => 'Il nome del cliente è obbligatorio.',
-            'email.email' => 'Inserisci un indirizzo email valido.',
+            'email.email'   => 'Inserisci un indirizzo email valido.',
         ];
     }
 }

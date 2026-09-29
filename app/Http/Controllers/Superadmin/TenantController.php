@@ -31,6 +31,14 @@ class TenantController extends Controller
         ]);
     }
 
+    /** GET /superadmin/tenants/list-json — lista minimale per il tenant switcher */
+    public function listJson(): \Illuminate\Http\JsonResponse
+    {
+        return response()->json(
+            Tenant::orderBy('name')->get(['id', 'name'])
+        );
+    }
+
     public function create(): Response
     {
         return Inertia::render('Superadmin/Tenants/Create');
@@ -42,8 +50,10 @@ class TenantController extends Controller
             $tenant = Tenant::create([
                 'name' => $request->name,
                 'settings' => [
-                    'default_notice_days' => $request->integer('default_notice_days'),
-                    'custom_fields_schema' => $request->input('custom_fields_schema', []),
+                    'default_notice_days'          => $request->integer('default_notice_days'),
+                    'custom_fields_schema'          => $request->input('custom_fields_schema', []),
+                    'cliente_custom_fields_schema'  => $request->input('cliente_custom_fields_schema', []),
+                    'features'                      => $request->input('features', []),
                 ],
             ]);
 
@@ -140,38 +150,41 @@ class TenantController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'role']);
 
-        $mailSettings = $tenant->mailSettings;
+        $mailSettings    = $tenant->mailSettings;
         $whatsappSession = $tenant->whatsappSession;
 
+        $availableFeatures = collect(Tenant::AVAILABLE_FEATURES)
+            ->map(fn ($meta, $key) => ['key' => $key, 'label' => $meta['label'], 'default' => $meta['default']])
+            ->values();
+
         return Inertia::render('Superadmin/Tenants/Edit', [
-            'tenant' => $tenant,
-            'categoriesConfig' => $categoriesConfig,
-            'automations' => $automations,
-            'allDocCategories' => $allDocCategories,
-            'moduleTemplates' => $moduleTemplates,
-            'fieldDictionary' => $fieldDictionary,
-            'tenantUsers' => $tenantUsers,
-            // La password non arriva mai al frontend: solo un flag "già configurata".
+            'tenant'            => $tenant,
+            'categoriesConfig'  => $categoriesConfig,
+            'automations'       => $automations,
+            'allDocCategories'  => $allDocCategories,
+            'moduleTemplates'   => $moduleTemplates,
+            'fieldDictionary'   => $fieldDictionary,
+            'tenantUsers'       => $tenantUsers,
+            'availableFeatures' => $availableFeatures,
             'mailSettings' => $mailSettings ? [
-                'host' => $mailSettings->host,
-                'port' => $mailSettings->port,
-                'username' => $mailSettings->username,
+                'host'         => $mailSettings->host,
+                'port'         => $mailSettings->port,
+                'username'     => $mailSettings->username,
                 'has_password' => ! empty($mailSettings->password),
-                'encryption' => $mailSettings->encryption,
+                'encryption'   => $mailSettings->encryption,
                 'from_address' => $mailSettings->from_address,
-                'from_name' => $mailSettings->from_name,
-                'is_active' => $mailSettings->is_active,
-                'imap_host' => $mailSettings->imap_host,
-                'imap_port' => $mailSettings->imap_port,
+                'from_name'    => $mailSettings->from_name,
+                'is_active'    => $mailSettings->is_active,
+                'imap_host'       => $mailSettings->imap_host,
+                'imap_port'       => $mailSettings->imap_port,
                 'imap_encryption' => $mailSettings->imap_encryption,
             ] : null,
-            // access_token non arriva mai al frontend: escluso già a livello di modello ($hidden).
             'whatsappSession' => $whatsappSession ? [
-                'status' => $whatsappSession->status,
-                'displayPhoneNumber' => $whatsappSession->display_phone_number,
-                'wabaId' => $whatsappSession->waba_id,
-                'historySyncStatus' => $whatsappSession->history_sync_status,
-                'lastEventAt' => $whatsappSession->last_event_at?->toIso8601String(),
+                'status'              => $whatsappSession->status,
+                'displayPhoneNumber'  => $whatsappSession->display_phone_number,
+                'wabaId'              => $whatsappSession->waba_id,
+                'historySyncStatus'   => $whatsappSession->history_sync_status,
+                'lastEventAt'         => $whatsappSession->last_event_at?->toIso8601String(),
                 'disconnectionReason' => $whatsappSession->disconnection_reason,
                 'connectedByUserName' => $whatsappSession->connectedByUser?->name,
             ] : null,
@@ -207,8 +220,10 @@ class TenantController extends Controller
             $tenant->update([
                 'name' => $request->name,
                 'settings' => [
-                    'default_notice_days' => $request->integer('default_notice_days'),
-                    'custom_fields_schema' => $request->input('custom_fields_schema', []),
+                    'default_notice_days'          => $request->integer('default_notice_days'),
+                    'custom_fields_schema'          => $request->input('custom_fields_schema', []),
+                    'cliente_custom_fields_schema'  => $request->input('cliente_custom_fields_schema', []),
+                    'features'                      => $request->input('features', []),
                 ],
             ]);
 

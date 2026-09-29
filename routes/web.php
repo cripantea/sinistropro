@@ -3,9 +3,12 @@
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AutomationPreviewController;
 use App\Http\Controllers\ClienteController;
+use App\Http\Controllers\ImportClientiController;
+use App\Http\Controllers\ListaValoriController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmailController;
 use App\Http\Controllers\ImpersonateController;
+use App\Http\Controllers\TenantContextController;
 use App\Http\Controllers\IspezioneController;
 use App\Http\Controllers\PdfExportController;
 use App\Http\Controllers\PraticaController;
@@ -49,8 +52,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Anteprima automazioni "richiede conferma" prima di confermare cambio stato/data
     Route::post('/pratiche/{pratica}/automations/preview', [AutomationPreviewController::class, 'preview'])->name('pratiche.automations.preview');
 
-    // Clienti — creazione rapida da modale nel form pratica
-    Route::post('/clienti', [ClienteController::class, 'store'])->name('clienti.store');
+    // Clienti — gestione completa + creazione rapida da modale (store mantiene JSON response)
+    Route::get('/clienti',                  [ClienteController::class, 'index'])->name('clienti.index');
+    Route::get('/clienti/create',           [ClienteController::class, 'create'])->name('clienti.create');
+    Route::post('/clienti',                 [ClienteController::class, 'store'])->name('clienti.store');
+    Route::get('/clienti/import',           [ImportClientiController::class, 'create'])->name('clienti.import');
+    Route::post('/clienti/import/preview',  [ImportClientiController::class, 'preview'])->name('clienti.import.preview');
+    Route::post('/clienti/import/execute',  [ImportClientiController::class, 'execute'])->name('clienti.import.execute');
+    Route::get('/clienti/{cliente}',        [ClienteController::class, 'show'])->name('clienti.show');
+    Route::get('/clienti/{cliente}/edit',   [ClienteController::class, 'edit'])->name('clienti.edit');
+    Route::put('/clienti/{cliente}',        [ClienteController::class, 'update'])->name('clienti.update');
+    Route::delete('/clienti/{cliente}',     [ClienteController::class, 'destroy'])->name('clienti.destroy');
 
     // Note della pratica
     Route::post('/pratiche/{pratica}/note', [PraticaNotaController::class, 'store'])->name('pratiche.note.store');
@@ -72,6 +84,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Moduli dinamici — compila + genera PDF
     Route::post('/pratiche/{pratica}/modules', [\App\Http\Controllers\PraticaModuleController::class, 'store'])->name('pratica-modules.store');
+
+    // Liste valori personalizzate (feature: lista_personalizzate)
+    Route::get('/liste',                        [ListaValoriController::class, 'index'])->name('liste.index');
+    Route::post('/liste',                       [ListaValoriController::class, 'store'])->name('liste.store');
+    Route::put('/liste/{listaValori}',          [ListaValoriController::class, 'update'])->name('liste.update');
+    Route::delete('/liste/{listaValori}',       [ListaValoriController::class, 'destroy'])->name('liste.destroy');
+    Route::get('/liste/{slug}/items',           [ListaValoriController::class, 'show'])->name('liste.items');
 });
 
 // --- Team (solo tenant-admin) ---
@@ -124,7 +143,13 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::patch('/users/{user}', [SuperadminController::class, 'update'])->name('users.update');
 
     // Impersonazione
-    Route::post('/impersonate/{user}', [ImpersonateController::class, 'start'])->name('impersonate.start');
+    Route::post('/impersonate/{user}',            [ImpersonateController::class, 'start'])->name('impersonate.start');
+    Route::post('/tenants/{tenant}/enter',         [ImpersonateController::class, 'enterTenant'])->name('impersonate.enter-tenant');
+
+    // Tenant context (superadmin naviga da sé senza impersonare)
+    Route::post('/tenants/{tenant}/context',       [TenantContextController::class, 'set'])->name('tenants.context.set');
+    Route::post('/tenant-context/clear',           [TenantContextController::class, 'clear'])->name('tenant-context.clear');
+    Route::get('/tenants/list-json',               [TenantController::class, 'listJson'])->name('tenants.list-json');
 
     // Categorie documenti (globali)
     Route::get('/document-categories',                        [DocumentCategoryController::class, 'index'])->name('document-categories.index');

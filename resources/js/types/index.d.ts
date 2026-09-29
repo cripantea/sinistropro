@@ -33,4 +33,7 @@ export type PageProps<T extends Record<string, unknown> = Record<string, unknown
     error?: string
   }
   notifications: AppNotification[]
+  tenantFeatures: Record<string, boolean>
+  impersonating: { tenant_id: number; tenant_name: string } | null
+  tenantContext: { tenant_id: number; tenant_name: string } | null
 }
