@@ -186,7 +186,7 @@
       <div
         v-if="editingMember"
         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-        @click.self="closeEdit"
+        @mousedown.self="closeEdit"
       >
         <Transition
           enter-active-class="transition duration-200 ease-out"

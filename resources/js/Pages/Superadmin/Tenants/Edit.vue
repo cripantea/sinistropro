@@ -741,7 +741,7 @@
     <!-- ── Automation Modal ──────────────────────────────────────────────────── -->
     <Teleport to="body">
       <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0" leave-active-class="transition duration-150" leave-to-class="opacity-0">
-        <div v-if="autoModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" @click.self="closeAutoModal">
+        <div v-if="autoModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" @mousedown.self="closeAutoModal">
           <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0 scale-95" leave-active-class="transition duration-150" leave-to-class="opacity-0 scale-95">
             <div v-if="autoModalOpen" class="bg-white rounded-2xl shadow-2xl w-full max-w-xl" @click.stop>
 
@@ -933,7 +933,7 @@
     <!-- ── Field Dictionary Modal ─────────────────────────────────────────────── -->
     <Teleport to="body">
       <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0" leave-active-class="transition duration-150" leave-to-class="opacity-0">
-        <div v-if="dictModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" @click.self="closeDictModal">
+        <div v-if="dictModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" @mousedown.self="closeDictModal">
           <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0 scale-95" leave-active-class="transition duration-150" leave-to-class="opacity-0 scale-95">
             <div v-if="dictModalOpen" class="bg-white rounded-2xl shadow-2xl w-full max-w-lg" @click.stop>
 
@@ -1029,7 +1029,7 @@
     <!-- ── Module Template Modal ─────────────────────────────────────────────── -->
     <Teleport to="body">
       <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0" leave-active-class="transition duration-150" leave-to-class="opacity-0">
-        <div v-if="moduleModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" @click.self="closeModuleModal">
+        <div v-if="moduleModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" @mousedown.self="closeModuleModal">
           <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0 scale-95" leave-active-class="transition duration-150" leave-to-class="opacity-0 scale-95">
             <div v-if="moduleModalOpen" class="bg-white rounded-2xl shadow-2xl w-full transition-all duration-200" :class="coordEditorMode ? 'max-w-5xl' : 'max-w-2xl'" @click.stop>
 
