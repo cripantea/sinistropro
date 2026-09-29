@@ -119,9 +119,22 @@ class SyncTenantMailboxJob implements ShouldQueue
         // (su una casella con anni di storico il job supererebbe il timeout ad
         // ogni tentativo, senza mai completare) — si parte dagli ultimi 7
         // giorni, poi si procede incrementalmente per UID.
-        $messages = $lastUid === null
-            ? $folder->messages()->whereSince(now()->subDays(7)->format('d-M-Y'))->get()
-            : $folder->messages()->getByUidGreater($lastUid);
+        try {
+            $messages = $lastUid === null
+                ? $folder->messages()->whereSince(now()->subDays(7)->format('d-M-Y'))->get()
+                : $folder->messages()->getByUidGreater($lastUid);
+        } catch (\Throwable $e) {
+            // Il server IMAP può chiudere la connessione (es. "empty response")
+            // su caselle grandi o lente. Logghiamo e usciamo senza fallire il
+            // job: il prossimo ciclo (ogni 2 min) riproverà dallo stesso UID.
+            Log::warning('SyncTenantMailboxJob: fetch messaggi fallito, riprovo al prossimo ciclo', [
+                'tenant_id' => $this->tenantId,
+                'folder' => $folderKey,
+                'error' => $e->getMessage(),
+            ]);
+
+            return 0;
+        }
 
         $imported = 0;
         $maxUid = $lastUid ?? 0;

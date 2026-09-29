@@ -53,6 +53,11 @@
           <span class="text-gray-400 text-xs uppercase tracking-wide">Email</span>
           <p class="text-sm font-medium text-gray-800 mt-0.5">{{ pratica.cliente.email }}</p>
         </div>
+        <Link
+          :href="route('clienti.edit', pratica.cliente.id)"
+          class="flex-shrink-0 ml-auto text-xs font-medium text-indigo-600 hover:underline"
+          :class="{ 'ml-0': pratica.cliente.telefono || pratica.cliente.email }"
+        >Modifica</Link>
       </div>
 
       <!-- Metadati essenziali -->

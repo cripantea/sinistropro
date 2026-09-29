@@ -30,7 +30,7 @@
 
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">
-              Nome <span class="text-red-500">*</span>
+              Nome e cognome <span class="text-red-500">*</span>
             </label>
             <input
               v-model="form.nome"
