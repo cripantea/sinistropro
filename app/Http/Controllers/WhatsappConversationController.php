@@ -6,7 +6,6 @@ use App\Models\Pratica;
 use App\Models\WhatsappConversation;
 use App\Models\WhatsappSession;
 use App\Services\WhatsappCloudApiClient;
-use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -99,7 +98,7 @@ class WhatsappConversationController extends Controller
 
     public function index(): JsonResponse
     {
-        $tenantId = TenantContext::id();
+        $tenantId = auth()->user()->tenant_id;
 
         $conversations = WhatsappConversation::where('tenant_id', $tenantId)
             ->orderByRaw('last_message_at IS NULL, last_message_at DESC')
@@ -111,7 +110,7 @@ class WhatsappConversationController extends Controller
 
     public function messages(WhatsappConversation $conversation): JsonResponse
     {
-        abort_unless($conversation->tenant_id === TenantContext::id(), 403);
+        abort_unless($conversation->tenant_id === auth()->user()->tenant_id, 403);
 
         $conversation->update(['unread_count' => 0]);
 
