@@ -176,6 +176,7 @@ class WhatsappConversationController extends Controller
             'source' => $m->source,
             'body' => $m->body,
             'mediaType' => $m->media_type,
+            'mediaUrl' => $m->imageUrl(),
             'status' => $m->status,
             'userName' => $m->user?->name,
             'createdAt' => $m->created_at?->toIso8601String(),

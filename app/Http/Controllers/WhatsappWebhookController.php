@@ -133,7 +133,7 @@ class WhatsappWebhookController extends Controller
             ['contact_name' => $contact['profile']['name'] ?? null]
         );
 
-        $body = $message['text']['body'] ?? null;
+        $body = $message['text']['body'] ?? $message['image']['caption'] ?? null;
         $mediaType = $message['type'] !== 'text' ? $message['type'] : null;
         $timestamp = isset($message['timestamp']) ? Carbon::createFromTimestamp((int) $message['timestamp']) : now();
 
@@ -142,6 +142,7 @@ class WhatsappWebhookController extends Controller
             'whatsapp_conversation_id' => $conversation->id,
             'direction' => 'inbound',
             'source' => 'api',
+            ...WhatsappMessage::mediaAttributes($message),
             'body' => $body,
             'media_type' => $mediaType,
             'wa_message_id' => $waMessageId,
@@ -169,6 +170,7 @@ class WhatsappWebhookController extends Controller
                 'source' => 'api',
                 'body' => $whatsappMessage->body,
                 'mediaType' => $whatsappMessage->media_type,
+                'mediaUrl' => $whatsappMessage->imageUrl(),
                 'status' => $whatsappMessage->status,
                 'createdAt' => $whatsappMessage->created_at?->toIso8601String(),
             ],
@@ -353,7 +355,7 @@ class WhatsappWebhookController extends Controller
             ['contact_name' => $contact['profile']['name'] ?? null]
         );
 
-        $body = $message['text']['body'] ?? null;
+        $body = $message['text']['body'] ?? $message['image']['caption'] ?? null;
         $mediaType = ($message['type'] ?? 'text') !== 'text' ? $message['type'] : null;
         $timestamp = isset($message['timestamp']) ? Carbon::createFromTimestamp((int) $message['timestamp']) : now();
 
@@ -362,6 +364,7 @@ class WhatsappWebhookController extends Controller
             'whatsapp_conversation_id' => $conversation->id,
             'direction' => 'outbound',
             'source' => 'echo',
+            ...WhatsappMessage::mediaAttributes($message),
             'body' => $body,
             'media_type' => $mediaType,
             'wa_message_id' => $waMessageId,
@@ -390,6 +393,7 @@ class WhatsappWebhookController extends Controller
                 'source' => 'echo',
                 'body' => $whatsappMessage->body,
                 'mediaType' => $whatsappMessage->media_type,
+                'mediaUrl' => $whatsappMessage->imageUrl(),
                 'status' => $whatsappMessage->status,
                 'createdAt' => $whatsappMessage->created_at?->toIso8601String(),
             ],

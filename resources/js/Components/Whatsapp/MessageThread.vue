@@ -39,7 +39,17 @@
             class="rounded-xl px-3 py-2 max-w-[75%] shadow-sm"
             :class="m.direction === 'outbound' ? 'bg-[#dcf8c6] rounded-tr-sm' : 'bg-white rounded-tl-sm'"
           >
-            <p class="text-sm text-gray-800 whitespace-pre-wrap break-words leading-relaxed">
+            <a v-if="m.mediaType === 'image' && m.mediaUrl && !failedImages[m.id]"
+              :href="m.mediaUrl" target="_blank" rel="noopener noreferrer">
+              <img :src="m.mediaUrl" alt="Immagine WhatsApp" loading="lazy"
+                class="max-h-80 max-w-full rounded-lg object-contain"
+                @error="failedImages[m.id] = true" />
+            </a>
+            <p v-if="m.mediaType === 'image' && (!m.mediaUrl || failedImages[m.id])"
+              class="text-xs text-gray-500">
+              {{ m.mediaUrl ? 'Immagine non disponibile o scaduta.' : 'Immagine non disponibile: riferimento allegato assente.' }}
+            </p>
+            <p v-if="m.body || m.mediaType !== 'image'" class="text-sm text-gray-800 whitespace-pre-wrap break-words leading-relaxed">
               {{ m.body || (m.mediaType ? `[${m.mediaType}]` : '') }}
             </p>
             <div class="flex items-center justify-end gap-1 mt-1">
@@ -93,6 +103,7 @@ export interface Message {
   source?: 'api' | 'echo' | 'history'
   body: string | null
   mediaType: string | null
+  mediaUrl?: string | null
   status: string
   userName: string | null
   createdAt: string
@@ -110,6 +121,7 @@ const props = defineProps<{
 const emit = defineEmits<{ send: [body: string] }>()
 
 const draft = ref('')
+const failedImages = ref<Record<number, boolean>>({})
 const scrollEl = ref<HTMLElement | null>(null)
 
 function submit() {

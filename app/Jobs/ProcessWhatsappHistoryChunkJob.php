@@ -114,7 +114,7 @@ class ProcessWhatsappHistoryChunkJob implements ShouldQueue
             ['contact_name' => $contact['profile']['name'] ?? null]
         );
 
-        $body = $message['text']['body'] ?? null;
+        $body = $message['text']['body'] ?? $message['image']['caption'] ?? null;
         $mediaType = ($message['type'] ?? 'text') !== 'text' ? $message['type'] : null;
 
         WhatsappMessage::create([
@@ -122,6 +122,7 @@ class ProcessWhatsappHistoryChunkJob implements ShouldQueue
             'whatsapp_conversation_id' => $conversation->id,
             'direction' => $direction,
             'source' => 'history',
+            ...WhatsappMessage::mediaAttributes($message),
             'body' => $body,
             'media_type' => $mediaType,
             'wa_message_id' => $waMessageId,
