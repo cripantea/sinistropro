@@ -1,19 +1,19 @@
 <?php
 
-use Database\Seeders\MalacridaTenantSeeder;
 use Illuminate\Database\Migrations\Migration;
 
 return new class extends Migration
 {
-    // Applica al deploy i dati specifici di Malacrida (carrozzeria Re-nova, compagnie).
-    // No-op se il tenant non esiste (es. ambienti locali/test).
+    // Intenzionalmente vuota: i dati specifici di Malacrida (carrozzeria Re-nova,
+    // compagnie) NON vengono applicati al deploy per non toccare il tenant.
+    // Si possono applicare a mano: php artisan db:seed --class=MalacridaTenantSeeder
     public function up(): void
     {
-        (new MalacridaTenantSeeder())->run();
+        //
     }
 
     public function down(): void
     {
-        // Dati di configurazione: nessun rollback automatico.
+        //
     }
 };
