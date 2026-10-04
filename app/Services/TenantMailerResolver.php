@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\MailNotConfiguredException;
+use App\Models\EmailLog;
 use App\Models\Tenant;
 use App\Models\TenantMailSettings;
 use Illuminate\Contracts\Mail\Mailer;
@@ -29,22 +30,71 @@ class TenantMailerResolver
     /**
      * Invia una Mailable usando il mittente/server del tenant.
      *
+     * Ogni tentativo (riuscito o fallito) viene registrato in email_logs; l'eccezione
+     * originale viene comunque rilanciata, così retry dei job e log restano invariati.
+     *
      * @param  string[]  $cc
+     * @param  array{tipo?: string, pratica_id?: ?int, automation_id?: ?int}  $logContext
      *
      * @throws MailNotConfiguredException se il tenant non ha
      *                                    una configurazione email attiva.
      */
-    public function send(Tenant $tenant, string $to, Mailable $mailable, array $cc = []): void
+    public function send(Tenant $tenant, string $to, Mailable $mailable, array $cc = [], array $logContext = []): void
     {
-        $from = $this->fromFor($tenant);
-        $mailable->from($from['address'], $from['name']);
+        try {
+            $from = $this->fromFor($tenant);
+            $mailable->from($from['address'], $from['name']);
 
-        $pending = $this->mailerFor($tenant)->to($to);
-        if (! empty($cc)) {
-            $pending->cc($cc);
+            $pending = $this->mailerFor($tenant)->to($to);
+            if (! empty($cc)) {
+                $pending->cc($cc);
+            }
+
+            $pending->send($mailable);
+        } catch (\Throwable $e) {
+            $this->registra($tenant, $to, $cc, $mailable, $logContext, 'failed', $e->getMessage());
+            throw $e;
         }
 
-        $pending->send($mailable);
+        $this->registra($tenant, $to, $cc, $mailable, $logContext, 'sent');
+    }
+
+    /**
+     * Registra nel log un'email che non è stata nemmeno tentata (es. nessun destinatario).
+     */
+    public function registraSaltata(Tenant|int $tenant, string $motivo, array $logContext = [], ?string $to = null, ?string $subject = null): void
+    {
+        EmailLog::registra([
+            'tenant_id'     => $tenant instanceof Tenant ? $tenant->id : $tenant,
+            'pratica_id'    => $logContext['pratica_id'] ?? null,
+            'automation_id' => $logContext['automation_id'] ?? null,
+            'tipo'          => $logContext['tipo'] ?? 'altro',
+            'to_address'    => $to,
+            'subject'       => $subject,
+            'status'        => 'skipped',
+            'error'         => $motivo,
+        ]);
+    }
+
+    private function registra(Tenant $tenant, string $to, array $cc, Mailable $mailable, array $logContext, string $status, ?string $error = null): void
+    {
+        $subject = null;
+        try {
+            $subject = method_exists($mailable, 'envelope') ? $mailable->envelope()->subject : $mailable->subject;
+        } catch (\Throwable) {
+        }
+
+        EmailLog::registra([
+            'tenant_id'     => $tenant->id,
+            'pratica_id'    => $logContext['pratica_id'] ?? null,
+            'automation_id' => $logContext['automation_id'] ?? null,
+            'tipo'          => $logContext['tipo'] ?? 'altro',
+            'to_address'    => $to,
+            'cc_addresses'  => $cc ?: null,
+            'subject'       => $subject,
+            'status'        => $status,
+            'error'         => $error ? mb_substr($error, 0, 2000) : null,
+        ]);
     }
 
     /**

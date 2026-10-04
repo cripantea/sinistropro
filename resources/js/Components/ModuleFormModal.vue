@@ -253,7 +253,10 @@ interface ClienteInfo {
   nome: string
   telefono: string | null
   email: string | null
+  custom_fields?: Record<string, unknown> | null
 }
+
+interface SchemaField { name: string; label: string }
 
 const props = defineProps<{
   show: boolean
@@ -263,6 +266,9 @@ const props = defineProps<{
   fieldDictionary?: DictEntry[]
   cliente?: ClienteInfo | null
   customFields?: Record<string, unknown> | null
+  customFieldsSchema?: SchemaField[]
+  clienteSchema?: SchemaField[]
+  compagnia?: string | null
   sharedModuleValues?: Record<string, unknown> | null
 }>()
 
@@ -311,14 +317,71 @@ const dictionaryByKey = computed(() => {
   return map
 })
 
-// Risolve il valore di un campo dal dizionario (anagrafica cliente o campo
-// personalizzato del sinistro), se collegato — altrimenti null.
+const isFilled = (v: unknown) => v !== null && v !== undefined && v !== ''
+
+// Valore di un campo personalizzato dell'anagrafica cliente.
+function clienteCustom(key: string): unknown {
+  return props.cliente?.custom_fields?.[key] ?? null
+}
+
+// Primo campo dello schema (nome o etichetta) che combacia con `pattern` e non con `exclude`,
+// con valore effettivamente compilato.
+function firstMatching(
+  schema: SchemaField[] | undefined,
+  values: Record<string, unknown> | null | undefined,
+  pattern: RegExp,
+  exclude?: RegExp,
+): unknown {
+  for (const f of schema ?? []) {
+    const haystack = `${f.name} ${f.label}`.toLowerCase()
+    if (!pattern.test(haystack) || (exclude && exclude.test(haystack))) continue
+    const v = values?.[f.name]
+    if (isFilled(v)) return v
+  }
+  return null
+}
+
+// Precompilazione "intelligente" per i campi del modulo che NON hanno una voce nel
+// dizionario: riconosce dal nome del campo dati comuni (email/telefono del cliente,
+// indirizzo di residenza, descrizione dell'accaduto, compagnia, nome e cognome).
+function resolveHeuristicValue(name: string): unknown {
+  const key = name.toLowerCase()
+
+  if (/^(e_?mail|mail)(_(cliente|assicurato|contraente))?$/.test(key)) {
+    return props.cliente?.email ?? null
+  }
+  if (/^(telefono|tel|cellulare|cell|recapito_telefonico|numero_telefono)(_(cliente|assicurato|contraente))?$/.test(key)) {
+    return props.cliente?.telefono ?? null
+  }
+  if (/^(nome_e_cognome|nome_cognome|nominativo|nome_cliente|cliente|assicurato|contraente)$/.test(key)) {
+    return props.cliente?.nome ?? null
+  }
+  if (/(residenza|indirizzo)/.test(key) && !/(sinistro|luogo|evento|perito|carrozz|controparte)/.test(key)) {
+    return firstMatching(props.clienteSchema, props.cliente?.custom_fields, /(residenza|indirizzo)/, /(sinistro|luogo|evento|domicilio)/)
+  }
+  if (/(descrizione|accaduto|dinamica)/.test(key)) {
+    return firstMatching(props.customFieldsSchema, props.customFields, /(accaduto|dinamica|descrizione)/)
+  }
+  if (/compagnia/.test(key)) {
+    return props.compagnia ?? null
+  }
+  return null
+}
+
+// Risolve il valore di un campo: prima dal dizionario (anagrafica cliente, campo
+// personalizzato del cliente o del sinistro), se collegato; altrimenti per nome del campo.
 function resolveAutoValue(name: string): unknown {
   const entry = dictionaryByKey.value.get(name)
-  if (!entry || entry.source_type === 'manual' || !entry.source_field) return null
+
+  if (!entry) return resolveHeuristicValue(name)
+  if (entry.source_type === 'manual' || !entry.source_field) return null
 
   if (entry.source_type === 'cliente') {
-    return props.cliente?.[entry.source_field as keyof ClienteInfo] ?? null
+    // `custom:<campo>` = campo personalizzato dell'anagrafica cliente (es. indirizzo di residenza)
+    if (entry.source_field.startsWith('custom:')) {
+      return clienteCustom(entry.source_field.slice('custom:'.length))
+    }
+    return props.cliente?.[entry.source_field as 'nome' | 'telefono' | 'email'] ?? null
   }
   if (entry.source_type === 'pratica_field') {
     return props.customFields?.[entry.source_field] ?? null

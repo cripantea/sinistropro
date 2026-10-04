@@ -8,6 +8,8 @@ use App\Http\Requests\Pratica\StorePraticaRequest;
 use App\Http\Requests\Pratica\UpdatePraticaRequest;
 use App\Mail\PraticaStatoAggiornatoMail;
 use App\Models\Cliente;
+use App\Models\Contatto;
+use App\Models\ListaValori;
 use App\Models\DocumentCategory;
 use App\Models\FieldDictionaryEntry;
 use App\Models\Ispezione;
@@ -122,16 +124,12 @@ class PraticaController extends Controller
             ->orderByDesc('data_prossimo_avviso')
             ->get(['id', 'cliente_id', 'current_status_id', 'data_prossimo_avviso', 'created_at']);
 
-        $externalUsers = User::where('tenant_id', $user->tenant_id)
-            ->where('role', 'external')
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'email']);
+        $periti = Contatto::tipo('perito')->where('is_active', true)->orderBy('nome')->get(['id', 'nome']);
 
         return Inertia::render('Pratiche/Kanban', [
             'statuses'      => $statuses,
             'pratiche'      => $pratiche,
-            'externalUsers' => $externalUsers,
+            'periti'        => $periti,
         ]);
     }
 
@@ -144,7 +142,8 @@ class PraticaController extends Controller
 
         return Inertia::render('Pratiche/Create', [
             'clienti' => $tenant->clienti()->orderBy('nome')->get(['id', 'nome']),
-            'periti'  => User::where('tenant_id', $tenant->id)->where('role', 'external')->orderBy('name')->get(['id', 'name']),
+            'periti'  => Contatto::tipo('perito')->where('is_active', true)->orderBy('nome')->get(['id', 'nome']),
+            'compagnie' => $this->compagnie(),
         ]);
     }
 
@@ -161,6 +160,7 @@ class PraticaController extends Controller
                 'tenant_id'            => $tenant->id,
                 'utente_creatore_id'   => $user->id,
                 'cliente_id'           => $request->integer('cliente_id'),
+                'compagnia'            => $request->input('compagnia') ?: null,
                 'current_status_id'    => $statoIniziale->id,
                 'data_prossimo_avviso' => now()->addDays($tenant->getDefaultNoticeDays())->toDateString(),
             ]);
@@ -168,7 +168,7 @@ class PraticaController extends Controller
             Ispezione::create([
                 'tenant_id'           => $tenant->id,
                 'pratica_id'          => $pratica->id,
-                'assegnato_a_user_id' => $request->filled('perito_user_id') ? $request->integer('perito_user_id') : null,
+                'perito_contatto_id'  => $request->filled('perito_contatto_id') ? $request->integer('perito_contatto_id') : null,
                 'stato'               => 'pianificata',
             ]);
 
@@ -186,11 +186,11 @@ class PraticaController extends Controller
             'tenant.statuses',
             'utenteCreatore:id,name,email',
             'currentStatus',
-            'cliente:id,nome,telefono,email',
+            'cliente:id,nome,telefono,email,custom_fields',
             'note.user:id,name',
             'allegati.category:id,name',
-            'ispezioni.assegnatoa:id,name,email',
-            'ispezioni.carrozzeria:id,name,email',
+            'ispezioni.peritoContatto:id,nome,telefono,email',
+            'ispezioni.carrozzeriaContatto:id,nome,telefono,email',
         ]);
 
         $pratica->logView();
@@ -217,13 +217,9 @@ class PraticaController extends Controller
         $praticaModules = PraticaModule::where('pratica_id', $pratica->id)
             ->get(['id', 'module_template_id', 'values']);
 
-        $externalBase = User::where('tenant_id', TenantContext::id())
-            ->where('role', 'external')
-            ->where('is_active', true)
-            ->orderBy('name');
-
-        $periti      = (clone $externalBase)->where(fn ($q) => $q->where('external_type', 'perito')->orWhereNull('external_type'))->get(['id', 'name', 'email']);
-        $carrozzerie = (clone $externalBase)->where('external_type', 'carrozzeria')->get(['id', 'name', 'email']);
+        $contatti    = Contatto::where('is_active', true)->orderBy('nome')->get(['id', 'tipo', 'nome', 'telefono']);
+        $periti      = $contatti->where('tipo', 'perito')->values();
+        $carrozzerie = $contatti->where('tipo', 'carrozzeria')->values();
 
         $fieldDictionary = FieldDictionaryEntry::where('tenant_id', $tenantId)
             ->get(['key', 'source_type', 'source_field']);
@@ -331,7 +327,9 @@ class PraticaController extends Controller
             $stato = TenantStatus::find($newStatusId);
             if ($stato && $stato->send_email_notification) {
                 $fields = $pratica->custom_fields ?? [];
-                $emailCliente = $fields['email'] ?? $fields['email_cliente'] ?? $fields['email_contatto'] ?? null;
+                $pratica->loadMissing('cliente');
+                $emailCliente = $pratica->cliente?->email
+                    ?? $fields['email'] ?? $fields['email_cliente'] ?? $fields['email_contatto'] ?? null;
                 if ($emailCliente && filter_var($emailCliente, FILTER_VALIDATE_EMAIL)) {
                     $pratica->load('tenant');
                     try {
@@ -339,7 +337,7 @@ class PraticaController extends Controller
                         // del tenant, e quella configurazione al volo non
                         // sopravvivrebbe al passaggio a un worker separato se
                         // l'invio fosse accodato.
-                        $mailer->send($pratica->tenant, $emailCliente, new PraticaStatoAggiornatoMail($pratica, $stato, $emailCliente));
+                        $mailer->send($pratica->tenant, $emailCliente, new PraticaStatoAggiornatoMail($pratica, $stato, $emailCliente), [], ['tipo' => 'stato', 'pratica_id' => $pratica->id]);
                     } catch (\Throwable $e) {
                         Log::error('PraticaController::updateStatus: invio email fallito', [
                             'pratica_id' => $pratica->id,
@@ -372,5 +370,17 @@ class PraticaController extends Controller
         return redirect()
             ->route('pratiche.index')
             ->with('success', 'Pratica eliminata.');
+    }
+
+    /**
+     * Compagnie assicurative selezionabili all'apertura del sinistro: sono la lista
+     * valori con slug "compagnie" del tenant (modificabile da Liste). Vuota = il
+     * menu a tendina non compare.
+     *
+     * @return array<int, string>
+     */
+    private function compagnie(): array
+    {
+        return ListaValori::where('slug', 'compagnie')->first()?->items ?? [];
     }
 }

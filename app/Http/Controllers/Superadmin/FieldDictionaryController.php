@@ -21,6 +21,7 @@ class FieldDictionaryController extends Controller
     public function storeBulk(Request $request, Tenant $tenant): JsonResponse
     {
         $customFieldNames = array_column($tenant->getCustomFieldsSchema(), 'name');
+        $clienteCustomSources = $this->clienteCustomSources($tenant);
 
         $data = $request->validate([
             'fields' => ['required', 'array', 'min:1', 'max:50'],
@@ -38,11 +39,11 @@ class FieldDictionaryController extends Controller
             'fields.*.source_field' => [
                 'nullable',
                 'string',
-                function ($attribute, $value, $fail) use ($request, $customFieldNames): void {
+                function ($attribute, $value, $fail) use ($request, $customFieldNames, $clienteCustomSources): void {
                     preg_match('/^fields\.(\d+)\./', $attribute, $matches);
                     $sourceType = $request->input("fields.{$matches[1]}.source_type");
 
-                    if ($sourceType === 'cliente' && ! in_array($value, ['nome', 'telefono', 'email'], true)) {
+                    if ($sourceType === 'cliente' && ! in_array($value, ['nome', 'telefono', 'email', ...$clienteCustomSources], true)) {
                         $fail('Seleziona un campo cliente valido.');
                     }
                     if ($sourceType === 'pratica_field' && ! in_array($value, $customFieldNames, true)) {
@@ -123,6 +124,7 @@ class FieldDictionaryController extends Controller
     private function validated(Request $request, Tenant $tenant, ?FieldDictionaryEntry $ignoring = null): array
     {
         $customFieldNames = array_column($tenant->getCustomFieldsSchema(), 'name');
+        $clienteCustomSources = $this->clienteCustomSources($tenant);
 
         return $request->validate([
             'key' => [
@@ -140,10 +142,10 @@ class FieldDictionaryController extends Controller
             'source_field' => [
                 'nullable',
                 'string',
-                function ($attribute, $value, $fail) use ($request, $customFieldNames): void {
+                function ($attribute, $value, $fail) use ($request, $customFieldNames, $clienteCustomSources): void {
                     $sourceType = $request->input('source_type');
 
-                    if ($sourceType === 'cliente' && ! in_array($value, ['nome', 'telefono', 'email'], true)) {
+                    if ($sourceType === 'cliente' && ! in_array($value, ['nome', 'telefono', 'email', ...$clienteCustomSources], true)) {
                         $fail('Seleziona un campo cliente valido.');
                     }
                     if ($sourceType === 'pratica_field' && ! in_array($value, $customFieldNames, true)) {
@@ -155,5 +157,19 @@ class FieldDictionaryController extends Controller
             'key.regex' => 'La chiave deve usare solo lettere minuscole, numeri e underscore, e iniziare con una lettera.',
             'key.unique' => 'Esiste già un campo del dizionario con questa chiave.',
         ]);
+    }
+
+    /**
+     * Sorgenti `custom:<campo>` = campi personalizzati dell'anagrafica cliente
+     * (es. indirizzo di residenza), oltre ai fissi nome/telefono/email.
+     *
+     * @return array<int, string>
+     */
+    private function clienteCustomSources(Tenant $tenant): array
+    {
+        return array_map(
+            fn (string $name): string => "custom:{$name}",
+            array_column($tenant->getClienteCustomFieldsSchema(), 'name')
+        );
     }
 }

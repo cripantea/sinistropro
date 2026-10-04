@@ -48,7 +48,9 @@ class InviaEmailAvvisoPratica implements ShouldQueue
                 $mailer->send(
                     $tenant,
                     $destinatario->email,
-                    new AvvisoPraticaAperta($pratica, $destinatario, $nuovaData)
+                    new AvvisoPraticaAperta($pratica, $destinatario, $nuovaData),
+                    [],
+                    ['tipo' => 'avviso', 'pratica_id' => $pratica->id]
                 );
             } catch (\Throwable $e) {
                 Log::error('AvvisoPratica: errore invio email', [

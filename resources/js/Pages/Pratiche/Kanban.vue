@@ -207,14 +207,14 @@
                   <span class="text-gray-400 font-normal">(opzionale)</span>
                 </label>
                 <select
-                  v-model="assignForm.assegnato_a_user_id"
+                  v-model="assignForm.perito_contatto_id"
                   class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-amber-400 outline-none"
                 >
                   <option :value="null">— Nessun perito —</option>
-                  <option v-for="u in externalUsers" :key="u.id" :value="u.id">{{ u.name }}</option>
+                  <option v-for="u in periti" :key="u.id" :value="u.id">{{ u.nome }}</option>
                 </select>
-                <p v-if="externalUsers.length === 0" class="text-[11px] text-amber-600 mt-1">
-                  Nessun tecnico esterno nel team. Aggiungine uno dalla pagina Team.
+                <p v-if="periti.length === 0" class="text-[11px] text-amber-600 mt-1">
+                  Nessun perito in anagrafica. Aggiungilo da Periti e Carrozzerie.
                 </p>
               </div>
 
@@ -317,13 +317,13 @@ interface PraticaKanban {
   data_prossimo_avviso: string | null
   created_at: string
 }
-interface ExternalUser  { id: number; name: string; email: string }
+interface Perito { id: number; nome: string }
 interface AutomationSummary { id: number; name: string }
 
 const props = defineProps<{
   statuses: TenantStatus[]
   pratiche: PraticaKanban[]
-  externalUsers: ExternalUser[]
+  periti: Perito[]
 }>()
 
 // Local mutable copy for optimistic UI updates
@@ -347,7 +347,7 @@ const assignModal = reactive({
   columnName: '',
 })
 const assignForm = reactive({
-  assegnato_a_user_id: null as number | null,
+  perito_contatto_id: null as number | null,
   data_appuntamento:   '' as string,
   submitting:          false,
 })
@@ -446,7 +446,7 @@ async function onDrop(toStatusId: number) {
     assignModal.toStatusId  = toStatusId
     assignModal.prevStatusId = previousStatusId
     assignModal.columnName  = targetStatus.name
-    assignForm.assegnato_a_user_id = null
+    assignForm.perito_contatto_id = null
     assignForm.data_appuntamento   = ''
     assignAutomations.value = await previewAutomations(praticaId, toStatusId)
     return
@@ -529,7 +529,7 @@ async function submitAssign(skip: boolean) {
   try {
     await axios.post(route('ispezioni.store', assignModal.praticaId), {
       current_status_id:   assignModal.toStatusId,
-      assegnato_a_user_id: assignForm.assegnato_a_user_id || null,
+      perito_contatto_id:  assignForm.perito_contatto_id || null,
       data_appuntamento:   assignForm.data_appuntamento   || null,
       skip_confirmable_automations: skip,
     })

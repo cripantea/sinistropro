@@ -37,19 +37,34 @@
           <p v-if="form.errors.cliente_id" class="text-xs text-red-600 mt-1">{{ form.errors.cliente_id }}</p>
         </div>
 
+        <div v-if="compagnie.length > 0">
+          <label for="compagnia" class="block text-sm font-medium text-gray-700 mb-1">
+            Compagnia <span class="text-gray-400 font-normal">(opzionale)</span>
+          </label>
+          <select
+            id="compagnia"
+            v-model="form.compagnia"
+            class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+          >
+            <option :value="null">Seleziona compagnia…</option>
+            <option v-for="c in compagnie" :key="c" :value="c">{{ c }}</option>
+          </select>
+          <p v-if="form.errors.compagnia" class="text-xs text-red-600 mt-1">{{ form.errors.compagnia }}</p>
+        </div>
+
         <div>
-          <label for="perito_user_id" class="block text-sm font-medium text-gray-700 mb-1">
+          <label for="perito_contatto_id" class="block text-sm font-medium text-gray-700 mb-1">
             Perito <span class="text-gray-400 font-normal">(opzionale)</span>
           </label>
           <select
-            id="perito_user_id"
-            v-model="form.perito_user_id"
+            id="perito_contatto_id"
+            v-model="form.perito_contatto_id"
             class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
           >
             <option :value="null">Nessun perito assegnato</option>
-            <option v-for="perito in periti" :key="perito.id" :value="perito.id">{{ perito.name }}</option>
+            <option v-for="perito in periti" :key="perito.id" :value="perito.id">{{ perito.nome }}</option>
           </select>
-          <p v-if="form.errors.perito_user_id" class="text-xs text-red-600 mt-1">{{ form.errors.perito_user_id }}</p>
+          <p v-if="form.errors.perito_contatto_id" class="text-xs text-red-600 mt-1">{{ form.errors.perito_contatto_id }}</p>
         </div>
 
         <p class="text-xs text-gray-400">
@@ -92,9 +107,9 @@ import SearchableSelect from '@/Components/SearchableSelect.vue'
 import ClienteCreateModal from '@/Components/ClienteCreateModal.vue'
 
 interface ClienteOption { id: number; nome: string; telefono?: string | null; email?: string | null }
-interface PeritoOption { id: number; name: string }
+interface PeritoOption { id: number; nome: string }
 
-const props = defineProps<{ clienti: ClienteOption[]; periti: PeritoOption[] }>()
+const props = defineProps<{ clienti: ClienteOption[]; periti: PeritoOption[]; compagnie: string[] }>()
 
 const clientiList = ref<ClienteOption[]>([...props.clienti])
 const showClienteModal = ref(false)
@@ -105,7 +120,8 @@ const clienteOptions = computed(() =>
 
 const form = useForm({
   cliente_id: null as number | null,
-  perito_user_id: null as number | null,
+  compagnia: null as string | null,
+  perito_contatto_id: null as number | null,
 })
 
 function onClienteCreated(cliente: ClienteOption) {

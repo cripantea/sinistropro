@@ -23,11 +23,12 @@ class StorePraticaRequest extends FormRequest
                 'integer',
                 Rule::exists('clienti', 'id')->where('tenant_id', $tenantId),
             ],
-            'perito_user_id' => [
+            'perito_contatto_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('users', 'id')->where('tenant_id', $tenantId)->where('role', 'external'),
+                Rule::exists('contatti', 'id')->where('tenant_id', $tenantId)->where('tipo', 'perito'),
             ],
+            'compagnia' => ['nullable', 'string', 'max:255'],
         ];
     }
 
@@ -36,7 +37,7 @@ class StorePraticaRequest extends FormRequest
         return [
             'cliente_id.required' => 'Seleziona il cliente.',
             'cliente_id.exists' => 'Cliente non valido per questo tenant.',
-            'perito_user_id.exists' => 'Perito non valido per questo tenant.',
+            'perito_contatto_id.exists' => 'Perito non valido per questo tenant.',
         ];
     }
 }

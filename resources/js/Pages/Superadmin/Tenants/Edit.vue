@@ -994,6 +994,7 @@
                     <option value="nome">Nome</option>
                     <option value="telefono">Telefono</option>
                     <option value="email">Email</option>
+                    <option v-for="f in clienteCustomFields" :key="f.name" :value="`custom:${f.name}`">{{ f.label }}</option>
                   </select>
                   <FieldError :message="dictForm.errors.source_field" />
                 </div>
@@ -1157,6 +1158,7 @@
                             <option value="nome">Nome</option>
                             <option value="telefono">Telefono</option>
                             <option value="email">Email</option>
+                            <option v-for="f in clienteCustomFields" :key="f.name" :value="`custom:${f.name}`">{{ f.label }}</option>
                           </select>
                           <select v-if="s.source_type === 'pratica_field'" v-model="s.source_field" class="text-xs border border-slate-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-indigo-500 outline-none bg-white">
                             <option :value="null" disabled>— Campo —</option>
@@ -1739,10 +1741,37 @@ function deleteDictEntry(entry: DictEntry) {
 function typeLabel(type: string): string {
   return { text: 'Testo', textarea: 'Paragrafo', date: 'Data', number: 'Numero', boolean: 'Sì / No' }[type] ?? type
 }
+// Campi personalizzati dell'anagrafica cliente (es. indirizzo di residenza): selezionabili
+// come sorgente di autocompilazione insieme a nome/telefono/email.
+const clienteCustomFields = computed(() => props.tenant.settings?.cliente_custom_fields_schema ?? [])
+
+// Propone la sorgente di autocompilazione più plausibile dal nome del campo estratto
+// dal PDF (email/telefono/nome cliente, residenza, descrizione dell'accaduto).
+function guessSource(name: string): { source_type: 'manual' | 'cliente' | 'pratica_field'; source_field: string | null } {
+  const key = name.toLowerCase()
+  const manual = { source_type: 'manual' as const, source_field: null }
+  const findIn = (schema: { name: string; label: string }[], pattern: RegExp, exclude?: RegExp) =>
+    schema.find(f => { const h = `${f.name} ${f.label}`.toLowerCase(); return pattern.test(h) && !(exclude && exclude.test(h)) })
+
+  if (/^(e_?mail|mail)(_(cliente|assicurato|contraente))?$/.test(key)) return { source_type: 'cliente', source_field: 'email' }
+  if (/^(telefono|tel|cellulare|cell|recapito_telefonico|numero_telefono)(_(cliente|assicurato|contraente))?$/.test(key)) return { source_type: 'cliente', source_field: 'telefono' }
+  if (/^(nome_e_cognome|nome_cognome|nominativo|nome_cliente|cliente|assicurato|contraente)$/.test(key)) return { source_type: 'cliente', source_field: 'nome' }
+  if (/(residenza|indirizzo)/.test(key) && !/(sinistro|luogo|evento|perito|carrozz|controparte)/.test(key)) {
+    const f = findIn(clienteCustomFields.value, /(residenza|indirizzo)/, /(sinistro|luogo|evento|domicilio)/)
+    if (f) return { source_type: 'cliente', source_field: `custom:${f.name}` }
+  }
+  if (/(descrizione|accaduto|dinamica)/.test(key)) {
+    const f = findIn(props.tenant.settings?.custom_fields_schema ?? [], /(accaduto|dinamica|descrizione)/)
+    if (f) return { source_type: 'pratica_field', source_field: f.name }
+  }
+  return manual
+}
+
 function sourceLabel(entry: DictEntry): string {
   if (entry.source_type === 'cliente') {
     const names: Record<string, string> = { nome: 'Nome', telefono: 'Telefono', email: 'Email' }
-    return `Cliente → ${names[entry.source_field ?? ''] ?? entry.source_field}`
+    const custom = clienteCustomFields.value.find(f => `custom:${f.name}` === entry.source_field)
+    return `Cliente → ${names[entry.source_field ?? ''] ?? custom?.label ?? entry.source_field}`
   }
   if (entry.source_type === 'pratica_field') {
     const field = (props.tenant.settings?.custom_fields_schema ?? []).find(f => f.name === entry.source_field)
@@ -1863,8 +1892,7 @@ async function runExtraction() {
         name: f.name,
         label: f.label,
         type: validTypes.includes(f.type) ? f.type : 'text',
-        source_type: 'manual',
-        source_field: null,
+        ...guessSource(f.name),
         selected: true,
       })
     }

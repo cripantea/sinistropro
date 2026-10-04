@@ -6,6 +6,7 @@ use App\Mail\AutomazioneNotificaMail;
 use App\Models\Automation;
 use App\Models\Cliente;
 use App\Models\WhatsappSession;
+use App\Services\TenantMailerResolver;
 use App\Services\WhatsappCloudApiClient;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -13,7 +14,6 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class ExecuteClienteAutomationJob implements ShouldQueue
 {
@@ -30,7 +30,7 @@ class ExecuteClienteAutomationJob implements ShouldQueue
         $this->onQueue('automations');
     }
 
-    public function handle(): void
+    public function handle(TenantMailerResolver $mailer): void
     {
         $cliente    = Cliente::with('tenant')->findOrFail($this->cliente->id);
         $automation = $this->automation;
@@ -44,7 +44,7 @@ class ExecuteClienteAutomationJob implements ShouldQueue
         $compiled = $this->compile($automation->message_template, $cliente, $fieldValue);
 
         if (in_array($automation->channel, ['email', 'both'], true)) {
-            $this->sendEmail($email, $name, $compiled, $cliente);
+            $this->sendEmail($email, $name, $compiled, $cliente, $mailer);
         }
 
         if (in_array($automation->channel, ['whatsapp', 'both'], true)) {
@@ -74,19 +74,28 @@ class ExecuteClienteAutomationJob implements ShouldQueue
         return str_replace(array_keys($replacements), array_values($replacements), $template);
     }
 
-    private function sendEmail(?string $email, ?string $name, string $compiled, Cliente $cliente): void
+    private function sendEmail(?string $email, ?string $name, string $compiled, Cliente $cliente, TenantMailerResolver $mailer): void
     {
         if (! $email) {
             Log::warning('ExecuteClienteAutomationJob: email mancante', ['cliente_id' => $cliente->id]);
+            $mailer->registraSaltata($cliente->tenant_id, "Cliente \"{$cliente->nome}\" senza email.", ['tipo' => 'promemoria_cliente', 'automation_id' => $this->automation->id]);
             return;
         }
 
-        Mail::to($email)->send(new AutomazioneNotificaMail(
-            emailSubject:  "Promemoria — {$cliente->nome}",
-            compiledBody:  $compiled,
-            tenantName:    $cliente->tenant?->name ?? '',
-            documentLinks: [],
-        ));
+        // Mittente/SMTP del tenant (come ExecuteAutomationJob): il mailer di default
+        // non è configurato per i tenant e l'invio non partirebbe.
+        $mailer->send(
+            $cliente->tenant,
+            $email,
+            new AutomazioneNotificaMail(
+                emailSubject:  "Promemoria — {$cliente->nome}",
+                compiledBody:  $compiled,
+                tenantName:    $cliente->tenant?->name ?? '',
+                documentLinks: [],
+            ),
+            [],
+            ['tipo' => 'promemoria_cliente', 'automation_id' => $this->automation->id]
+        );
     }
 
     private function sendWhatsapp(?string $phone, string $compiled, Cliente $cliente): void

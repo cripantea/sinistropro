@@ -29,8 +29,8 @@ class IspezioneController extends Controller
 
         $data = $request->validate([
             'current_status_id'    => ['nullable', 'integer', 'exists:tenant_statuses,id'],
-            'assegnato_a_user_id'  => ['nullable', 'integer', Rule::exists('users', 'id')->where('tenant_id', $user->tenant_id)->where('role', 'external')],
-            'carrozzeria_user_id'  => ['nullable', 'integer', Rule::exists('users', 'id')->where('tenant_id', $user->tenant_id)->where('role', 'external')],
+            'perito_contatto_id'      => ['nullable', 'integer', Rule::exists('contatti', 'id')->where('tenant_id', $user->tenant_id)->where('tipo', 'perito')],
+            'carrozzeria_contatto_id' => ['nullable', 'integer', Rule::exists('contatti', 'id')->where('tenant_id', $user->tenant_id)->where('tipo', 'carrozzeria')],
             'data_appuntamento'    => ['nullable', 'date'],
             'note_sopralluogo'     => ['nullable', 'string', 'max:2000'],
         ]);
@@ -42,11 +42,16 @@ class IspezioneController extends Controller
         $newDataAppuntamento = $request->has('data_appuntamento') ? (string) ($data['data_appuntamento'] ?? '') : null;
 
         DB::transaction(function () use ($pratica, $data, $request, $user): void {
-            $update = [
-                'assegnato_a_user_id' => $data['assegnato_a_user_id'] ?? null,
-                'carrozzeria_user_id' => $data['carrozzeria_user_id'] ?? null,
-                'stato'               => 'pianificata',
-            ];
+            $update = ['stato' => 'pianificata'];
+
+            // Perito e carrozzeria: aggiornati solo se presenti nella richiesta, così
+            // l'assegnazione dal Kanban (solo perito) non azzera la carrozzeria.
+            if ($request->has('perito_contatto_id')) {
+                $update['perito_contatto_id'] = $data['perito_contatto_id'] ?? null;
+            }
+            if ($request->has('carrozzeria_contatto_id')) {
+                $update['carrozzeria_contatto_id'] = $data['carrozzeria_contatto_id'] ?? null;
+            }
 
             // Aggiorna data e note solo se esplicitamente incluse nella richiesta
             if ($request->has('data_appuntamento')) {

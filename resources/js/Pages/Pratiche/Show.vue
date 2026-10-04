@@ -45,6 +45,10 @@
           <span class="text-gray-400 text-xs uppercase tracking-wide">Cliente</span>
           <p class="text-base font-semibold text-gray-900 mt-0.5">{{ pratica.cliente.nome }}</p>
         </div>
+        <div v-if="pratica.compagnia" class="ml-6">
+          <span class="text-gray-400 text-xs uppercase tracking-wide">Compagnia</span>
+          <p class="text-sm font-medium text-gray-800 mt-0.5">{{ pratica.compagnia }}</p>
+        </div>
         <div v-if="pratica.cliente.telefono" class="ml-auto text-right">
           <span class="text-gray-400 text-xs uppercase tracking-wide">Telefono</span>
           <p class="text-sm font-medium text-gray-800 mt-0.5">{{ pratica.cliente.telefono }}</p>
@@ -119,20 +123,23 @@
       </div>
 
       <!-- Perito / Carrozzeria -->
-      <div v-if="periti.length > 0 || carrozzerie.length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-        <h3 class="text-sm font-semibold text-gray-700 mb-4">Perito / Carrozzeria</h3>
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-semibold text-gray-700">Perito / Carrozzeria</h3>
+          <Link :href="route('contatti.index')" class="text-xs text-indigo-600 hover:underline">Gestisci anagrafica</Link>
+        </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
           <!-- Perito -->
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Perito assegnato</label>
             <select
-              v-model="ispezioneForm.assegnato_a_user_id"
+              v-model="ispezioneForm.perito_contatto_id"
               class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
               :disabled="ispezioneForm.processing"
             >
               <option :value="null">— Nessuno —</option>
-              <option v-for="u in periti" :key="u.id" :value="u.id">{{ u.name }}</option>
+              <option v-for="u in periti" :key="u.id" :value="u.id">{{ u.nome }}</option>
             </select>
           </div>
 
@@ -140,12 +147,12 @@
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Carrozzeria</label>
             <select
-              v-model="ispezioneForm.carrozzeria_user_id"
+              v-model="ispezioneForm.carrozzeria_contatto_id"
               class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
               :disabled="ispezioneForm.processing"
             >
               <option :value="null">— Nessuna —</option>
-              <option v-for="u in carrozzerie" :key="u.id" :value="u.id">{{ u.name }}</option>
+              <option v-for="u in carrozzerie" :key="u.id" :value="u.id">{{ u.nome }}</option>
             </select>
           </div>
         </div>
@@ -161,11 +168,13 @@
             Salva
           </button>
           <div class="flex gap-4 text-xs text-gray-500">
-            <span v-if="ispezione?.assegnatoa">
-              Perito: <span class="font-medium text-gray-700">{{ ispezione.assegnatoa.name }}</span>
+            <span v-if="ispezione?.perito_contatto">
+              Perito: <span class="font-medium text-gray-700">{{ ispezione.perito_contatto.nome }}</span>
+              <span v-if="ispezione.perito_contatto.telefono"> · {{ ispezione.perito_contatto.telefono }}</span>
             </span>
-            <span v-if="ispezione?.carrozzeria">
-              Carrozzeria: <span class="font-medium text-gray-700">{{ ispezione.carrozzeria.name }}</span>
+            <span v-if="ispezione?.carrozzeria_contatto">
+              Carrozzeria: <span class="font-medium text-gray-700">{{ ispezione.carrozzeria_contatto.nome }}</span>
+              <span v-if="ispezione.carrozzeria_contatto.telefono"> · {{ ispezione.carrozzeria_contatto.telefono }}</span>
             </span>
           </div>
         </div>
@@ -413,6 +422,9 @@
       :field-dictionary="fieldDictionary"
       :cliente="pratica.cliente"
       :custom-fields="customFields"
+      :custom-fields-schema="schema"
+      :cliente-schema="pratica.tenant.settings?.cliente_custom_fields_schema ?? []"
+      :compagnia="pratica.compagnia"
       :shared-module-values="sharedModuleValues"
       @close="moduleModalOpen = false"
       @saved="onModuleSaved"
@@ -455,14 +467,14 @@ interface PraticaModule {
   module_template_id: number
   values: Record<string, unknown>
 }
-interface ExternalUser { id: number; name: string; email: string }
+interface ContattoInfo { id: number; nome: string; telefono: string | null }
 interface Ispezione {
   id: number
-  assegnato_a_user_id: number | null
-  carrozzeria_user_id: number | null
+  perito_contatto_id: number | null
+  carrozzeria_contatto_id: number | null
   stato: string
-  assegnatoa: ExternalUser | null
-  carrozzeria: ExternalUser | null
+  perito_contatto: ContattoInfo | null
+  carrozzeria_contatto: ContattoInfo | null
 }
 interface TenantStatus { id: number; name: string; color: string }
 interface Nota { id: number; nota: string; user: { id: number; name: string } | null; created_at: string }
@@ -477,7 +489,7 @@ interface Allegato {
   category: { id: number; name: string } | null
 }
 
-interface Cliente { id: number; nome: string; telefono: string | null; email: string | null }
+interface Cliente { id: number; nome: string; telefono: string | null; email: string | null; custom_fields: Record<string, unknown> | null }
 interface DictEntry { key: string; source_type: 'manual' | 'cliente' | 'pratica_field'; source_field: string | null }
 
 interface Pratica {
@@ -488,9 +500,10 @@ interface Pratica {
   created_at: string
   current_status: TenantStatus | null
   current_status_id: number | null
+  compagnia: string | null
   utente_creatore: { id: number; name: string; email: string } | null
   cliente: Cliente | null
-  tenant: { id: number; settings: { custom_fields_schema: FieldSchema[] } | null; statuses: TenantStatus[] }
+  tenant: { id: number; settings: { custom_fields_schema: FieldSchema[]; cliente_custom_fields_schema?: FieldSchema[] } | null; statuses: TenantStatus[] }
   note: Nota[]
   allegati: Allegato[]
   ispezioni: Ispezione[]
@@ -501,8 +514,8 @@ const props   = defineProps<{
   categories: DocumentCategory[]
   moduleTemplates: ModuleTemplate[]
   praticaModules: PraticaModule[]
-  periti: ExternalUser[]
-  carrozzerie: ExternalUser[]
+  periti: ContattoInfo[]
+  carrozzerie: ContattoInfo[]
   fieldDictionary: DictEntry[]
 }>()
 const page    = usePage<PageProps>()
@@ -536,8 +549,8 @@ function canDeleteNota(nota: Nota) {
 const ispezione = computed<Ispezione | null>(() => props.pratica.ispezioni?.[0] ?? null)
 
 const ispezioneForm = useForm({
-  assegnato_a_user_id: ispezione.value?.assegnato_a_user_id ?? null as number | null,
-  carrozzeria_user_id: ispezione.value?.carrozzeria_user_id ?? null as number | null,
+  perito_contatto_id: ispezione.value?.perito_contatto_id ?? null as number | null,
+  carrozzeria_contatto_id: ispezione.value?.carrozzeria_contatto_id ?? null as number | null,
 })
 
 interface AutomationSummary { id: number; name: string }

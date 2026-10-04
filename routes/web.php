@@ -3,6 +3,8 @@
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AutomationPreviewController;
 use App\Http\Controllers\ClienteController;
+use App\Http\Controllers\ContattoController;
+use App\Http\Controllers\EmailLogController;
 use App\Http\Controllers\ImportClientiController;
 use App\Http\Controllers\ListaValoriController;
 use App\Http\Controllers\DashboardController;
@@ -91,6 +93,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/liste/{listaValori}',          [ListaValoriController::class, 'update'])->name('liste.update');
     Route::delete('/liste/{listaValori}',       [ListaValoriController::class, 'destroy'])->name('liste.destroy');
     Route::get('/liste/{slug}/items',           [ListaValoriController::class, 'show'])->name('liste.items');
+});
+
+// --- Periti e carrozzerie (anagrafica, senza account utente) + registro email inviate ---
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/contatti',              [ContattoController::class, 'index'])->name('contatti.index');
+    Route::post('/contatti',             [ContattoController::class, 'store'])->name('contatti.store');
+    Route::put('/contatti/{contatto}',   [ContattoController::class, 'update'])->name('contatti.update');
+    Route::delete('/contatti/{contatto}', [ContattoController::class, 'destroy'])->name('contatti.destroy');
+
+    Route::get('/email-log', [EmailLogController::class, 'index'])->name('email-log.index');
 });
 
 // --- Team (solo tenant-admin) ---

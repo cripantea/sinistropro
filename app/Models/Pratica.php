@@ -21,6 +21,7 @@ class Pratica extends Model
         'tenant_id',
         'utente_creatore_id',
         'cliente_id',
+        'compagnia',
         'current_status_id',
         'data_prossimo_avviso',
         'custom_fields',

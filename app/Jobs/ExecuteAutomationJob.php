@@ -46,7 +46,8 @@ class ExecuteAutomationJob implements ShouldQueue
             'utenteCreatore',
             'currentStatus',
             'allegati',
-            'ispezioni' => fn ($q) => $q->latest()->limit(1)->with(['assegnatoa', 'carrozzeria']),
+            'cliente',
+            'ispezioni' => fn ($q) => $q->latest()->limit(1)->with(['peritoContatto', 'carrozzeriaContatto', 'assegnatoa', 'carrozzeria']),
         ])->findOrFail($this->pratica->id);
 
         $automation = $this->automation->loadMissing('documentCategories');
@@ -65,6 +66,11 @@ class ExecuteAutomationJob implements ShouldQueue
                 'pratica_id'    => $pratica->id,
                 'automation_id' => $automation->id,
             ]);
+            $mailer->registraSaltata(
+                $pratica->tenant_id,
+                'Nessun destinatario con email trovato (cliente senza email, o carrozzeria/perito non assegnato).',
+                $this->logContext($pratica)
+            );
             return;
         }
 
@@ -166,13 +172,23 @@ class ExecuteAutomationJob implements ShouldQueue
 
     private function resolveCliente(Pratica $pratica): array
     {
-        $fields = $pratica->custom_fields ?? [];
+        $fields  = $pratica->custom_fields ?? [];
+        $cliente = $pratica->cliente;
 
+        // L'anagrafica cliente ha la precedenza; i campi personalizzati della
+        // pratica restano come fallback per i tenant che non usano i clienti.
         return [
-            'email' => $this->scanFields($fields, self::EMAIL_KEYS),
-            'phone' => $this->scanFields($fields, self::PHONE_KEYS),
-            'name'  => $this->scanFields($fields, self::NAME_KEYS),
+            'email' => $this->filled($cliente?->email) ?? $this->scanFields($fields, self::EMAIL_KEYS),
+            'phone' => $this->filled($cliente?->telefono) ?? $this->scanFields($fields, self::PHONE_KEYS),
+            'name'  => $this->filled($cliente?->nome) ?? $this->scanFields($fields, self::NAME_KEYS),
         ];
+    }
+
+    private function filled(?string $value): ?string
+    {
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
     }
 
     private function resolveGestore(Pratica $pratica): array
@@ -188,33 +204,32 @@ class ExecuteAutomationJob implements ShouldQueue
 
     private function resolvePerito(Pratica $pratica): array
     {
-        // Usa l'ispezione più recente con un perito assegnato
         $ispezione = $pratica->ispezioni
-            ->whereNotNull('assegnato_a_user_id')
-            ->first();
+            ->first(fn ($i) => $i->perito_contatto_id || $i->assegnato_a_user_id);
 
-        $perito = $ispezione?->assegnatoa;
+        // Contatto (anagrafica perito) prima, utente "esterno" legacy come fallback.
+        $contatto = $ispezione?->peritoContatto;
+        $user     = $ispezione?->assegnatoa;
 
         return [
-            'email' => $perito?->email,
-            'phone' => null, // Il modello User non ha un campo telefono
-            'name'  => $perito?->name,
+            'email' => $contatto?->email ?: $user?->email,
+            'phone' => $contatto?->telefono,
+            'name'  => $contatto?->nome ?? $user?->name,
         ];
     }
 
     private function resolveCarrozzeria(Pratica $pratica): array
     {
-        // Usa l'ispezione più recente con una carrozzeria assegnata
         $ispezione = $pratica->ispezioni
-            ->whereNotNull('carrozzeria_user_id')
-            ->first();
+            ->first(fn ($i) => $i->carrozzeria_contatto_id || $i->carrozzeria_user_id);
 
-        $carrozzeria = $ispezione?->carrozzeria;
+        $contatto = $ispezione?->carrozzeriaContatto;
+        $user     = $ispezione?->carrozzeria;
 
         return [
-            'email' => $carrozzeria?->email,
-            'phone' => null, // Il modello User non ha un campo telefono
-            'name'  => $carrozzeria?->name,
+            'email' => $contatto?->email ?: $user?->email,
+            'phone' => $contatto?->telefono,
+            'name'  => $contatto?->nome ?? $user?->name,
         ];
     }
 
@@ -344,6 +359,7 @@ class ExecuteAutomationJob implements ShouldQueue
                 'pratica_id'    => $pratica->id,
                 'automation_id' => $this->automation->id,
             ]);
+            $mailer->registraSaltata($pratica->tenant_id, 'Email del destinatario mancante.', $this->logContext($pratica));
             return;
         }
 
@@ -358,8 +374,15 @@ class ExecuteAutomationJob implements ShouldQueue
                 tenantName:    $pratica->tenant?->name ?? '',
                 documentLinks: $documentLinks,
             ),
-            $ccEmails
+            $ccEmails,
+            $this->logContext($pratica)
         );
+    }
+
+    /** @return array{tipo: string, pratica_id: int, automation_id: int} */
+    private function logContext(Pratica $pratica): array
+    {
+        return ['tipo' => 'automazione', 'pratica_id' => $pratica->id, 'automation_id' => $this->automation->id];
     }
 
     private function sendWhatsapp(array $recipient, string $compiledMessage, Pratica $pratica): void
