@@ -121,8 +121,12 @@ class PraticaController extends Controller
 
         $statuses = $tenant->statuses;
 
+        // Prossimo avviso più vicino in cima (le scadute prima di tutte); senza data in fondo.
+        // L'ordine è globale, quindi vale per ogni colonna anche dopo lo spostamento di una scheda.
         $pratiche = Pratica::with('cliente:id,nome')
-            ->orderByDesc('data_prossimo_avviso')
+            ->orderByRaw('data_prossimo_avviso is null')
+            ->orderBy('data_prossimo_avviso')
+            ->orderBy('id')
             ->get(['id', 'cliente_id', 'current_status_id', 'data_prossimo_avviso', 'created_at']);
 
         $periti = Contatto::tag(Contatto::TAG_PERITO)->where('is_active', true)->orderBy('nome')->get(['id', 'nome']);

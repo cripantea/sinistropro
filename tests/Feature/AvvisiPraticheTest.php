@@ -137,3 +137,13 @@ test('gli avvisi stanno sulla coda prioritaria e il sync caselle è univoco per 
     expect($sync)->toBeInstanceOf(\Illuminate\Contracts\Queue\ShouldBeUnique::class)
         ->and($sync->uniqueId())->toBe('7');
 });
+
+test('il board mostra i sinistri con il prossimo avviso più vicino in cima, senza data in fondo', function () {
+    $lontana = nuovaPratica(['data_prossimo_avviso' => today()->addDays(20)->toDateString()]);
+    $senza   = nuovaPratica(['data_prossimo_avviso' => null]);
+    $scaduta = nuovaPratica(['data_prossimo_avviso' => today()->subDays(3)->toDateString()]);
+    $vicina  = nuovaPratica(['data_prossimo_avviso' => today()->addDays(2)->toDateString()]);
+
+    $this->actingAs($this->admin1)->get('/pratiche/kanban')->assertOk()
+        ->assertInertia(fn ($p) => $p->where('pratiche', fn ($list) => collect($list)->pluck('id')->all() === [$scaduta->id, $vicina->id, $lontana->id, $senza->id]));
+});
