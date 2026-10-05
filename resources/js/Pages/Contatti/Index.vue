@@ -2,13 +2,13 @@
   <AuthenticatedLayout>
     <template #header>
       <div class="flex items-center justify-between">
-        <h2 class="text-xl font-semibold text-gray-800 leading-tight">Periti e Carrozzerie</h2>
+        <h2 class="text-xl font-semibold text-gray-800 leading-tight">{{ titolo }}</h2>
         <button
           @click="openCreate"
           class="inline-flex items-center gap-1.5 bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          {{ tab === 'perito' ? 'Nuovo perito' : 'Nuova carrozzeria' }}
+          {{ tipo === 'perito' ? 'Nuovo perito' : 'Nuova carrozzeria' }}
         </button>
       </div>
     </template>
@@ -19,23 +19,8 @@
 
     <div class="py-6 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
       <p class="text-sm text-gray-500">
-        Anagrafica di periti e carrozzerie da assegnare ai sinistri. Non serve un account: basta nome e un recapito.
+        Elenco da assegnare ai sinistri e usare come destinatari delle automazioni. Non serve un account né un invito: bastano nome, telefono ed email.
       </p>
-
-      <!-- Tabs -->
-      <div class="flex gap-1 border-b border-gray-200">
-        <button
-          v-for="t in tabs"
-          :key="t.value"
-          @click="tab = t.value"
-          :class="[
-            'px-4 py-2 text-sm font-medium -mb-px border-b-2 transition',
-            tab === t.value ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-          ]"
-        >
-          {{ t.label }} <span class="text-xs text-gray-400">({{ countOf(t.value) }})</span>
-        </button>
-      </div>
 
       <div v-for="c in visible" :key="c.id" class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4 flex items-center gap-4">
         <div class="flex-1 min-w-0">
@@ -59,7 +44,7 @@
       </div>
 
       <div v-if="visible.length === 0" class="bg-white rounded-xl border border-dashed border-gray-300 px-5 py-12 text-center text-gray-400 text-sm">
-        Nessun {{ tab === 'perito' ? 'perito' : 'carrozzeria' }} in anagrafica.
+        Nessun elemento in elenco.
       </div>
     </div>
 
@@ -119,23 +104,17 @@ interface Contatto {
   is_active: boolean
 }
 
-const props = defineProps<{ contatti: Contatto[] }>()
+const props = defineProps<{ tipo: 'perito' | 'carrozzeria'; contatti: Contatto[] }>()
 const flash = computed(() => usePage<PageProps>().props.flash)
 
-const tabs = [
-  { value: 'perito' as const, label: 'Periti' },
-  { value: 'carrozzeria' as const, label: 'Carrozzerie' },
-]
-const tab = ref<'perito' | 'carrozzeria'>('perito')
-
-const visible = computed(() => props.contatti.filter(c => c.tipo === tab.value))
-const countOf = (tipo: string) => props.contatti.filter(c => c.tipo === tipo).length
+const titolo = computed(() => props.tipo === 'perito' ? 'Periti' : 'Carrozzerie')
+const visible = computed(() => props.contatti)
 
 const modalOpen = ref(false)
 const editing = ref<Contatto | null>(null)
 
 const form = useForm({
-  tipo: 'perito' as 'perito' | 'carrozzeria',
+  tipo: props.tipo as 'perito' | 'carrozzeria',
   nome: '',
   telefono: '',
   email: '',
@@ -146,7 +125,7 @@ function openCreate() {
   editing.value = null
   form.reset()
   form.clearErrors()
-  form.tipo = tab.value
+  form.tipo = props.tipo
   modalOpen.value = true
 }
 

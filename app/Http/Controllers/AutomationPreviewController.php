@@ -4,26 +4,29 @@ namespace App\Http\Controllers;
 
 use App\Models\Automation;
 use App\Models\Pratica;
+use App\Services\AutomationPlanner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AutomationPreviewController extends Controller
 {
     /**
-     * Data l'azione che l'utente sta per compiere (cambio stato e/o cambio di
-     * uno o più campi data osservati), restituisce l'elenco delle automazioni
-     * "richiede conferma" che scatterebbero — usato dal frontend per mostrare
-     * la modale di conferma PRIMA di salvare davvero.
+     * Data l'azione che l'utente sta per compiere (cambio stato e/o cambio di uno o più
+     * campi data osservati), restituisce TUTTE le automazioni attive che scatterebbero,
+     * ciascuna con messaggio compilato e destinatari: il frontend le mostra in una finestra
+     * di conferma PRIMA di salvare, dove l'utente può togliere/aggiungere destinatari.
      */
-    public function preview(Request $request, Pratica $pratica): JsonResponse
+    public function preview(Request $request, Pratica $pratica, AutomationPlanner $planner): JsonResponse
     {
         $user = auth()->user();
         abort_unless($pratica->tenant_id === $user->tenant_id, 403);
 
         $data = $request->validate([
-            'tenant_status_id' => ['nullable', 'integer'],
-            'date_fields' => ['nullable', 'array'],
-            'date_fields.*' => ['nullable', 'string'],
+            'tenant_status_id'        => ['nullable', 'integer'],
+            'date_fields'             => ['nullable', 'array'],
+            'date_fields.*'           => ['nullable', 'string'],
+            'perito_contatto_id'      => ['nullable', 'integer'],
+            'carrozzeria_contatto_id' => ['nullable', 'integer'],
         ]);
 
         $matches = collect();
@@ -34,7 +37,6 @@ class AutomationPreviewController extends Controller
                     ->where('trigger_type', 'status')
                     ->where('tenant_status_id', $data['tenant_status_id'])
                     ->where('is_active', true)
-                    ->where('requires_confirmation', true)
                     ->get()
             );
         }
@@ -53,16 +55,20 @@ class AutomationPreviewController extends Controller
                     ->where('trigger_type', 'date_field')
                     ->where('watched_field', $field)
                     ->where('is_active', true)
-                    ->where('requires_confirmation', true)
                     ->get()
             );
         }
 
+        // Valori non ancora salvati: lo stato di destinazione e perito/carrozzeria scelti nella modale.
+        $ctx = [
+            'status_id'               => $data['tenant_status_id'] ?? null,
+            'perito_contatto_id'      => $data['perito_contatto_id'] ?? null,
+            'carrozzeria_contatto_id' => $data['carrozzeria_contatto_id'] ?? null,
+        ];
+
         return response()->json([
-            'automations' => $matches->unique('id')->values()->map(fn (Automation $a) => [
-                'id' => $a->id,
-                'name' => $a->name,
-            ]),
+            'automations' => $matches->unique('id')->values()
+                ->map(fn (Automation $a) => $planner->planPratica($pratica, $a, $ctx)),
         ]);
     }
 }

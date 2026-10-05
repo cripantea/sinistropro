@@ -6,6 +6,7 @@ use App\Mail\AutomazioneNotificaMail;
 use App\Models\Automation;
 use App\Models\Pratica;
 use App\Models\WhatsappSession;
+use App\Services\AutomationPlanner;
 use App\Services\TenantMailerResolver;
 use App\Services\WhatsappCloudApiClient;
 use Illuminate\Bus\Queueable;
@@ -14,7 +15,6 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class ExecuteAutomationJob implements ShouldQueue
 {
@@ -23,23 +23,19 @@ class ExecuteAutomationJob implements ShouldQueue
     public int $tries  = 3;
     public int $backoff = 30;
 
-    // Chiavi dei custom_fields scansionate per ogni dato del cliente
-    private const EMAIL_KEYS  = ['email', 'email_cliente', 'email_contatto', 'email_assicurato'];
-    private const PHONE_KEYS  = ['telefono', 'telefono_cliente', 'cellulare', 'whatsapp', 'phone'];
-    private const NAME_KEYS   = ['nome_cliente', 'nome_assicurato', 'nome', 'cliente', 'controparte', 'ragione_sociale'];
-
+    /**
+     * @param  array{recipients: array, cc: array}|null  $override  Destinatari/CC decisi dall'utente
+     *         nella finestra di conferma. Se presente sostituisce quelli calcolati dall'automazione.
+     */
     public function __construct(
         public readonly Pratica    $pratica,
         public readonly Automation $automation,
+        public readonly ?array     $override = null,
     ) {
         $this->onQueue('automations');
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Entry point
-    // ─────────────────────────────────────────────────────────────────────────
-
-    public function handle(TenantMailerResolver $mailer): void
+    public function handle(TenantMailerResolver $mailer, AutomationPlanner $planner): void
     {
         $pratica = Pratica::with([
             'tenant',
@@ -52,42 +48,35 @@ class ExecuteAutomationJob implements ShouldQueue
 
         $automation = $this->automation->loadMissing('documentCategories');
 
-        // Carica gli utenti del tenant per risolvere i destinatari user
-        $tenantUsers = \App\Models\User::where('tenant_id', $pratica->tenant_id)
-            ->whereIn('id', $this->collectUserIds($automation))
-            ->get(['id', 'name', 'email'])
-            ->keyBy('id');
+        if ($this->override !== null) {
+            $recipientsTo = $this->override['recipients'] ?? [];
+            $ccEmails     = $this->override['cc'] ?? [];
+        } else {
+            $recipientsTo = $planner->defaultRecipientsPratica($pratica, $automation);
+            $ccEmails     = array_column($planner->defaultCc($automation), 'email');
+        }
 
-        // 1. Risolvi destinatari TO (nuovo sistema o legacy)
-        $recipientsTo = $this->resolveRecipientsTo($pratica, $automation, $tenantUsers);
+        // Teniamo solo chi ha un recapito utilizzabile sul canale scelto.
+        $recipientsTo = array_values(array_filter($recipientsTo, fn ($r) => $this->hasContactFor($automation->channel, $r)));
 
-        if (empty($recipientsTo) && $automation->channel !== 'whatsapp') {
-            Log::warning('ExecuteAutomationJob: nessun destinatario TO trovato, skip', [
+        if (empty($recipientsTo)) {
+            Log::warning('ExecuteAutomationJob: nessun destinatario utilizzabile, skip', [
                 'pratica_id'    => $pratica->id,
                 'automation_id' => $automation->id,
             ]);
             $mailer->registraSaltata(
                 $pratica->tenant_id,
-                'Nessun destinatario con email trovato (cliente senza email, o carrozzeria/perito non assegnato).',
+                'Nessun destinatario con recapito valido (cliente senza email/telefono, o carrozzeria/perito non assegnato).',
                 $this->logContext($pratica)
             );
+
             return;
         }
 
-        // 2. Risolvi CC
-        $ccEmails = $this->resolveCcEmails($automation, $tenantUsers);
+        $documentLinks = $planner->documentLinks($pratica, $automation);
 
-        // 3. Genera link S3
-        $documentLinks = $this->generateDocumentLinks($pratica, $automation);
-
-        // 4. Invia a ogni destinatario TO
         foreach ($recipientsTo as $recipient) {
-            $compiledMessage = $this->compileTemplate(
-                $automation->message_template,
-                $pratica,
-                $recipient,
-                $documentLinks
-            );
+            $compiledMessage = $planner->compilePratica($automation->message_template, $pratica, $recipient['name'] ?? null);
             $this->sendViaChannel($automation->channel, $recipient, $compiledMessage, $pratica, $documentLinks, $ccEmails, $mailer);
         }
 
@@ -96,238 +85,20 @@ class ExecuteAutomationJob implements ShouldQueue
             'automation_id' => $automation->id,
             'to_count'      => count($recipientsTo),
             'cc_count'      => count($ccEmails),
+            'confermata'    => $this->override !== null,
         ]);
     }
 
-    private function collectUserIds(\App\Models\Automation $automation): array
+    private function hasContactFor(string $channel, array $recipient): bool
     {
-        $ids = [];
-        foreach ($automation->recipients_to ?? [] as $r) {
-            if (($r['type'] ?? '') === 'user' && isset($r['user_id'])) $ids[] = (int) $r['user_id'];
-        }
-        foreach ($automation->recipients_cc ?? [] as $r) {
-            if (isset($r['user_id'])) $ids[] = (int) $r['user_id'];
-        }
-        return array_unique($ids);
-    }
+        $email = ! empty($recipient['email']);
+        $phone = ! empty($recipient['phone']);
 
-    private function resolveRecipientsTo(Pratica $pratica, \App\Models\Automation $automation, \Illuminate\Support\Collection $users): array
-    {
-        $spec = $automation->recipients_to;
-
-        // Fallback al vecchio campo recipient
-        if (empty($spec)) {
-            $resolved = $this->resolveRecipient($pratica, $automation->recipient ?? 'cliente');
-            return $resolved['email'] ? [$resolved] : [];
-        }
-
-        $result = [];
-        foreach ($spec as $r) {
-            $type = $r['type'] ?? '';
-            if ($type === 'cliente') {
-                $resolved = $this->resolveCliente($pratica);
-                if ($resolved['email']) $result[] = $resolved;
-            } elseif ($type === 'carrozzeria') {
-                $resolved = $this->resolveCarrozzeria($pratica);
-                if ($resolved['email']) $result[] = $resolved;
-            } elseif ($type === 'user' && isset($r['user_id'])) {
-                $user = $users->get((int) $r['user_id']);
-                if ($user?->email) {
-                    $result[] = ['email' => $user->email, 'name' => $user->name, 'phone' => null];
-                }
-            }
-        }
-        return $result;
-    }
-
-    private function resolveCcEmails(\App\Models\Automation $automation, \Illuminate\Support\Collection $users): array
-    {
-        $emails = [];
-        foreach ($automation->recipients_cc ?? [] as $r) {
-            if (isset($r['user_id'])) {
-                $email = $users->get((int) $r['user_id'])?->email;
-                if ($email) $emails[] = $email;
-            }
-        }
-        return array_unique($emails);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // 1. Risoluzione destinatario
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Ritorna ['email' => ?string, 'phone' => ?string, 'name' => ?string].
-     */
-    private function resolveRecipient(Pratica $pratica, string $recipient): array
-    {
-        return match ($recipient) {
-            'cliente'     => $this->resolveCliente($pratica),
-            'gestore'     => $this->resolveGestore($pratica),
-            'perito'      => $this->resolvePerito($pratica),
-            'carrozzeria' => $this->resolveCarrozzeria($pratica),
-            default       => ['email' => null, 'phone' => null, 'name' => null],
+        return match ($channel) {
+            'whatsapp' => $phone,
+            'both'     => $email || $phone,
+            default    => $email,
         };
-    }
-
-    private function resolveCliente(Pratica $pratica): array
-    {
-        $fields  = $pratica->custom_fields ?? [];
-        $cliente = $pratica->cliente;
-
-        // L'anagrafica cliente ha la precedenza; i campi personalizzati della
-        // pratica restano come fallback per i tenant che non usano i clienti.
-        return [
-            'email' => $this->filled($cliente?->email) ?? $this->scanFields($fields, self::EMAIL_KEYS),
-            'phone' => $this->filled($cliente?->telefono) ?? $this->scanFields($fields, self::PHONE_KEYS),
-            'name'  => $this->filled($cliente?->nome) ?? $this->scanFields($fields, self::NAME_KEYS),
-        ];
-    }
-
-    private function filled(?string $value): ?string
-    {
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
-    }
-
-    private function resolveGestore(Pratica $pratica): array
-    {
-        $user = $pratica->utenteCreatore;
-
-        return [
-            'email' => $user?->email,
-            'phone' => null, // Il modello User non ha un campo telefono
-            'name'  => $user?->name,
-        ];
-    }
-
-    private function resolvePerito(Pratica $pratica): array
-    {
-        $ispezione = $pratica->ispezioni
-            ->first(fn ($i) => $i->perito_contatto_id || $i->assegnato_a_user_id);
-
-        // Contatto (anagrafica perito) prima, utente "esterno" legacy come fallback.
-        $contatto = $ispezione?->peritoContatto;
-        $user     = $ispezione?->assegnatoa;
-
-        return [
-            'email' => $contatto?->email ?: $user?->email,
-            'phone' => $contatto?->telefono,
-            'name'  => $contatto?->nome ?? $user?->name,
-        ];
-    }
-
-    private function resolveCarrozzeria(Pratica $pratica): array
-    {
-        $ispezione = $pratica->ispezioni
-            ->first(fn ($i) => $i->carrozzeria_contatto_id || $i->carrozzeria_user_id);
-
-        $contatto = $ispezione?->carrozzeriaContatto;
-        $user     = $ispezione?->carrozzeria;
-
-        return [
-            'email' => $contatto?->email ?: $user?->email,
-            'phone' => $contatto?->telefono,
-            'name'  => $contatto?->nome ?? $user?->name,
-        ];
-    }
-
-    /**
-     * Cerca il primo valore non-null/non-vuoto tra le chiavi fornite.
-     */
-    private function scanFields(array $fields, array $keys): ?string
-    {
-        foreach ($keys as $key) {
-            $value = trim((string) ($fields[$key] ?? ''));
-            if ($value !== '') {
-                return $value;
-            }
-        }
-        return null;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // 2. Generazione link S3 temporanei
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Ritorna array di ['nome_file' => string, 'url' => string].
-     * Filtra gli allegati della pratica per le categorie collegate all'automazione.
-     * Se l'automazione non ha categorie collegate, non genera nessun link.
-     */
-    private function generateDocumentLinks(Pratica $pratica, Automation $automation): array
-    {
-        $categoryIds = $automation->documentCategories->pluck('id');
-
-        if ($categoryIds->isEmpty()) {
-            return [];
-        }
-
-        $allegati = $pratica->allegati
-            ->whereIn('document_category_id', $categoryIds)
-            ->whereNotNull('s3_key');
-
-        $links = [];
-        foreach ($allegati as $allegato) {
-            try {
-                $url = Storage::disk('s3')->temporaryUrl(
-                    $allegato->s3_key,
-                    now()->addDays(7)
-                );
-                $links[] = ['nome_file' => $allegato->nome_file, 'url' => $url];
-            } catch (\Throwable $e) {
-                // File non trovato su S3 (es. record demo senza file reale): skip silenzioso
-                Log::warning('ExecuteAutomationJob: S3 temporaryUrl fallita', [
-                    'allegato_id' => $allegato->id,
-                    's3_key'      => $allegato->s3_key,
-                    'errore'      => $e->getMessage(),
-                ]);
-            }
-        }
-
-        return $links;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // 3. Compilazione template
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Sostituisce i placeholder nel message_template con i valori reali.
-     *
-     * Placeholder supportati:
-     *   {numero_pratica}   → ID della pratica
-     *   {nome_cliente}     → nome del destinatario risolto
-     *   {stato_corrente}   → nome dello stato corrente della pratica
-     *   {nome_tenant}      → nome del tenant
-     *   {link_documenti}   → lista URL dei file S3 (una riga per file)
-     *   {campi_custom.*}   → qualsiasi campo custom, es. {campi_custom.numero_sinistro}
-     */
-    private function compileTemplate(
-        string $template,
-        Pratica $pratica,
-        array $recipient,
-        array $documentLinks
-    ): string {
-        $replacements = [
-            '{numero_pratica}'  => (string) $pratica->id,
-            '{nome_cliente}'    => $recipient['name'] ?? 'Cliente',
-            '{stato_corrente}'  => $pratica->currentStatus?->name ?? '',
-            '{nome_tenant}'     => $pratica->tenant?->name ?? '',
-            '{link_documenti}'  => '',
-        ];
-
-        // Campi custom dinamici: {campi_custom.nome_campo}
-        foreach ($pratica->custom_fields ?? [] as $key => $value) {
-            $replacements["{campi_custom.{$key}}"] = (string) $value;
-        }
-
-        return str_replace(
-            array_keys($replacements),
-            array_values($replacements),
-            $template
-        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────

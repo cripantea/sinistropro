@@ -233,7 +233,7 @@
 
               <!-- Automazioni "richiede conferma" collegate a questo cambio -->
               <div v-if="assignAutomations.length > 0" class="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1.5">
-                <p class="text-xs font-semibold text-amber-800">Questa azione attiva delle automazioni:</p>
+                <p class="text-xs font-semibold text-amber-800">Questa azione attiva delle automazioni (alla conferma vedrai messaggio e destinatari):</p>
                 <ul class="space-y-1">
                   <li v-for="a in assignAutomations" :key="a.id" class="flex items-center gap-1.5 text-xs text-amber-700">
                     <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -250,7 +250,7 @@
                   <button
                     type="button"
                     :disabled="assignForm.submitting"
-                    @click="submitAssign(false)"
+                    @click="onAssignConfirmClick"
                     class="flex-1 bg-amber-500 text-white text-sm font-semibold py-2.5 rounded-lg hover:bg-amber-600 transition disabled:opacity-60 flex items-center justify-center gap-2"
                   >
                     <svg v-if="assignForm.submitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -286,6 +286,14 @@
 
     <!-- Modale conferma automazioni — solo per il drop su colonne normali (non "external") -->
     <AutomationConfirmModal
+      :show="assignConfirm.open"
+      :automations="assignAutomations"
+      @accept="onAssignConfirmAccept"
+      @block-automations="onAssignConfirmBlockAutomations"
+      @block-action="assignConfirm.open = false"
+    />
+
+    <AutomationConfirmModal
       :show="statusConfirm.open"
       :automations="statusConfirm.automations"
       @accept="onStatusConfirmAccept"
@@ -301,7 +309,7 @@ import { ref, computed, reactive, watch } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import AutomationConfirmModal from '@/Components/AutomationConfirmModal.vue'
+import AutomationConfirmModal, { type AutomationPlan, type AutomationOverrides } from '@/Components/AutomationConfirmModal.vue'
 
 interface TenantStatus {
   id: number
@@ -318,7 +326,7 @@ interface PraticaKanban {
   created_at: string
 }
 interface Perito { id: number; nome: string }
-interface AutomationSummary { id: number; name: string }
+type AutomationSummary = AutomationPlan
 
 const props = defineProps<{
   statuses: TenantStatus[]
@@ -354,6 +362,9 @@ const assignForm = reactive({
 const assignAutomations = ref<AutomationSummary[]>([])
 
 // Modale di conferma automazioni per il drop su colonne "normali" (non external)
+// Seconda conferma: dopo "Conferma e sposta" nella modale di assegnazione, mostra messaggio e destinatari
+const assignConfirm = reactive({ open: false })
+
 const statusConfirm = reactive({
   open:             false,
   automations:      [] as AutomationSummary[],
@@ -362,11 +373,11 @@ const statusConfirm = reactive({
   previousStatusId: null as number | null,
 })
 
-async function previewAutomations(praticaId: number, tenantStatusId: number, dateFields?: Record<string, string>): Promise<AutomationSummary[]> {
+async function previewAutomations(praticaId: number, tenantStatusId: number, dateFields?: Record<string, string>, extra?: { perito_contatto_id?: number | null }): Promise<AutomationSummary[]> {
   try {
     const resp = await axios.post<{ automations: AutomationSummary[] }>(
       route('pratiche.automations.preview', praticaId),
-      { tenant_status_id: tenantStatusId, date_fields: dateFields }
+      { tenant_status_id: tenantStatusId, date_fields: dateFields, ...extra }
     )
     return resp.data.automations
   } catch {
@@ -448,7 +459,7 @@ async function onDrop(toStatusId: number) {
     assignModal.columnName  = targetStatus.name
     assignForm.perito_contatto_id = null
     assignForm.data_appuntamento   = ''
-    assignAutomations.value = await previewAutomations(praticaId, toStatusId)
+    assignAutomations.value = await previewAutomations(praticaId, toStatusId, undefined, { perito_contatto_id: null })
     return
   }
 
@@ -469,11 +480,12 @@ async function onDrop(toStatusId: number) {
   await commitStatusChange(praticaId, toStatusId, previousStatusId, false)
 }
 
-async function commitStatusChange(praticaId: number, toStatusId: number, previousStatusId: number | null, skip: boolean) {
+async function commitStatusChange(praticaId: number, toStatusId: number, previousStatusId: number | null, skip: boolean, overrides?: AutomationOverrides) {
   try {
     await axios.patch(route('pratiche.update-status', praticaId), {
       current_status_id: toStatusId,
       skip_confirmable_automations: skip,
+      automation_overrides: overrides,
     })
     showToast('Stato aggiornato.', 'success')
   } catch {
@@ -483,10 +495,10 @@ async function commitStatusChange(praticaId: number, toStatusId: number, previou
   }
 }
 
-function onStatusConfirmAccept() {
+function onStatusConfirmAccept(overrides: AutomationOverrides) {
   statusConfirm.open = false
   if (statusConfirm.praticaId !== null && statusConfirm.toStatusId !== null) {
-    commitStatusChange(statusConfirm.praticaId, statusConfirm.toStatusId, statusConfirm.previousStatusId, false)
+    commitStatusChange(statusConfirm.praticaId, statusConfirm.toStatusId, statusConfirm.previousStatusId, false, overrides)
   }
 }
 function onStatusConfirmBlockAutomations() {
@@ -518,11 +530,40 @@ watch(() => assignForm.data_appuntamento, async (value) => {
   assignAutomations.value = await previewAutomations(
     assignModal.praticaId,
     assignModal.toStatusId,
-    value ? { data_appuntamento: value } : undefined
+    value ? { data_appuntamento: value } : undefined,
+    { perito_contatto_id: assignForm.perito_contatto_id }
   )
 })
 
-async function submitAssign(skip: boolean) {
+// Il perito scelto cambia i destinatari (es. automazioni verso il perito): ricalcolo l'anteprima.
+watch(() => assignForm.perito_contatto_id, async (value) => {
+  if (!assignModal.open || assignModal.toStatusId === null || assignModal.praticaId === null) return
+  assignAutomations.value = await previewAutomations(
+    assignModal.praticaId,
+    assignModal.toStatusId,
+    assignForm.data_appuntamento ? { data_appuntamento: assignForm.data_appuntamento } : undefined,
+    { perito_contatto_id: value }
+  )
+})
+
+// "Conferma e sposta": se scattano automazioni, prima mostro messaggio e destinatari.
+function onAssignConfirmClick() {
+  if (assignAutomations.value.length > 0) {
+    assignConfirm.open = true
+  } else {
+    submitAssign(false)
+  }
+}
+function onAssignConfirmAccept(overrides: AutomationOverrides) {
+  assignConfirm.open = false
+  submitAssign(false, overrides)
+}
+function onAssignConfirmBlockAutomations() {
+  assignConfirm.open = false
+  submitAssign(true)
+}
+
+async function submitAssign(skip: boolean, overrides?: AutomationOverrides) {
   if (!assignModal.praticaId || !assignModal.toStatusId) return
 
   assignForm.submitting = true
@@ -532,6 +573,7 @@ async function submitAssign(skip: boolean) {
       perito_contatto_id:  assignForm.perito_contatto_id || null,
       data_appuntamento:   assignForm.data_appuntamento   || null,
       skip_confirmable_automations: skip,
+      automation_overrides: overrides,
     })
     assignModal.open = false
     showToast('Incarico assegnato e stato aggiornato.', 'success')

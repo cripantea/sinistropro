@@ -33,8 +33,8 @@ const isOnPratiche  = computed(() => currentPath.value.startsWith('/pratiche') &
 const isOnKanban    = computed(() => currentPath.value === '/pratiche/kanban')
 const isOnClienti   = computed(() => currentPath.value.startsWith('/clienti'))
 const isOnListe     = computed(() => currentPath.value.startsWith('/liste'))
-const isOnTeam      = computed(() => currentPath.value.startsWith('/team'))
-const isOnContatti  = computed(() => currentPath.value.startsWith('/contatti'))
+const isOnPeriti      = computed(() => currentPath.value.startsWith('/periti'))
+const isOnCarrozzerie = computed(() => currentPath.value.startsWith('/carrozzerie'))
 const isOnEmailLog  = computed(() => currentPath.value.startsWith('/email-log'))
 const isOnWhatsapp  = computed(() => currentPath.value.startsWith('/whatsapp'))
 const isOnEmail     = computed(() => currentPath.value.startsWith('/email') && !currentPath.value.startsWith('/email-log'))
@@ -256,24 +256,44 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
             <span v-show="!collapsed" class="truncate">Email</span>
           </a>
 
-          <!-- Periti e Carrozzerie -->
+          <!-- Carrozzerie -->
           <a
             v-if="user.role !== 'external'"
-            :href="route('contatti.index')"
-            @click.prevent="navigate(route('contatti.index'))"
+            :href="route('carrozzerie.index')"
+            @click.prevent="navigate(route('carrozzerie.index'))"
             :class="[
               'flex items-center rounded-lg text-sm font-medium transition-colors',
               collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
-              isOnContatti
+              isOnCarrozzerie
                 ? 'bg-indigo-600 text-white'
                 : 'text-slate-300 hover:bg-slate-700 hover:text-white'
             ]"
-            :title="collapsed ? 'Periti e Carrozzerie' : undefined"
+            :title="collapsed ? 'Carrozzerie' : undefined"
           >
             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
             </svg>
-            <span v-show="!collapsed" class="truncate">Periti e Carrozzerie</span>
+            <span v-show="!collapsed" class="truncate">Carrozzerie</span>
+          </a>
+
+          <!-- Periti -->
+          <a
+            v-if="user.role !== 'external'"
+            :href="route('periti.index')"
+            @click.prevent="navigate(route('periti.index'))"
+            :class="[
+              'flex items-center rounded-lg text-sm font-medium transition-colors',
+              collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
+              isOnPeriti
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+            ]"
+            :title="collapsed ? 'Periti' : undefined"
+          >
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+            </svg>
+            <span v-show="!collapsed" class="truncate">Periti</span>
           </a>
 
           <!-- Registro email -->
@@ -294,26 +314,6 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
             <span v-show="!collapsed" class="truncate">Registro email</span>
-          </a>
-
-          <!-- Team -->
-          <a
-            v-if="isTenantAdmin || hasTenantContext"
-            :href="route('team.index')"
-            @click.prevent="navigate(route('team.index'))"
-            :class="[
-              'flex items-center rounded-lg text-sm font-medium transition-colors',
-              collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
-              isOnTeam
-                ? 'bg-indigo-600 text-white'
-                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-            ]"
-            :title="collapsed ? 'Team' : undefined"
-          >
-            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-            </svg>
-            <span v-show="!collapsed" class="truncate">Team</span>
           </a>
 
           <!-- Link SA panel (solo superadmin in contesto) -->
@@ -452,6 +452,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               </template>
               <template #content>
                 <DropdownLink :href="route('profile.edit')">Profilo</DropdownLink>
+                <DropdownLink v-if="isTenantAdmin || hasTenantContext" :href="route('team.index')">Team</DropdownLink>
                 <DropdownLink :href="route('logout')" method="post" as="button">Esci</DropdownLink>
               </template>
             </Dropdown>

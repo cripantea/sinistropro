@@ -76,7 +76,7 @@ test('l automazione usa email e telefono dell anagrafica cliente e registra l in
     $auto = Automation::create(['tenant_id' => $this->tenant->id, 'name' => 'A', 'trigger_type' => 'status', 'tenant_status_id' => $this->status->id, 'channel' => 'email', 'recipients_to' => [['type' => 'cliente']], 'message_template' => 'Ciao {nome_cliente}', 'is_active' => true]);
 
     // Mail::fake non copre il mailer dinamico: verifichiamo solo il tentativo registrato.
-    try { (new ExecuteAutomationJob($pratica, $auto))->handle(app(\App\Services\TenantMailerResolver::class)); } catch (\Throwable) {}
+    try { app()->call([new ExecuteAutomationJob($pratica, $auto), 'handle']); } catch (\Throwable) {}
 
     $log = EmailLog::acrossAllTenants()->where('tenant_id', $this->tenant->id)->first();
     expect($log)->not->toBeNull()->and($log->to_address)->toBe('mario@example.com')->and($log->tipo)->toBe('automazione');
@@ -87,7 +87,7 @@ test('nessun destinatario: l invio saltato è visibile nel registro', function (
     $pratica = Pratica::create(['tenant_id' => $this->tenant->id, 'utente_creatore_id' => $this->user->id, 'cliente_id' => $senzaEmail->id, 'current_status_id' => $this->status->id]);
     $auto = Automation::create(['tenant_id' => $this->tenant->id, 'name' => 'A', 'trigger_type' => 'status', 'tenant_status_id' => $this->status->id, 'channel' => 'email', 'recipients_to' => [['type' => 'cliente']], 'message_template' => 'x', 'is_active' => true]);
 
-    (new ExecuteAutomationJob($pratica, $auto))->handle(app(\App\Services\TenantMailerResolver::class));
+    app()->call([new ExecuteAutomationJob($pratica, $auto), 'handle']);
 
     expect(EmailLog::acrossAllTenants()->where('status', 'skipped')->count())->toBe(1);
     $this->actingAs($this->user)->get('/email-log')->assertOk();

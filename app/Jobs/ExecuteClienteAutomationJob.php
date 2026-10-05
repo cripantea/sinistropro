@@ -6,6 +6,7 @@ use App\Mail\AutomazioneNotificaMail;
 use App\Models\Automation;
 use App\Models\Cliente;
 use App\Models\WhatsappSession;
+use App\Services\AutomationPlanner;
 use App\Services\TenantMailerResolver;
 use App\Services\WhatsappCloudApiClient;
 use Illuminate\Bus\Queueable;
@@ -26,55 +27,48 @@ class ExecuteClienteAutomationJob implements ShouldQueue
         public readonly Cliente    $cliente,
         public readonly Automation $automation,
         public readonly string     $fieldName,
+        public readonly ?array     $override = null,
     ) {
         $this->onQueue('automations');
     }
 
-    public function handle(TenantMailerResolver $mailer): void
+    public function handle(TenantMailerResolver $mailer, AutomationPlanner $planner): void
     {
         $cliente    = Cliente::with('tenant')->findOrFail($this->cliente->id);
         $automation = $this->automation;
 
-        $phone = $cliente->telefono;
-        $email = $cliente->email;
-        $name  = $cliente->nome;
-
         $fieldValue = $cliente->custom_fields[$this->fieldName] ?? null;
 
-        $compiled = $this->compile($automation->message_template, $cliente, $fieldValue);
+        // Con override (conferma dell'utente) si usano esattamente i destinatari scelti;
+        // altrimenti il cliente dell'anagrafica.
+        $recipients = $this->override['recipients'] ?? [['name' => $cliente->nome, 'email' => $cliente->email, 'phone' => $cliente->telefono]];
 
-        if (in_array($automation->channel, ['email', 'both'], true)) {
-            $this->sendEmail($email, $name, $compiled, $cliente, $mailer);
-        }
+        foreach ($recipients as $r) {
+            $compiled = $planner->compileCliente($automation->message_template, $cliente, $fieldValue);
+            // {nome_cliente} = nome del destinatario scelto, se diverso dal cliente
+            if (! empty($r['name']) && $r['name'] !== $cliente->nome) {
+                $compiled = str_replace($cliente->nome, $r['name'], $compiled);
+            }
 
-        if (in_array($automation->channel, ['whatsapp', 'both'], true)) {
-            $this->sendWhatsapp($phone, $compiled, $cliente);
+            if (in_array($automation->channel, ['email', 'both'], true)) {
+                $this->sendEmail($r['email'] ?? null, $r['name'] ?? null, $compiled, $cliente, $mailer, $this->override['cc'] ?? []);
+            }
+
+            if (in_array($automation->channel, ['whatsapp', 'both'], true)) {
+                $this->sendWhatsapp($r['phone'] ?? null, $compiled, $cliente);
+            }
         }
 
         Log::info('ExecuteClienteAutomationJob: eseguito', [
             'cliente_id'    => $cliente->id,
             'automation_id' => $automation->id,
             'field'         => $this->fieldName,
+            'destinatari'   => count($recipients),
+            'confermata'    => $this->override !== null,
         ]);
     }
 
-    private function compile(string $template, Cliente $cliente, ?string $fieldValue): string
-    {
-        $replacements = [
-            '{nome_cliente}'   => $cliente->nome,
-            '{nome_tenant}'    => $cliente->tenant?->name ?? '',
-            '{data_scadenza}'  => $fieldValue ? \Carbon\Carbon::parse($fieldValue)->format('d/m/Y') : '',
-            '{campo_data}'     => $fieldValue ? \Carbon\Carbon::parse($fieldValue)->format('d/m/Y') : '',
-        ];
-
-        foreach ($cliente->custom_fields ?? [] as $key => $value) {
-            $replacements["{cliente.{$key}}"] = (string) $value;
-        }
-
-        return str_replace(array_keys($replacements), array_values($replacements), $template);
-    }
-
-    private function sendEmail(?string $email, ?string $name, string $compiled, Cliente $cliente, TenantMailerResolver $mailer): void
+    private function sendEmail(?string $email, ?string $name, string $compiled, Cliente $cliente, TenantMailerResolver $mailer, array $cc = []): void
     {
         if (! $email) {
             Log::warning('ExecuteClienteAutomationJob: email mancante', ['cliente_id' => $cliente->id]);
@@ -93,7 +87,7 @@ class ExecuteClienteAutomationJob implements ShouldQueue
                 tenantName:    $cliente->tenant?->name ?? '',
                 documentLinks: [],
             ),
-            [],
+            $cc,
             ['tipo' => 'promemoria_cliente', 'automation_id' => $this->automation->id]
         );
     }

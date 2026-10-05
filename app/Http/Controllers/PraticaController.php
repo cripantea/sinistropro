@@ -19,6 +19,7 @@ use App\Models\PraticaModule;
 use App\Models\TenantStatus;
 use App\Support\TenantContext;
 use App\Models\User;
+use App\Services\AutomationPlanner;
 use App\Services\TenantMailerResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -263,6 +264,7 @@ class PraticaController extends Controller
         $oldCustomFields = $pratica->custom_fields ?? [];
         $newStatusId    = $request->current_status_id;
         $skip           = $request->boolean('skip_confirmable_automations', false);
+        $overrides      = AutomationPlanner::normalizeOverrides($request->input('automation_overrides'));
 
         $pratica->update([
             'current_status_id' => $newStatusId,
@@ -271,7 +273,7 @@ class PraticaController extends Controller
 
         // Event-driven: lancia il sistema Automazioni se lo stato è cambiato.
         if ($newStatusId && $newStatusId != $oldStatusId) {
-            event(new PraticaStatoAggiornato($pratica, $oldStatusId, $newStatusId, $skip));
+            event(new PraticaStatoAggiornato($pratica, $oldStatusId, $newStatusId, $skip, $overrides));
         }
 
         // Event-driven: lancia il sistema Automazioni per ogni campo data osservato che è cambiato.
@@ -283,7 +285,7 @@ class PraticaController extends Controller
             $old = (string) ($oldCustomFields[$key] ?? '');
             $new = (string) ($customFields[$key] ?? '');
             if ($old !== $new) {
-                event(new PraticaCampoDataAggiornato($pratica, $key, $skip));
+                event(new PraticaCampoDataAggiornato($pratica, $key, $skip, $overrides));
             }
         }
 
@@ -319,6 +321,7 @@ class PraticaController extends Controller
         $oldStatusId = $pratica->current_status_id;
         $newStatusId = $request->integer('current_status_id') ?: null;
         $skip        = $request->boolean('skip_confirmable_automations', false);
+        $overrides   = AutomationPlanner::normalizeOverrides($request->input('automation_overrides'));
 
         $pratica->update(['current_status_id' => $newStatusId]);
 
@@ -351,7 +354,7 @@ class PraticaController extends Controller
 
         // Event-driven: lancia il sistema Automazioni per il nuovo stato
         if ($newStatusId) {
-            event(new PraticaStatoAggiornato($pratica, $oldStatusId, $newStatusId, $skip));
+            event(new PraticaStatoAggiornato($pratica, $oldStatusId, $newStatusId, $skip, $overrides));
         }
 
         if ($request->expectsJson()) {

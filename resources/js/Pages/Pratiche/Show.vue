@@ -126,7 +126,7 @@
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-semibold text-gray-700">Perito / Carrozzeria</h3>
-          <Link :href="route('contatti.index')" class="text-xs text-indigo-600 hover:underline">Gestisci anagrafica</Link>
+          <Link :href="route('periti.index')" class="text-xs text-indigo-600 hover:underline">Gestisci anagrafica</Link>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
@@ -447,7 +447,7 @@ import { Link, useForm, router, usePage } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import ModuleFormModal from '@/Components/ModuleFormModal.vue'
-import AutomationConfirmModal from '@/Components/AutomationConfirmModal.vue'
+import AutomationConfirmModal, { type AutomationPlan } from '@/Components/AutomationConfirmModal.vue'
 import PraticaChatPanel from '@/Components/Whatsapp/PraticaChatPanel.vue'
 import type { PageProps } from '@/types'
 
@@ -553,7 +553,7 @@ const ispezioneForm = useForm({
   carrozzeria_contatto_id: ispezione.value?.carrozzeria_contatto_id ?? null as number | null,
 })
 
-interface AutomationSummary { id: number; name: string }
+type AutomationSummary = AutomationPlan
 const ispezioneAutomationConfirm = reactive({
   open: false,
   automations: [] as AutomationSummary[],

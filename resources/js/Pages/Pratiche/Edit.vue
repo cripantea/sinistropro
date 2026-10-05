@@ -127,7 +127,7 @@ import { computed, reactive } from 'vue'
 import { Link, useForm, router } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import AutomationConfirmModal from '@/Components/AutomationConfirmModal.vue'
+import AutomationConfirmModal, { type AutomationPlan, type AutomationOverrides } from '@/Components/AutomationConfirmModal.vue'
 
 interface FieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean' | 'select'; required?: boolean; options?: string[] }
 interface TenantStatus { id: number; name: string; color: string }
@@ -158,7 +158,7 @@ const form = useForm({
   custom_fields:     initialCustomFields,
 })
 
-interface AutomationSummary { id: number; name: string }
+type AutomationSummary = AutomationPlan
 const automationConfirm = reactive({
   open: false,
   automations: [] as AutomationSummary[],
@@ -200,15 +200,15 @@ async function submit() {
   doSubmit(false)
 }
 
-function doSubmit(skip: boolean) {
+function doSubmit(skip: boolean, overrides?: AutomationOverrides) {
   form
-    .transform(data => ({ ...data, skip_confirmable_automations: skip }))
+    .transform(data => ({ ...data, skip_confirmable_automations: skip, automation_overrides: overrides }))
     .put(route('pratiche.update', props.pratica.id))
 }
 
-function onConfirmAccept() {
+function onConfirmAccept(overrides: AutomationOverrides) {
   automationConfirm.open = false
-  doSubmit(false)
+  doSubmit(false, overrides)
 }
 function onConfirmBlockAutomations() {
   automationConfirm.open = false

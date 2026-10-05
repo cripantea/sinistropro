@@ -15,12 +15,14 @@ use Inertia\Response;
  */
 class ContattoController extends Controller
 {
-    public function index(): Response
+    public function index(string $tipo): Response
     {
         $this->authorizeAccess();
+        abort_unless(in_array($tipo, Contatto::TIPI, true), 404);
 
         return Inertia::render('Contatti/Index', [
-            'contatti' => Contatto::orderBy('nome')->get(['id', 'tipo', 'nome', 'telefono', 'email', 'note', 'is_active']),
+            'tipo'     => $tipo,
+            'contatti' => Contatto::tipo($tipo)->orderBy('nome')->get(['id', 'tipo', 'nome', 'telefono', 'email', 'note', 'is_active']),
         ]);
     }
 

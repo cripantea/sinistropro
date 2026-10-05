@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Events\PraticaCampoDataAggiornato;
 use App\Events\PraticaStatoAggiornato;
 use App\Models\Ispezione;
+use App\Services\AutomationPlanner;
 use App\Models\Pratica;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -36,6 +37,7 @@ class IspezioneController extends Controller
         ]);
 
         $skip = $request->boolean('skip_confirmable_automations', false);
+        $overrides = AutomationPlanner::normalizeOverrides($request->input('automation_overrides'));
 
         $oldStatusId         = $pratica->current_status_id;
         $oldDataAppuntamento = (string) ($pratica->ispezioni->first()?->data_appuntamento?->format('Y-m-d') ?? '');
@@ -78,12 +80,12 @@ class IspezioneController extends Controller
         // Event-driven: lancia il sistema Automazioni se lo stato è cambiato.
         $newStatusId = $data['current_status_id'] ?? null;
         if ($newStatusId && $newStatusId != $oldStatusId) {
-            event(new PraticaStatoAggiornato($pratica, $oldStatusId, $newStatusId, $skip));
+            event(new PraticaStatoAggiornato($pratica, $oldStatusId, $newStatusId, $skip, $overrides));
         }
 
         // Event-driven: lancia Automazioni se la data appuntamento è cambiata (path Kanban).
         if ($newDataAppuntamento !== null && $oldDataAppuntamento !== $newDataAppuntamento) {
-            event(new PraticaCampoDataAggiornato($pratica, 'data_appuntamento', $skip));
+            event(new PraticaCampoDataAggiornato($pratica, 'data_appuntamento', $skip, $overrides));
         }
 
         if ($request->expectsJson()) {

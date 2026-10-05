@@ -16,5 +16,7 @@ class PraticaStatoAggiornato
         public readonly ?int    $oldStatusId,
         public readonly int     $newStatusId,
         public readonly bool    $skipConfirmableAutomations = false,
+        /** @var array<int, array{send: bool, recipients: array, cc: array}> scelte dell'utente per automazione */
+        public readonly array   $overrides = [],
     ) {}
 }

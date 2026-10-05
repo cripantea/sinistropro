@@ -29,13 +29,23 @@ class EseguiAutomazioniTenant
         $dispatched = [];
 
         foreach ($automations as $automation) {
-            // Automazioni "richiede conferma" già mostrate e bloccate dall'utente
-            // nella modale di conferma non vanno eseguite in questo giro.
-            if ($automation->requires_confirmation && $event->skipConfirmableAutomations) {
+            // L'utente ha scelto "procedi senza automazioni" nella finestra di conferma.
+            if ($event->skipConfirmableAutomations) {
                 continue;
             }
 
-            ExecuteAutomationJob::dispatch($event->pratica, $automation);
+            // Scelte fatte nella finestra di conferma: automazione esclusa, oppure
+            // destinatari/CC modificati rispetto a quelli calcolati.
+            $override = $event->overrides[$automation->id] ?? null;
+            if ($override && ! $override['send']) {
+                continue;
+            }
+
+            ExecuteAutomationJob::dispatch(
+                $event->pratica,
+                $automation,
+                $override ? ['recipients' => $override['recipients'], 'cc' => $override['cc']] : null
+            );
             $dispatched[] = $automation->id;
         }
 

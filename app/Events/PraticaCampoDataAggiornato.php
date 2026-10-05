@@ -15,5 +15,7 @@ class PraticaCampoDataAggiornato
         public readonly Pratica $pratica,
         public readonly string $fieldName,
         public readonly bool $skipConfirmableAutomations = false,
+        /** @var array<int, array{send: bool, recipients: array, cc: array}> scelte dell'utente per automazione */
+        public readonly array $overrides = [],
     ) {}
 }
