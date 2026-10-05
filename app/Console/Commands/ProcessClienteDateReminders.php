@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Models\AutomationApproval;
+use App\Jobs\ExecuteClienteAutomationJob;
 use App\Models\Automation;
 use App\Models\Cliente;
 use App\Models\Tenant;
@@ -24,7 +24,7 @@ class ProcessClienteDateReminders extends Command
                             {--dry-run : Simula senza accodare job}
                             {--tenant= : Esegui solo per un tenant specifico (ID)}';
 
-    protected $description = 'Crea i promemoria da confermare (WA/email) per scadenze date nei campi cliente.';
+    protected $description = 'Dispatcha automazioni WA/email per scadenze date nei campi cliente.';
 
     public function handle(): int
     {
@@ -80,30 +80,20 @@ class ProcessClienteDateReminders extends Command
                                 }
 
                                 if ($isDry) {
-                                    $this->line("   [DRY-RUN] Cliente #{$cliente->id} ({$cliente->nome}) → automation #{$automation->id} NON messa in conferma.");
+                                    $this->line("   [DRY-RUN] Cliente #{$cliente->id} ({$cliente->nome}) → automation #{$automation->id} NON accodata.");
                                     $dispatched++;
                                     continue;
                                 }
 
-                                // Nessun invio automatico: il promemoria resta "da confermare" finché
-                                // un utente non ne rivede messaggio e destinatari (una sola volta per scadenza).
-                                $approval = AutomationApproval::acrossAllTenants()->firstOrCreate([
-                                    'automation_id' => $automation->id,
-                                    'cliente_id'    => $cliente->id,
-                                    'field_name'    => $field,
-                                    'field_value'   => $targetDate,
-                                ], ['tenant_id' => $cliente->tenant_id]);
-
-                                if ($approval->wasRecentlyCreated) {
-                                    $dispatched++;
-                                }
+                                ExecuteClienteAutomationJob::dispatch($cliente, $automation, $field);
+                                $dispatched++;
                             }
                         });
                 }
             }
         });
 
-        $this->info("✔ Completato: {$dispatched} promemoria in attesa di conferma, {$skipped} clienti saltati.");
+        $this->info("✔ Completato: {$dispatched} job accodati, {$skipped} clienti saltati.");
 
         Log::info('ProcessClienteDateReminders completato', [
             'data'       => $oggi->toDateString(),
