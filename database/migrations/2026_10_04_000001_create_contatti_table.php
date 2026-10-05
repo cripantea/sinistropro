@@ -47,7 +47,14 @@ return new class extends Migration
         $utenti = DB::table('users')->where('role', 'external')->whereNotNull('tenant_id')->get();
 
         foreach ($utenti as $u) {
-            $tipo = $u->external_type === 'carrozzeria' ? 'carrozzeria' : 'perito';
+            // Come i vecchi menu: senza tipo = perito. Un tipo diverso (es. "altro") non era
+            // selezionabile né come perito né come carrozzeria: resta in rubrica col proprio
+            // tag, senza diventare un perito assegnabile.
+            $tipo = match (true) {
+                $u->external_type === 'carrozzeria'                  => 'carrozzeria',
+                in_array($u->external_type, [null, '', 'perito'], true) => 'perito',
+                default                                                => mb_substr(mb_strtolower((string) $u->external_type), 0, 20),
+            };
 
             $id = DB::table('contatti')->insertGetId([
                 'tenant_id'  => $u->tenant_id,
@@ -61,7 +68,7 @@ return new class extends Migration
 
             if ($tipo === 'perito') {
                 $mapPerito[$u->id] = $id;
-            } else {
+            } elseif ($tipo === 'carrozzeria') {
                 $mapCarrozzeria[$u->id] = $id;
             }
         }

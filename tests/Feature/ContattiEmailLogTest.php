@@ -94,3 +94,24 @@ test('nessun destinatario: l invio saltato è visibile nel registro', function (
     expect(EmailLog::acrossAllTenants()->where('status', 'skipped')->count())->toBe(1);
     $this->actingAs($this->user)->get('/email-log')->assertOk();
 });
+
+test('la migrazione porta gli utenti esterni in rubrica: senza tipo = perito, "altro" resta tag proprio, assegnazioni ricollegate', function () {
+    $mk = fn ($t, $name) => User::factory()->create(['tenant_id' => $this->tenant->id, 'role' => 'external', 'external_type' => $t, 'name' => $name, 'email' => strtolower($name).'@x.it']);
+    $vecchio = $mk(null, 'Senzatipo');
+    $altro   = $mk('altro', 'Altro');
+    $carr    = $mk('carrozzeria', 'Carrozzeriauser');
+    $pratica = Pratica::create(['tenant_id' => $this->tenant->id, 'utente_creatore_id' => $this->user->id, 'cliente_id' => $this->cliente->id, 'current_status_id' => $this->status->id]);
+    $isp = Ispezione::create(['tenant_id' => $this->tenant->id, 'pratica_id' => $pratica->id, 'assegnato_a_user_id' => $vecchio->id, 'carrozzeria_user_id' => $carr->id, 'stato' => 'pianificata']);
+
+    // Riesegue solo la migrazione dati su uno schema già migrato (azzera prima i contatti).
+    \Illuminate\Support\Facades\DB::table('ispezioni')->update(['perito_contatto_id' => null, 'carrozzeria_contatto_id' => null]);
+    \Illuminate\Support\Facades\DB::table('contatti')->delete();
+    $m = require database_path('migrations/2026_10_04_000001_create_contatti_table.php');
+    $r = new ReflectionMethod($m, 'migraUtentiEsterni'); $r->setAccessible(true); $r->invoke($m);
+
+    // (i tag nascono dalla migrazione successiva, che copia "tipo" nei tag: qui si verifica il tipo)
+    $tipi = \Illuminate\Support\Facades\DB::table('contatti')->pluck('tipo', 'nome');
+    expect($tipi['Senzatipo'])->toBe('perito')->and($tipi['Carrozzeriauser'])->toBe('carrozzeria')->and($tipi['Altro'])->toBe('altro');
+    $isp->refresh();
+    expect($isp->perito_contatto_id)->not->toBeNull()->and($isp->carrozzeria_contatto_id)->not->toBeNull();
+});
