@@ -145,3 +145,22 @@ test('la rubrica si filtra per tag e l\'anteprima automazioni offre i contatti d
     $res = $this->actingAs($this->user)->postJson("/pratiche/{$this->pratica->id}/automations/preview", ['tenant_status_id' => $this->inviata->id])->assertOk();
     expect($res->json('rubrica.0.nome'))->toBe('Luigi Perito');
 });
+
+test('la conferma mostra gli allegati che l\'automazione invierà, o avvisa se non ce ne sono', function () {
+    $cat   = \App\Models\DocumentCategory::create(['name' => 'Foto danni']);
+    $altra = \App\Models\DocumentCategory::create(['name' => 'Perizie']);
+    $this->auto->documentCategories()->sync([$cat->id, $altra->id]);
+    $file = \App\Models\Allegato::create(['pratica_id' => $this->pratica->id, 'tenant_id' => $this->tenant->id, 'nome_file' => 'foto-paraurti.jpg', 's3_key' => 'x/foto.jpg', 'document_category_id' => $cat->id, 'source' => 'caricato']);
+    \App\Models\Allegato::create(['pratica_id' => $this->pratica->id, 'tenant_id' => $this->tenant->id, 'nome_file' => 'altro.pdf', 's3_key' => 'x/altro.pdf', 'document_category_id' => null, 'source' => 'caricato']);
+
+    $a = $this->actingAs($this->user)->postJson("/pratiche/{$this->pratica->id}/automations/preview", ['tenant_status_id' => $this->inviata->id])
+        ->assertOk()->json('automations.0');
+
+    expect($a['documents'])->toBe([['id' => $file->id, 'nome_file' => 'foto-paraurti.jpg', 'categoria' => 'Foto danni']])
+        ->and($a['document_categories'])->toBe(['Foto danni', 'Perizie']);
+
+    // Categorie collegate ma nessun file corrispondente → elenco vuoto, categorie presenti (la UI avvisa)
+    \App\Models\Allegato::where('id', $file->id)->delete();
+    $b = $this->actingAs($this->user)->postJson("/pratiche/{$this->pratica->id}/automations/preview", ['tenant_status_id' => $this->inviata->id])->json('automations.0');
+    expect($b['documents'])->toBe([])->and($b['document_categories'])->not->toBe([]);
+});

@@ -44,7 +44,7 @@ class AutomationPlanner
 
         $recipients = $this->defaultRecipientsPratica($pratica, $automation, $ctx);
         $cc         = $this->defaultCc($automation);
-        $links      = $this->documentLinks($pratica, $automation, preview: true);
+        $documents  = $this->documentRefs($pratica, $automation);
 
         $statusName = ! empty($ctx['status_id'])
             ? (TenantStatus::find($ctx['status_id'])?->name ?? '')
@@ -57,7 +57,10 @@ class AutomationPlanner
             'subject'    => "Sinistro #{$pratica->id} — {$statusName}",
             'recipients' => $recipients,
             'cc'         => $cc,
-            'documents'  => array_column($links, 'nome_file'),
+            'documents'  => $documents,
+            // Categorie di documenti collegate all'automazione: se ci sono ma nessun file
+            // corrisponde, l'utente lo vede in conferma ("nessun allegato trovato").
+            'document_categories' => $automation->documentCategories->pluck('name')->values()->all(),
             'message'    => $this->compilePratica($automation->message_template, $pratica, $recipients[0]['name'] ?? null, $statusName),
         ];
     }
@@ -127,6 +130,30 @@ class AutomationPlanner
     }
 
     /**
+     * Allegati della pratica che l'automazione invierà come link (stessa selezione di
+     * documentLinks): servono alla conferma per mostrarli e aprirli prima dell'invio.
+     *
+     * @return array<int, array{id: int, nome_file: string, categoria: ?string}>
+     */
+    public function documentRefs(Pratica $pratica, Automation $automation): array
+    {
+        $categoryIds = $automation->documentCategories->pluck('id');
+        if ($categoryIds->isEmpty()) {
+            return [];
+        }
+
+        return $pratica->allegati
+            ->whereIn('document_category_id', $categoryIds)
+            ->whereNotNull('s3_key')
+            ->map(fn ($a) => [
+                'id'        => $a->id,
+                'nome_file' => $a->nome_file,
+                'categoria' => $automation->documentCategories->firstWhere('id', $a->document_category_id)?->name,
+            ])
+            ->values()->all();
+    }
+
+    /**
      * Link temporanei ai documenti collegati all'automazione. In anteprima non si generano
      * URL firmati (costo S3 inutile): basta l'elenco dei file.
      *
@@ -178,6 +205,7 @@ class AutomationPlanner
             'recipients' => $recipients,
             'cc'         => [],
             'documents'  => [],
+            'document_categories' => [],
             'message'    => $this->compileCliente($automation->message_template, $cliente, $cliente->custom_fields[$field] ?? null),
         ];
     }

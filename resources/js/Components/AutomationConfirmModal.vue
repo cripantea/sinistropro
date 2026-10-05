@@ -47,7 +47,25 @@
                 <div>
                   <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Messaggio</p>
                   <pre class="whitespace-pre-wrap font-sans text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">{{ a.message }}</pre>
-                  <p v-if="a.documents.length" class="text-xs text-slate-500 mt-1">📎 Link ai documenti: {{ a.documents.join(', ') }}</p>
+                </div>
+
+                <!-- Allegati -->
+                <div v-if="a.documents.length || a.document_categories.length">
+                  <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">
+                    Allegati ({{ a.documents.length }})
+                  </p>
+                  <ul v-if="a.documents.length" class="space-y-1.5">
+                    <li v-for="d in a.documents" :key="d.id" class="flex items-center gap-2 text-sm bg-white border border-slate-200 rounded-lg px-3 py-1.5">
+                      <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                      <span class="flex-1 min-w-0 truncate text-slate-800">{{ d.nome_file }}</span>
+                      <span v-if="d.categoria" class="text-[10px] uppercase text-slate-400 shrink-0">{{ d.categoria }}</span>
+                      <button type="button" @click="openDocument(d.id)" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 shrink-0">Apri</button>
+                    </li>
+                  </ul>
+                  <p v-else class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+                    Nessun allegato trovato per le categorie collegate ({{ a.document_categories.join(', ') }}): il messaggio partirà senza documenti.
+                  </p>
+                  <p v-if="a.documents.length" class="text-[11px] text-slate-400 mt-1">I documenti arrivano al destinatario come link di download (validi 7 giorni).</p>
                 </div>
 
                 <!-- Destinatari -->
@@ -146,6 +164,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
+import axios from 'axios'
 
 export interface PlanRecipient { key?: string; kind?: string; name: string | null; email: string | null; phone: string | null }
 export interface RubricaContatto { id: number; nome: string; tags: string[] | null; telefono: string | null; email: string | null }
@@ -155,7 +174,8 @@ export interface AutomationPlan {
   channel: 'email' | 'whatsapp' | 'both' | string
   subject?: string
   message: string
-  documents: string[]
+  documents: { id: number; nome_file: string; categoria: string | null }[]
+  document_categories: string[]
   recipients: PlanRecipient[]
   cc: { name?: string | null; email: string }[]
 }
@@ -251,6 +271,11 @@ function addCc(a: EditableAutomation) {
   if (!e) return
   if (EMAIL_RE.test(e) && !a.cc.includes(e)) a.cc.push(e)
   a.addCc = ''
+}
+
+async function openDocument(id: number) {
+  const { data } = await axios.get<{ url: string }>(route('allegati.download', id))
+  window.open(data.url, '_blank')
 }
 
 function accept() {
