@@ -28,6 +28,12 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
 
     public int $tries = 3;
 
+    /** Margine sotto il --timeout=180 del worker: il job fallisce da solo senza far uccidere il processo. */
+    public int $timeout = 150;
+
+    /** Messaggi importati al massimo per ciclo: il resto prosegue al ciclo successivo (UID crescente). */
+    private const MAX_MESSAGES_PER_RUN = 100;
+
     public int $backoff = 60;
 
     /**
@@ -133,8 +139,12 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
         // (su una casella con anni di storico il job supererebbe il timeout ad
         // ogni tentativo, senza mai completare) — si parte dagli ultimi 7
         // giorni, poi si procede incrementalmente per UID.
+        //
+        // `empty()` e non `=== null`: una cartella senza messaggi nel primo sync salvava
+        // UID 0, e dal giro dopo (0 !== null) scaricava l'INTERA cronologia ad ogni ciclo,
+        // andando in timeout all'infinito (successo con la cartella Inviata).
         try {
-            $messages = $lastUid === null
+            $messages = empty($lastUid)
                 ? $folder->messages()->whereSince(now()->subDays(7)->format('d-M-Y'))->get()
                 : $folder->messages()->getByUidGreater($lastUid);
         } catch (\Throwable $e) {
@@ -152,6 +162,10 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
 
         $imported = 0;
         $maxUid = $lastUid ?? 0;
+
+        // In ordine di UID e a blocchi: se ce ne sono molti il ciclo termina in tempo e
+        // $maxUid avanza solo fino all'ultimo importato, il resto arriva al ciclo dopo.
+        $messages = collect($messages)->sortBy(fn ($m) => $m->getUid())->take(self::MAX_MESSAGES_PER_RUN);
 
         foreach ($messages as $message) {
             $maxUid = max($maxUid, $message->getUid());
