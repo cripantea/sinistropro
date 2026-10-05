@@ -14,7 +14,7 @@ class ProcessDailyReminders extends Command
                             {--dry-run : Simula l\'esecuzione senza inviare email né aggiornare il DB}
                             {--tenant= : Esegui solo per un tenant specifico (ID)}';
 
-    protected $description = 'Processa i promemoria giornalieri: mette in coda le email per le pratiche aperte con data_prossimo_avviso = oggi.';
+    protected $description = 'Processa i promemoria giornalieri: mette in coda le email per le pratiche aperte con data_prossimo_avviso <= oggi (scaduti inclusi).';
 
     public function handle(): int
     {
@@ -33,7 +33,9 @@ class ProcessDailyReminders extends Command
         //  ma lo bypassiamo esplicitamente per rendere l'intento evidente.)
         $query = Pratica::acrossAllTenants()
             ->with(['tenant', 'utenteCreatore', 'currentStatus'])
-            ->whereDate('data_prossimo_avviso', $oggi)
+            // <= oggi: recupera anche gli avvisi di giorni in cui lo scheduler/la coda non
+            // ha girato o il job è fallito (con '=' una data mancata restava nel passato per sempre).
+            ->whereDate('data_prossimo_avviso', '<=', $oggi)
             ->where(function (Builder $q): void {
                 // Include pratiche senza status + quelle con status non chiuso.
                 $q->whereNull('current_status_id')
@@ -47,12 +49,8 @@ class ProcessDailyReminders extends Command
 
         $query->chunk(100, function ($pratiche) use ($isDryRun, &$dispatched, &$skipped): void {
             foreach ($pratiche as $pratica) {
-                if (! $pratica->utenteCreatore) {
-                    $this->warn("   ⚠ Pratica #{$pratica->id}: nessun utente creatore, saltata.");
-                    $skipped++;
-                    continue;
-                }
-
+                // Niente più "saltata se manca il creatore": il job ripiega sugli amministratori
+                // del tenant e, se non ci sono destinatari, lo scrive nel registro email.
                 if ($isDryRun) {
                     $this->line("   [DRY-RUN] Pratica #{$pratica->id} ({$pratica->tenant->name}) → job NON accodato.");
                     $dispatched++;

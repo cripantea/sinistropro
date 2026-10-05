@@ -13,7 +13,7 @@ ti informiamo che il seguente sinistro è ancora **aperto** e richiede attenzion
 | **ID Sinistro** | #{{ $pratica->id }} |
 | **Tenant** | {{ $pratica->tenant->name }} |
 | **Stato attuale** | {{ $pratica->currentStatus?->name ?? '—' }} |
-| **Creato da** | {{ $pratica->utenteCreatore->name }} |
+| **Creato da** | {{ $pratica->utenteCreatore?->name ?? '—' }} |
 | **Prossimo avviso** | {{ $nuovaDataAvviso->format('d/m/Y') }} |
 @endcomponent
 
