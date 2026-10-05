@@ -114,14 +114,14 @@
               @click="$emit('block-automations')"
               class="flex-1 border border-slate-300 text-slate-700 text-sm font-medium py-2.5 rounded-lg hover:bg-slate-50 transition"
             >
-              Procedi senza automazioni
+              {{ blockAutomationsLabel }}
             </button>
             <button
               type="button"
               @click="$emit('block-action')"
               class="text-slate-500 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-slate-50 transition"
             >
-              Annulla azione
+              {{ blockActionLabel }}
             </button>
           </div>
 
@@ -160,10 +160,15 @@ interface EditableAutomation extends Omit<AutomationPlan, 'recipients' | 'cc'> {
   addName: string; addEmail: string; addPhone: string; addCc: string; addError: string
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   show: boolean
   automations: AutomationPlan[]
-}>()
+  blockAutomationsLabel?: string
+  blockActionLabel?: string
+}>(), {
+  blockAutomationsLabel: 'Procedi senza automazioni',
+  blockActionLabel: 'Annulla azione',
+})
 
 const emit = defineEmits<{
   accept: [overrides: AutomationOverrides]

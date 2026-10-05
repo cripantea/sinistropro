@@ -30,9 +30,21 @@ class HandleInertiaRequests extends Middleware
             ],
             'notifications'  => $this->recentNotifications($request),
             'tenantFeatures' => $this->tenantFeatures($request),
+            'pendingApprovals' => fn () => $this->pendingApprovals($request),
             'impersonating'  => $this->impersonatingInfo($request),
             'tenantContext'  => $this->tenantContextInfo($request),
         ];
+    }
+
+    /** Promemoria programmati in attesa di conferma (badge in sidebar). */
+    protected function pendingApprovals(Request $request): int
+    {
+        $user = $request->user();
+        if (! $user || ! $user->tenant_id || $user->role === 'external') {
+            return 0;
+        }
+
+        return \App\Models\AutomationApproval::where('tenant_id', $user->tenant_id)->where('status', 'pending')->count();
     }
 
     protected function tenantFeatures(Request $request): array

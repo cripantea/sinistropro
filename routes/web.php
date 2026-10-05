@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\AutomationApprovalController;
 use App\Http\Controllers\AutomationPreviewController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\ContattoController;
@@ -103,6 +104,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/contatti',             [ContattoController::class, 'store'])->name('contatti.store');
     Route::put('/contatti/{contatto}',   [ContattoController::class, 'update'])->name('contatti.update');
     Route::delete('/contatti/{contatto}', [ContattoController::class, 'destroy'])->name('contatti.destroy');
+
+    Route::get('/automazioni/da-confermare',            [AutomationApprovalController::class, 'index'])->name('automation-approvals.index');
+    Route::post('/automazioni/da-confermare/{approval}/conferma', [AutomationApprovalController::class, 'confirm'])->name('automation-approvals.confirm');
+    Route::post('/automazioni/da-confermare/{approval}/scarta',   [AutomationApprovalController::class, 'discard'])->name('automation-approvals.discard');
 
     Route::get('/email-log', [EmailLogController::class, 'index'])->name('email-log.index');
 });

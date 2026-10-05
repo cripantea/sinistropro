@@ -106,3 +106,41 @@ test('l\'utente può escludere una singola automazione, e bloccarle tutte', func
     ])->assertOk();
     Queue::assertNothingPushed();
 });
+
+test('il promemoria cliente programmato non parte da solo: resta da confermare, poi parte con i destinatari scelti', function () {
+    Queue::fake();
+    $this->tenant->update(['settings' => ['features' => ['clienti' => true]]]);
+    $this->cliente->update(['custom_fields' => ['scadenza_patente' => today()->addDays(30)->toDateString()]]);
+    $auto = Automation::create([
+        'tenant_id' => $this->tenant->id, 'name' => 'Patente', 'trigger_type' => 'cliente_date_field', 'watched_field' => 'scadenza_patente',
+        'days_before' => 30, 'channel' => 'email', 'recipients_to' => [['type' => 'cliente']], 'message_template' => 'Ciao {nome_cliente}, scade il {data_scadenza}', 'is_active' => true,
+    ]);
+
+    $this->artisan('app:process-cliente-date-reminders')->assertSuccessful();
+    $this->artisan('app:process-cliente-date-reminders')->assertSuccessful(); // idempotente
+
+    Queue::assertNothingPushed();
+    $approval = \App\Models\AutomationApproval::acrossAllTenants()->sole();
+    expect($approval->status)->toBe('pending');
+
+    $this->actingAs($this->user)->get('/automazioni/da-confermare')->assertOk();
+
+    $this->actingAs($this->user)->post("/automazioni/da-confermare/{$approval->id}/conferma", [
+        'automation_overrides' => [$auto->id => ['send' => true, 'recipients' => [['name' => 'Altro', 'email' => 'altro@example.com']], 'cc' => []]],
+    ])->assertRedirect();
+
+    Queue::assertPushed(\App\Jobs\ExecuteClienteAutomationJob::class, fn ($j) => $j->override['recipients'][0]['email'] === 'altro@example.com');
+    expect($approval->fresh()->status)->toBe('sent');
+    $this->actingAs($this->user)->post("/automazioni/da-confermare/{$approval->id}/scarta")->assertStatus(409);
+});
+
+test('un promemoria da confermare si può scartare e non parte', function () {
+    Queue::fake();
+    $auto = Automation::create(['tenant_id' => $this->tenant->id, 'name' => 'P', 'trigger_type' => 'cliente_date_field', 'watched_field' => 'x', 'channel' => 'email', 'recipients_to' => [['type' => 'cliente']], 'message_template' => 'x', 'is_active' => true]);
+    $approval = \App\Models\AutomationApproval::create(['tenant_id' => $this->tenant->id, 'automation_id' => $auto->id, 'cliente_id' => $this->cliente->id, 'field_name' => 'x', 'field_value' => today()->toDateString()]);
+
+    $this->actingAs($this->user)->post("/automazioni/da-confermare/{$approval->id}/scarta")->assertRedirect();
+
+    Queue::assertNothingPushed();
+    expect($approval->fresh()->status)->toBe('discarded');
+});

@@ -33,6 +33,8 @@ const isOnPratiche  = computed(() => currentPath.value.startsWith('/pratiche') &
 const isOnKanban    = computed(() => currentPath.value === '/pratiche/kanban')
 const isOnClienti   = computed(() => currentPath.value.startsWith('/clienti'))
 const isOnListe     = computed(() => currentPath.value.startsWith('/liste'))
+const isOnApprovals  = computed(() => currentPath.value.startsWith('/automazioni/da-confermare'))
+const pendingApprovals = computed(() => (page.props as { pendingApprovals?: number }).pendingApprovals ?? 0)
 const isOnPeriti      = computed(() => currentPath.value.startsWith('/periti'))
 const isOnCarrozzerie = computed(() => currentPath.value.startsWith('/carrozzerie'))
 const isOnEmailLog  = computed(() => currentPath.value.startsWith('/email-log'))
@@ -294,6 +296,30 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
             </svg>
             <span v-show="!collapsed" class="truncate">Periti</span>
+          </a>
+
+          <!-- Promemoria da confermare -->
+          <a
+            v-if="user.role !== 'external'"
+            :href="route('automation-approvals.index')"
+            @click.prevent="navigate(route('automation-approvals.index'))"
+            :class="[
+              'flex items-center rounded-lg text-sm font-medium transition-colors',
+              collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
+              isOnApprovals
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+            ]"
+            :title="collapsed ? 'Da confermare' : undefined"
+          >
+            <span class="relative shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span v-if="pendingApprovals > 0 && collapsed" class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+            </span>
+            <span v-show="!collapsed" class="truncate flex-1">Da confermare</span>
+            <span v-if="pendingApprovals > 0 && !collapsed" class="text-[11px] font-bold bg-amber-400 text-slate-900 rounded-full px-1.5 min-w-[1.25rem] text-center">{{ pendingApprovals }}</span>
           </a>
 
           <!-- Registro email -->
