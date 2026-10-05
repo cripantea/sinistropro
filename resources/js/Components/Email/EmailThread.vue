@@ -112,6 +112,8 @@ export interface EmailMessageItem {
   status: string
   createdAt: string
   attachments: EmailMessageAttachment[]
+  /** true quando il corpo non è stato inviato via realtime (email troppo grande) */
+  truncated?: boolean
 }
 
 const props = defineProps<{

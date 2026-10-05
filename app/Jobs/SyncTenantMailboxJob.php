@@ -271,7 +271,7 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
             $thread->update($threadUpdates);
         }
 
-        broadcast(new EmailEvent($this->tenantId, 'message', [
+        $payload = [
             'thread' => [
                 'id' => $thread->id,
                 'counterpartEmail' => $thread->counterpart_email,
@@ -297,7 +297,16 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
                     'size' => $a->size,
                 ])->all(),
             ],
-        ]));
+        ];
+
+        // Reverb rifiuta payload oltre ~10 KB ("Payload too large"): per le email grosse non
+        // inviamo il corpo, il client lo ricarica dal server (flag `truncated`).
+        if (strlen((string) json_encode($payload)) > 8000) {
+            $payload['message']['bodyHtml'] = null;
+            $payload['message']['truncated'] = true;
+        }
+
+        broadcast(new EmailEvent($this->tenantId, 'message', $payload));
 
         return true;
     }

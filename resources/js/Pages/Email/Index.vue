@@ -216,7 +216,12 @@ if (props.emailConfigured && tenantId.value) {
     })
 
     if (isOpen) {
-      messages.value.push(e.message)
+      // Email troppo grande per il canale realtime: il corpo non è nell'evento, ricarico dal server.
+      if (e.message.truncated) {
+        axios.get(route('email.threads.messages', e.thread.id)).then(({ data }) => { messages.value = data.messages })
+      } else {
+        messages.value.push(e.message)
+      }
     }
   })
 }
