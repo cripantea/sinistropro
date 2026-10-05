@@ -13,28 +13,30 @@ beforeEach(function () {
 });
 
 test('periti e carrozzerie si gestiscono senza account utente', function () {
-    $this->actingAs($this->user)->post('/contatti', ['tipo' => 'carrozzeria', 'nome' => 'Re-nova', 'telefono' => '3402148121'])->assertRedirect();
-    $this->actingAs($this->user)->post('/contatti', ['tipo' => 'perito', 'nome' => 'Luigi Perito'])->assertRedirect();
-    $this->actingAs($this->user)->post('/contatti', ['tipo' => 'altro', 'nome' => 'x'])->assertSessionHasErrors('tipo');
+    $this->actingAs($this->user)->post('/contatti', ['tags' => ['Carrozzeria'], 'nome' => 'Re-nova', 'telefono' => '3402148121'])->assertRedirect();
+    $this->actingAs($this->user)->post('/contatti', ['tags' => ['perito', 'Fiduciario  Verti'], 'nome' => 'Luigi Perito'])->assertRedirect();
 
-    expect(Contatto::tipo('carrozzeria')->count())->toBe(1)->and(Contatto::tipo('perito')->count())->toBe(1);
+    // tag normalizzati (minuscoli, spazi compattati); un contatto può averne più di uno e se ne creano di nuovi
+    expect(Contatto::tag('carrozzeria')->count())->toBe(1)->and(Contatto::tag('perito')->count())->toBe(1);
+    expect(Contatto::where('nome', 'Luigi Perito')->first()->tags)->toBe(['perito', 'fiduciario verti']);
+    expect(Contatto::tag('fiduciario verti')->count())->toBe(1);
     expect(User::where('tenant_id', $this->tenant->id)->count())->toBe(1);
 });
 
 test('contatto di un altro tenant non è assegnabile né modificabile', function () {
     $other = Tenant::create(['name' => 'Altro']);
-    $foreign = Contatto::create(['tenant_id' => $other->id, 'tipo' => 'perito', 'nome' => 'Estraneo']);
+    $foreign = Contatto::create(['tenant_id' => $other->id, 'tags' => ['perito'], 'nome' => 'Estraneo']);
     $pratica = Pratica::create(['tenant_id' => $this->tenant->id, 'utente_creatore_id' => $this->user->id, 'cliente_id' => $this->cliente->id, 'current_status_id' => $this->status->id]);
 
     $this->actingAs($this->user)->postJson("/pratiche/{$pratica->id}/ispezioni", ['perito_contatto_id' => $foreign->id])
         ->assertSessionHasErrors('perito_contatto_id');
     expect(Ispezione::where('pratica_id', $pratica->id)->count())->toBe(0);
-    $this->actingAs($this->user)->put("/contatti/{$foreign->id}", ['tipo' => 'perito', 'nome' => 'Hack'])->assertNotFound();
+    $this->actingAs($this->user)->put("/contatti/{$foreign->id}", ['tags' => ['perito'], 'nome' => 'Hack'])->assertNotFound();
 });
 
 test('assegnazione perito e carrozzeria sul sinistro, senza azzerare l altra', function () {
-    $perito = Contatto::create(['tenant_id' => $this->tenant->id, 'tipo' => 'perito', 'nome' => 'P']);
-    $carr = Contatto::create(['tenant_id' => $this->tenant->id, 'tipo' => 'carrozzeria', 'nome' => 'C']);
+    $perito = Contatto::create(['tenant_id' => $this->tenant->id, 'tags' => ['perito'], 'nome' => 'P']);
+    $carr = Contatto::create(['tenant_id' => $this->tenant->id, 'tags' => ['carrozzeria'], 'nome' => 'C']);
     $pratica = Pratica::create(['tenant_id' => $this->tenant->id, 'utente_creatore_id' => $this->user->id, 'cliente_id' => $this->cliente->id, 'current_status_id' => $this->status->id]);
 
     $this->actingAs($this->user)->postJson("/pratiche/{$pratica->id}/ispezioni", ['perito_contatto_id' => $perito->id, 'carrozzeria_contatto_id' => $carr->id])->assertOk();
@@ -62,7 +64,7 @@ test('seeder Malacrida: Re-nova, compagnie nell ordine richiesto, idempotente, s
     (new MalacridaTenantSeeder())->run();
 
     $renova = Contatto::acrossAllTenants()->where('tenant_id', $mala->id)->where('nome', 'Re-nova')->get();
-    expect($renova)->toHaveCount(1)->and($renova[0]->telefono)->toBe('3402148121')->and($renova[0]->tipo)->toBe('carrozzeria');
+    expect($renova)->toHaveCount(1)->and($renova[0]->telefono)->toBe('3402148121')->and($renova[0]->tags)->toBe(['carrozzeria']);
     expect(ListaValori::acrossAllTenants()->where('tenant_id', $mala->id)->where('slug', 'compagnie')->first()->items)
         ->toBe(['Prima', 'Generali', 'AXA', 'Verti', 'Unipol']);
     expect($mala->fresh()->hasFeature('lista_personalizzate'))->toBeTrue();

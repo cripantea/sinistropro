@@ -26,7 +26,7 @@ class StorePraticaRequest extends FormRequest
             'perito_contatto_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('contatti', 'id')->where('tenant_id', $tenantId)->where('tipo', 'perito'),
+                Rule::exists('contatti', 'id')->where(fn ($q) => $q->where('tenant_id', $tenantId)->whereJsonContains('tags', 'perito')),
             ],
             'compagnia' => ['nullable', 'string', 'max:255'],
         ];

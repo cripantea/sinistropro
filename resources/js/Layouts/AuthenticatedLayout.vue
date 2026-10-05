@@ -33,8 +33,7 @@ const isOnPratiche  = computed(() => currentPath.value.startsWith('/pratiche') &
 const isOnKanban    = computed(() => currentPath.value === '/pratiche/kanban')
 const isOnClienti   = computed(() => currentPath.value.startsWith('/clienti'))
 const isOnListe     = computed(() => currentPath.value.startsWith('/liste'))
-const isOnPeriti      = computed(() => currentPath.value.startsWith('/periti'))
-const isOnCarrozzerie = computed(() => currentPath.value.startsWith('/carrozzerie'))
+const isOnRubrica = computed(() => currentPath.value.startsWith('/rubrica'))
 const isOnEmailLog  = computed(() => currentPath.value.startsWith('/email-log'))
 const isOnWhatsapp  = computed(() => currentPath.value.startsWith('/whatsapp'))
 const isOnEmail     = computed(() => currentPath.value.startsWith('/email') && !currentPath.value.startsWith('/email-log'))
@@ -256,44 +255,24 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
             <span v-show="!collapsed" class="truncate">Email</span>
           </a>
 
-          <!-- Carrozzerie -->
+          <!-- Rubrica -->
           <a
             v-if="user.role !== 'external'"
-            :href="route('carrozzerie.index')"
-            @click.prevent="navigate(route('carrozzerie.index'))"
+            :href="route('rubrica.index')"
+            @click.prevent="navigate(route('rubrica.index'))"
             :class="[
               'flex items-center rounded-lg text-sm font-medium transition-colors',
               collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
-              isOnCarrozzerie
+              isOnRubrica
                 ? 'bg-indigo-600 text-white'
                 : 'text-slate-300 hover:bg-slate-700 hover:text-white'
             ]"
-            :title="collapsed ? 'Carrozzerie' : undefined"
+            :title="collapsed ? 'Rubrica' : undefined"
           >
             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
             </svg>
-            <span v-show="!collapsed" class="truncate">Carrozzerie</span>
-          </a>
-
-          <!-- Periti -->
-          <a
-            v-if="user.role !== 'external'"
-            :href="route('periti.index')"
-            @click.prevent="navigate(route('periti.index'))"
-            :class="[
-              'flex items-center rounded-lg text-sm font-medium transition-colors',
-              collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
-              isOnPeriti
-                ? 'bg-indigo-600 text-white'
-                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-            ]"
-            :title="collapsed ? 'Periti' : undefined"
-          >
-            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-            </svg>
-            <span v-show="!collapsed" class="truncate">Periti</span>
+            <span v-show="!collapsed" class="truncate">Rubrica</span>
           </a>
 
           <!-- Registro email -->

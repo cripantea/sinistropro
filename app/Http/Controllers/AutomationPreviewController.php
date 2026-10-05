@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Automation;
+use App\Models\Contatto;
 use App\Models\Pratica;
 use App\Services\AutomationPlanner;
 use Illuminate\Http\JsonResponse;
@@ -67,6 +68,8 @@ class AutomationPreviewController extends Controller
         ];
 
         return response()->json([
+            // Rubrica attiva: nella finestra di conferma si possono aggiungere destinatari da qui.
+            'rubrica' => Contatto::where('is_active', true)->orderBy('nome')->get(['id', 'nome', 'tags', 'telefono', 'email']),
             'automations' => $matches->unique('id')->values()
                 ->map(fn (Automation $a) => $planner->planPratica($pratica, $a, $ctx)),
         ]);

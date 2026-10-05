@@ -125,7 +125,7 @@ class PraticaController extends Controller
             ->orderByDesc('data_prossimo_avviso')
             ->get(['id', 'cliente_id', 'current_status_id', 'data_prossimo_avviso', 'created_at']);
 
-        $periti = Contatto::tipo('perito')->where('is_active', true)->orderBy('nome')->get(['id', 'nome']);
+        $periti = Contatto::tag(Contatto::TAG_PERITO)->where('is_active', true)->orderBy('nome')->get(['id', 'nome']);
 
         return Inertia::render('Pratiche/Kanban', [
             'statuses'      => $statuses,
@@ -143,7 +143,7 @@ class PraticaController extends Controller
 
         return Inertia::render('Pratiche/Create', [
             'clienti' => $tenant->clienti()->orderBy('nome')->get(['id', 'nome']),
-            'periti'  => Contatto::tipo('perito')->where('is_active', true)->orderBy('nome')->get(['id', 'nome']),
+            'periti'  => Contatto::tag(Contatto::TAG_PERITO)->where('is_active', true)->orderBy('nome')->get(['id', 'nome']),
             'compagnie' => $this->compagnie(),
         ]);
     }
@@ -218,9 +218,9 @@ class PraticaController extends Controller
         $praticaModules = PraticaModule::where('pratica_id', $pratica->id)
             ->get(['id', 'module_template_id', 'values']);
 
-        $contatti    = Contatto::where('is_active', true)->orderBy('nome')->get(['id', 'tipo', 'nome', 'telefono']);
-        $periti      = $contatti->where('tipo', 'perito')->values();
-        $carrozzerie = $contatti->where('tipo', 'carrozzeria')->values();
+        $contatti    = Contatto::where('is_active', true)->orderBy('nome')->get(['id', 'tags', 'nome', 'telefono']);
+        $periti      = $contatti->filter(fn ($c) => $c->hasTag(Contatto::TAG_PERITO))->values();
+        $carrozzerie = $contatti->filter(fn ($c) => $c->hasTag(Contatto::TAG_CARROZZERIA))->values();
 
         $fieldDictionary = FieldDictionaryEntry::where('tenant_id', $tenantId)
             ->get(['key', 'source_type', 'source_field']);

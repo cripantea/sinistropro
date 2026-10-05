@@ -38,9 +38,9 @@ class MalacridaTenantSeeder extends Seeder
     private function setup(Tenant $tenant): void
     {
         // Carrozzeria Re-nova
-        Contatto::acrossAllTenants()->firstOrCreate(
-            ['tenant_id' => $tenant->id, 'tipo' => 'carrozzeria', 'nome' => 'Re-nova'],
-            ['telefono' => '3402148121', 'is_active' => true]
+        $renova = Contatto::acrossAllTenants()->firstOrCreate(
+            ['tenant_id' => $tenant->id, 'nome' => 'Re-nova'],
+            ['tags' => [Contatto::TAG_CARROZZERIA], 'telefono' => '3402148121', 'is_active' => true]
         );
 
         // Lista "Compagnie": letta dal menu in Nuovo sinistro. Se esiste già non la

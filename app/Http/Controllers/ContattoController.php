@@ -5,24 +5,26 @@ namespace App\Http\Controllers;
 use App\Models\Contatto;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Anagrafica periti e carrozzerie. Sono due categorie distinte (campo `tipo`)
- * e non richiedono un account utente.
+ * Rubrica dei destinatari (periti, carrozzerie, e qualsiasi altro tag): contatti con
+ * nome, telefono, email e tag liberi. Non richiedono un account utente.
  */
 class ContattoController extends Controller
 {
-    public function index(string $tipo): Response
+    public function index(Request $request): Response
     {
         $this->authorizeAccess();
-        abort_unless(in_array($tipo, Contatto::TIPI, true), 404);
+
+        $contatti = Contatto::orderBy('nome')->get(['id', 'nome', 'tags', 'telefono', 'email', 'note', 'is_active']);
 
         return Inertia::render('Contatti/Index', [
-            'tipo'     => $tipo,
-            'contatti' => Contatto::tipo($tipo)->orderBy('nome')->get(['id', 'tipo', 'nome', 'telefono', 'email', 'note', 'is_active']),
+            'contatti' => $contatti,
+            // Tag in uso (per filtro e suggerimenti): perito e carrozzeria sempre disponibili.
+            'tags'     => $contatti->pluck('tags')->flatten()->merge([Contatto::TAG_PERITO, Contatto::TAG_CARROZZERIA])->unique()->sort()->values(),
+            'tag'      => $request->filled('tag') ? Contatto::normalizeTag((string) $request->input('tag')) : null,
         ]);
     }
 
@@ -33,7 +35,7 @@ class ContattoController extends Controller
         $data = $this->validated($request);
         $contatto = Contatto::create($data + ['is_active' => true]);
 
-        return back()->with('success', ucfirst($contatto->tipo)." \"{$contatto->nome}\" aggiunto.");
+        return back()->with('success', "\"{$contatto->nome}\" aggiunto alla rubrica.");
     }
 
     public function update(Request $request, Contatto $contatto): RedirectResponse
@@ -62,15 +64,20 @@ class ContattoController extends Controller
         abort_if(auth()->user()->role === 'external', 403);
     }
 
-    /** @return array{tipo: string, nome: string, telefono: ?string, email: ?string, note: ?string} */
+    /** @return array{nome: string, tags: array, telefono: ?string, email: ?string, note: ?string} */
     private function validated(Request $request): array
     {
-        return $request->validate([
-            'tipo'     => ['required', Rule::in(Contatto::TIPI)],
+        $data = $request->validate([
             'nome'     => ['required', 'string', 'max:255'],
+            'tags'     => ['nullable', 'array', 'max:10'],
+            'tags.*'   => ['string', 'max:30'],
             'telefono' => ['nullable', 'string', 'max:50'],
             'email'    => ['nullable', 'email', 'max:255'],
             'note'     => ['nullable', 'string', 'max:2000'],
         ]);
+
+        $data['tags'] = Contatto::normalizeTags($data['tags'] ?? []);
+
+        return $data;
     }
 }

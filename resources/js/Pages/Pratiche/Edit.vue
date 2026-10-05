@@ -115,6 +115,7 @@
     <AutomationConfirmModal
       :show="automationConfirm.open"
       :automations="automationConfirm.automations"
+      :rubrica="rubrica"
       @accept="onConfirmAccept"
       @block-automations="onConfirmBlockAutomations"
       @block-action="onConfirmBlockAction"
@@ -123,11 +124,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { Link, useForm, router } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import AutomationConfirmModal, { type AutomationPlan, type AutomationOverrides } from '@/Components/AutomationConfirmModal.vue'
+import AutomationConfirmModal, { type AutomationPlan, type AutomationOverrides, type RubricaContatto } from '@/Components/AutomationConfirmModal.vue'
 
 interface FieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean' | 'select'; required?: boolean; options?: string[] }
 interface TenantStatus { id: number; name: string; color: string }
@@ -159,6 +160,7 @@ const form = useForm({
 })
 
 type AutomationSummary = AutomationPlan
+const rubrica = ref<RubricaContatto[]>([])
 const automationConfirm = reactive({
   open: false,
   automations: [] as AutomationSummary[],
@@ -181,13 +183,14 @@ async function submit() {
   }
 
   try {
-    const resp = await axios.post<{ automations: AutomationSummary[] }>(
+    const resp = await axios.post<{ automations: AutomationSummary[]; rubrica: RubricaContatto[] }>(
       route('pratiche.automations.preview', props.pratica.id),
       {
         tenant_status_id: statusChanged ? form.current_status_id : undefined,
         date_fields: Object.keys(changedDateFields).length > 0 ? changedDateFields : undefined,
       }
     )
+    rubrica.value = resp.data.rubrica ?? []
     if (resp.data.automations.length > 0) {
       automationConfirm.automations = resp.data.automations
       automationConfirm.open = true

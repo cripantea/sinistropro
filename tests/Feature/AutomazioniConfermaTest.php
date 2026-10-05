@@ -30,7 +30,7 @@ beforeEach(function () {
         'message_template' => 'Ciao {nome_cliente}, la pratica {numero_pratica} è in stato {stato_corrente}.', 'is_active' => true,
         // NB: senza requires_confirmation — ora la conferma vale per tutte
     ]);
-    $this->perito = Contatto::create(['tenant_id' => $this->tenant->id, 'tipo' => 'perito', 'nome' => 'Luigi Perito', 'email' => 'luigi@perito.it', 'telefono' => '3400000000']);
+    $this->perito = Contatto::create(['tenant_id' => $this->tenant->id, 'tags' => ['perito'], 'nome' => 'Luigi Perito', 'email' => 'luigi@perito.it', 'telefono' => '3400000000']);
 });
 
 test('l\'anteprima mostra messaggio e destinatari anche per automazioni senza il flag richiede conferma', function () {
@@ -119,4 +119,29 @@ test('il promemoria sulla data del cliente parte in automatico, senza conferma',
     $this->artisan('app:process-cliente-date-reminders')->assertSuccessful();
 
     Queue::assertPushed(\App\Jobs\ExecuteClienteAutomationJob::class, 1);
+});
+
+test('nel sinistro si scelgono solo i contatti col tag giusto; un contatto può avere più tag', function () {
+    $carr  = Contatto::create(['tenant_id' => $this->tenant->id, 'tags' => ['carrozzeria'], 'nome' => 'Solo Carrozzeria']);
+    $both  = Contatto::create(['tenant_id' => $this->tenant->id, 'tags' => ['perito', 'carrozzeria', 'vip'], 'nome' => 'Tuttofare']);
+
+    // un contatto senza tag "perito" non è assegnabile come perito...
+    $this->actingAs($this->user)->postJson("/pratiche/{$this->pratica->id}/ispezioni", ['perito_contatto_id' => $carr->id])
+        ->assertSessionHasErrors('perito_contatto_id');
+    // ...mentre uno con entrambi i tag lo è, sia come perito sia come carrozzeria
+    $this->actingAs($this->user)->postJson("/pratiche/{$this->pratica->id}/ispezioni", ['perito_contatto_id' => $both->id, 'carrozzeria_contatto_id' => $both->id])->assertOk();
+    expect(Ispezione::first()->perito_contatto_id)->toBe($both->id);
+
+    // la pagina del sinistro propone i contatti per tag
+    $page = $this->actingAs($this->user)->get("/pratiche/{$this->pratica->id}")->assertOk()->viewData('page')['props'];
+    expect(collect($page['periti'])->pluck('nome')->sort()->values()->all())->toBe(['Luigi Perito', 'Tuttofare'])
+        ->and(collect($page['carrozzerie'])->pluck('nome')->sort()->values()->all())->toBe(['Solo Carrozzeria', 'Tuttofare']);
+});
+
+test('la rubrica si filtra per tag e l\'anteprima automazioni offre i contatti da aggiungere', function () {
+    $this->actingAs($this->user)->get('/rubrica?tag=Perito')->assertOk()
+        ->assertInertia(fn ($p) => $p->where('tag', 'perito')->has('contatti', 1)->where('tags', ['carrozzeria', 'perito']));
+
+    $res = $this->actingAs($this->user)->postJson("/pratiche/{$this->pratica->id}/automations/preview", ['tenant_status_id' => $this->inviata->id])->assertOk();
+    expect($res->json('rubrica.0.nome'))->toBe('Luigi Perito');
 });

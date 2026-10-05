@@ -30,8 +30,8 @@ class IspezioneController extends Controller
 
         $data = $request->validate([
             'current_status_id'    => ['nullable', 'integer', 'exists:tenant_statuses,id'],
-            'perito_contatto_id'      => ['nullable', 'integer', Rule::exists('contatti', 'id')->where('tenant_id', $user->tenant_id)->where('tipo', 'perito')],
-            'carrozzeria_contatto_id' => ['nullable', 'integer', Rule::exists('contatti', 'id')->where('tenant_id', $user->tenant_id)->where('tipo', 'carrozzeria')],
+            'perito_contatto_id'      => ['nullable', 'integer', Rule::exists('contatti', 'id')->where(fn ($q) => $q->where('tenant_id', $user->tenant_id)->whereJsonContains('tags', 'perito'))],
+            'carrozzeria_contatto_id' => ['nullable', 'integer', Rule::exists('contatti', 'id')->where(fn ($q) => $q->where('tenant_id', $user->tenant_id)->whereJsonContains('tags', 'carrozzeria'))],
             'data_appuntamento'    => ['nullable', 'date'],
             'note_sopralluogo'     => ['nullable', 'string', 'max:2000'],
         ]);

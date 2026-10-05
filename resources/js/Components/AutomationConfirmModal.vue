@@ -76,7 +76,20 @@
                     <li v-if="a.recipients.length === 0" class="text-xs text-red-600">Nessun destinatario: questo messaggio non partirà.</li>
                   </ul>
 
-                  <!-- Aggiungi destinatario -->
+                  <!-- Aggiungi dalla rubrica -->
+                  <div v-if="rubrica.length" class="mt-2">
+                    <select
+                      class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white w-full sm:w-80 focus:ring-1 focus:ring-indigo-500 outline-none"
+                      @change="addFromRubrica(a, $event)"
+                    >
+                      <option value="">+ Aggiungi dalla rubrica…</option>
+                      <option v-for="c in rubricaFor(a)" :key="c.id" :value="c.id">
+                        {{ c.nome }}{{ c.tags?.length ? ' · ' + c.tags.join(', ') : '' }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <!-- Aggiungi destinatario a mano -->
                   <div class="flex flex-wrap items-center gap-2 mt-2">
                     <input v-model="a.addName" type="text" placeholder="Nome (facoltativo)" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 w-36 focus:ring-1 focus:ring-indigo-500 outline-none" />
                     <input v-if="usesEmail(a.channel)" v-model="a.addEmail" type="email" placeholder="Email" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 w-48 focus:ring-1 focus:ring-indigo-500 outline-none" @keydown.enter.prevent="addRecipient(a)" />
@@ -135,6 +148,7 @@
 import { computed, reactive, watch } from 'vue'
 
 export interface PlanRecipient { key?: string; kind?: string; name: string | null; email: string | null; phone: string | null }
+export interface RubricaContatto { id: number; nome: string; tags: string[] | null; telefono: string | null; email: string | null }
 export interface AutomationPlan {
   id: number
   name: string
@@ -165,7 +179,9 @@ const props = withDefaults(defineProps<{
   automations: AutomationPlan[]
   blockAutomationsLabel?: string
   blockActionLabel?: string
+  rubrica?: RubricaContatto[]
 }>(), {
+  rubrica: () => [],
   blockAutomationsLabel: 'Procedi senza automazioni',
   blockActionLabel: 'Annulla azione',
 })
@@ -211,6 +227,23 @@ function addRecipient(a: EditableAutomation) {
     emailInput: '', phoneInput: '',
   })
   a.addName = a.addEmail = a.addPhone = ''
+}
+
+// Contatti della rubrica utilizzabili sul canale dell'automazione, non già tra i destinatari.
+function rubricaFor(a: EditableAutomation) {
+  return props.rubrica.filter(c => {
+    const ok = a.channel === 'whatsapp' ? !!c.telefono : a.channel === 'both' ? !!(c.email || c.telefono) : !!c.email
+    const already = a.recipients.some(r => (r.email && r.email === c.email) || (r.phone && r.phone === c.telefono))
+    return ok && !already
+  })
+}
+
+function addFromRubrica(a: EditableAutomation, ev: Event) {
+  const sel = ev.target as HTMLSelectElement
+  const c = props.rubrica.find(x => String(x.id) === sel.value)
+  sel.value = ''
+  if (!c) return
+  a.recipients.push({ kind: 'extra', name: c.nome, email: c.email, phone: c.telefono, emailInput: '', phoneInput: '' })
 }
 
 function addCc(a: EditableAutomation) {

@@ -46,8 +46,9 @@ class InviaEmailAvvisoPratica implements ShouldQueue
         $destinatari = $this->raccogliDestinatari($pratica);
 
         if ($destinatari->isEmpty()) {
-            // Nessun destinatario valido: lo scriviamo nel registro. La data NON avanza,
-            // così l'avviso viene ritentato al prossimo giro invece di sparire.
+            // Nessun destinatario valido: lo scriviamo nel registro e ripianifichiamo a domani
+            // (ritentato ogni giorno, ma la data mostrata non resta mai nel passato).
+            $this->riprogramma($pratica->id, 1);
             $mailer->registraSaltata($pratica->tenant_id, 'Nessun destinatario valido (creatore assente/disattivato/senza email e nessun amministratore attivo).', $logContext);
             Log::warning('AvvisoPratica: nessun destinatario', ['pratica_id' => $pratica->id]);
 
@@ -86,7 +87,7 @@ class InviaEmailAvvisoPratica implements ShouldQueue
             }
         }
 
-        // Nessuna consegna: rilancio per far ritentare il job (la data non avanza).
+        // Nessuna consegna: rilancio per far ritentare il job; esauriti i tentativi failed() ripianifica a domani.
         if ($inviati === 0) {
             throw new \RuntimeException('Avviso pratica #' . $pratica->id . ' non consegnato a nessun destinatario: ' . json_encode($falliti));
         }
@@ -106,6 +107,14 @@ class InviaEmailAvvisoPratica implements ShouldQueue
             'destinatari'       => $destinatari->pluck('email'),
             'falliti'           => array_keys($falliti),
         ]);
+    }
+
+    /** Sposta la data del prossimo avviso a oggi + $giorni (mai nel passato). */
+    private function riprogramma(int $praticaId, int $giorni): void
+    {
+        Pratica::acrossAllTenants()
+            ->where('id', $praticaId)
+            ->update(['data_prossimo_avviso' => now()->addDays($giorni)->toDateString()]);
     }
 
     private function giaInviatoOggi(int $praticaId, string $email): bool
@@ -140,6 +149,9 @@ class InviaEmailAvvisoPratica implements ShouldQueue
             'pratica_id' => $this->praticaId,
             'errore'     => $exception->getMessage(),
         ]);
+
+        // Tutti i tentativi esauriti: la data non deve restare nel passato. Ritenta domani.
+        $this->riprogramma($this->praticaId, 1);
 
         $pratica = Pratica::acrossAllTenants()->find($this->praticaId);
         if ($pratica) {

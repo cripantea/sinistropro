@@ -281,7 +281,7 @@ class AutomationPlanner
     private function resolvePerito(Pratica $pratica, array $ctx = []): array
     {
         if (array_key_exists('perito_contatto_id', $ctx) && $ctx['perito_contatto_id']) {
-            $c = Contatto::tipo('perito')->find($ctx['perito_contatto_id']);
+            $c = Contatto::tag(Contatto::TAG_PERITO)->find($ctx['perito_contatto_id']);
             if ($c) {
                 return ['email' => $c->email, 'phone' => $c->telefono, 'name' => $c->nome];
             }
@@ -301,7 +301,7 @@ class AutomationPlanner
     private function resolveCarrozzeria(Pratica $pratica, array $ctx = []): array
     {
         if (array_key_exists('carrozzeria_contatto_id', $ctx) && $ctx['carrozzeria_contatto_id']) {
-            $c = Contatto::tipo('carrozzeria')->find($ctx['carrozzeria_contatto_id']);
+            $c = Contatto::tag(Contatto::TAG_CARROZZERIA)->find($ctx['carrozzeria_contatto_id']);
             if ($c) {
                 return ['email' => $c->email, 'phone' => $c->telefono, 'name' => $c->nome];
             }

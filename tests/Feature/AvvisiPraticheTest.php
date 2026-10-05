@@ -71,14 +71,14 @@ test('con creatore disattivato l\'avviso va comunque agli amministratori', funct
     expect(EmailLog::acrossAllTenants()->where('status', 'sent')->count())->toBe(2);
 });
 
-test('senza destinatari validi viene registrato come saltato e la data non avanza', function () {
+test('senza destinatari validi viene registrato come saltato e la data passa a domani', function () {
     $p = nuovaPratica(['data_prossimo_avviso' => today()->subDay()->toDateString()]);
     User::where('tenant_id', $this->tenant->id)->update(['is_active' => false]);
 
     app()->call([new InviaEmailAvvisoPratica($p->id), 'handle']);
 
     expect(EmailLog::acrossAllTenants()->where('status', 'skipped')->where('tipo', 'avviso')->count())->toBe(1);
-    expect($p->fresh()->data_prossimo_avviso->toDateString())->toBe(today()->subDay()->toDateString());
+    expect($p->fresh()->data_prossimo_avviso->toDateString())->toBe(today()->addDay()->toDateString());
 });
 
 test('un retry non reinvia a chi ha già ricevuto oggi', function () {
@@ -103,10 +103,29 @@ test('un destinatario che fallisce non blocca gli altri e la data avanza', funct
     expect($p->fresh()->data_prossimo_avviso->toDateString())->toBeGreaterThan(today()->toDateString());
 });
 
-test('se nessuno riceve l\'avviso il job fallisce per ritentare e la data resta', function () {
+test('se nessuno riceve l\'avviso il job ritenta; esauriti i tentativi la data passa a domani, mai nel passato', function () {
     $p = nuovaPratica(['data_prossimo_avviso' => today()->subDays(2)->toDateString()]);
     $GLOBALS['avvisi_fail'] = ['creatore@example.com', 'admin1@example.com', 'admin2@example.com'];
 
-    expect(fn () => app()->call([new InviaEmailAvvisoPratica($p->id), 'handle']))->toThrow(\RuntimeException::class);
-    expect($p->fresh()->data_prossimo_avviso->toDateString())->toBe(today()->subDays(2)->toDateString());
+    $job = new InviaEmailAvvisoPratica($p->id);
+    expect(fn () => app()->call([$job, 'handle']))->toThrow(\RuntimeException::class);
+
+    $job->failed(new \RuntimeException('smtp ko'));
+
+    expect($p->fresh()->data_prossimo_avviso->toDateString())->toBe(today()->addDay()->toDateString());
+    expect(EmailLog::acrossAllTenants()->where('tipo', 'avviso')->where('status', 'failed')->where('error', 'like', 'Job avviso fallito%')->count())->toBe(1);
+});
+
+test('il comando di riallineamento sposta le date passate senza inviare nulla né toccare le altre', function () {
+    $passata = nuovaPratica(['data_prossimo_avviso' => today()->subDays(9)->toDateString()]);
+    $futura  = nuovaPratica(['data_prossimo_avviso' => today()->addDays(3)->toDateString()]);
+
+    $this->artisan('app:realign-overdue-notices --dry-run')->assertSuccessful();
+    expect($passata->fresh()->data_prossimo_avviso->toDateString())->toBe(today()->subDays(9)->toDateString());
+
+    $this->artisan('app:realign-overdue-notices')->assertSuccessful();
+
+    expect($passata->fresh()->data_prossimo_avviso->toDateString())->toBe(today()->addDays($this->tenant->getDefaultNoticeDays())->toDateString());
+    expect($futura->fresh()->data_prossimo_avviso->toDateString())->toBe(today()->addDays(3)->toDateString());
+    expect(EmailLog::acrossAllTenants()->count())->toBe(0);
 });

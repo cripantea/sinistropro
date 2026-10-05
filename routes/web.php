@@ -97,9 +97,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 // --- Periti e carrozzerie (anagrafica, senza account utente) + registro email inviate ---
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/contatti', fn () => redirect()->route('periti.index'))->name('contatti.index');
-    Route::get('/periti',      [ContattoController::class, 'index'])->defaults('tipo', 'perito')->name('periti.index');
-    Route::get('/carrozzerie', [ContattoController::class, 'index'])->defaults('tipo', 'carrozzeria')->name('carrozzerie.index');
+    Route::get('/rubrica', [ContattoController::class, 'index'])->name('rubrica.index');
+    Route::get('/contatti',    fn () => redirect()->route('rubrica.index'))->name('contatti.index');
+    Route::get('/periti',      fn () => redirect()->route('rubrica.index', ['tag' => 'perito']))->name('periti.index');
+    Route::get('/carrozzerie', fn () => redirect()->route('rubrica.index', ['tag' => 'carrozzeria']))->name('carrozzerie.index');
     Route::post('/contatti',             [ContattoController::class, 'store'])->name('contatti.store');
     Route::put('/contatti/{contatto}',   [ContattoController::class, 'update'])->name('contatti.update');
     Route::delete('/contatti/{contatto}', [ContattoController::class, 'destroy'])->name('contatti.destroy');

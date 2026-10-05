@@ -2,13 +2,13 @@
   <AuthenticatedLayout>
     <template #header>
       <div class="flex items-center justify-between">
-        <h2 class="text-xl font-semibold text-gray-800 leading-tight">{{ titolo }}</h2>
+        <h2 class="text-xl font-semibold text-gray-800 leading-tight">Rubrica</h2>
         <button
           @click="openCreate"
           class="inline-flex items-center gap-1.5 bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          {{ tipo === 'perito' ? 'Nuovo perito' : 'Nuova carrozzeria' }}
+          Nuovo contatto
         </button>
       </div>
     </template>
@@ -19,13 +19,35 @@
 
     <div class="py-6 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
       <p class="text-sm text-gray-500">
-        Elenco da assegnare ai sinistri e usare come destinatari delle automazioni. Non serve un account né un invito: bastano nome, telefono ed email.
+        Persone e aziende a cui assegnare i sinistri o inviare messaggi. Non serve un account: bastano nome, telefono ed email.
+        Con i <strong>tag</strong> li raggruppi: nel sinistro "Perito" propone i contatti col tag <em>perito</em>, "Carrozzeria" quelli col tag <em>carrozzeria</em>.
       </p>
+
+      <!-- Ricerca + filtro per tag -->
+      <input
+        v-model="search"
+        type="search"
+        placeholder="Cerca per nome, telefono o email…"
+        class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+      />
+      <div class="flex flex-wrap gap-1.5">
+        <button
+          @click="activeTag = null"
+          :class="chip(activeTag === null)"
+        >Tutti <span class="opacity-70">({{ contatti.length }})</span></button>
+        <button
+          v-for="t in tags"
+          :key="t"
+          @click="activeTag = t"
+          :class="chip(activeTag === t)"
+        >{{ t }} <span class="opacity-70">({{ countOf(t) }})</span></button>
+      </div>
 
       <div v-for="c in visible" :key="c.id" class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4 flex items-center gap-4">
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <span class="text-sm font-semibold text-gray-800 truncate">{{ c.nome }}</span>
+            <span v-for="t in c.tags ?? []" :key="t" class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">{{ t }}</span>
             <span v-if="!c.is_active" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600">Disattivo</span>
           </div>
           <p class="text-xs text-gray-500 mt-0.5">
@@ -44,7 +66,7 @@
       </div>
 
       <div v-if="visible.length === 0" class="bg-white rounded-xl border border-dashed border-gray-300 px-5 py-12 text-center text-gray-400 text-sm">
-        Nessun elemento in elenco.
+        Nessun contatto trovato.
       </div>
     </div>
 
@@ -52,15 +74,46 @@
     <Teleport to="body">
       <div v-if="modalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @mousedown.self="closeModal">
         <form @submit.prevent="submit" class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
-          <h3 class="text-base font-semibold text-gray-800">
-            {{ editing ? 'Modifica' : 'Nuovo' }} {{ form.tipo === 'perito' ? 'perito' : 'carrozzeria' }}
-          </h3>
+          <h3 class="text-base font-semibold text-gray-800">{{ editing ? 'Modifica contatto' : 'Nuovo contatto' }}</h3>
 
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Nome <span class="text-red-500">*</span></label>
             <input v-model="form.nome" type="text" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none" />
             <p v-if="form.errors.nome" class="text-xs text-red-600 mt-1">{{ form.errors.nome }}</p>
           </div>
+
+          <!-- Tag -->
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Tag</label>
+            <div class="flex flex-wrap items-center gap-1.5 border border-gray-300 rounded-lg px-2 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500">
+              <span v-for="(t, i) in form.tags" :key="t" class="inline-flex items-center gap-1 text-xs bg-indigo-50 text-indigo-700 rounded-full pl-2.5 pr-1 py-0.5">
+                {{ t }}
+                <button type="button" @click="form.tags.splice(i, 1)" class="text-indigo-400 hover:text-red-600 px-0.5">×</button>
+              </span>
+              <input
+                v-model="tagInput"
+                list="rubrica-tags"
+                type="text"
+                placeholder="Aggiungi tag + Invio"
+                class="flex-1 min-w-[8rem] text-sm outline-none border-0 focus:ring-0 p-0.5"
+                @keydown.enter.prevent="addTag(tagInput)"
+                @keydown.,.prevent="addTag(tagInput)"
+                @blur="addTag(tagInput)"
+              />
+              <datalist id="rubrica-tags"><option v-for="t in tags" :key="t" :value="t" /></datalist>
+            </div>
+            <div class="flex flex-wrap gap-1.5 mt-1.5">
+              <button
+                v-for="t in ['perito', 'carrozzeria']"
+                :key="t"
+                type="button"
+                @click="addTag(t)"
+                class="text-[11px] text-indigo-600 hover:underline"
+              >+ {{ t }}</button>
+            </div>
+            <p v-if="form.errors.tags" class="text-xs text-red-600 mt-1">{{ form.errors.tags }}</p>
+          </div>
+
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Cellulare / telefono</label>
             <input v-model="form.telefono" type="text" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none" />
@@ -96,47 +149,70 @@ import type { PageProps } from '@/types'
 
 interface Contatto {
   id: number
-  tipo: 'perito' | 'carrozzeria'
   nome: string
+  tags: string[] | null
   telefono: string | null
   email: string | null
   note: string | null
   is_active: boolean
 }
 
-const props = defineProps<{ tipo: 'perito' | 'carrozzeria'; contatti: Contatto[] }>()
+const props = defineProps<{ contatti: Contatto[]; tags: string[]; tag: string | null }>()
 const flash = computed(() => usePage<PageProps>().props.flash)
 
-const titolo = computed(() => props.tipo === 'perito' ? 'Periti' : 'Carrozzerie')
-const visible = computed(() => props.contatti)
+const search = ref('')
+const activeTag = ref<string | null>(props.tag)
+
+const chip = (on: boolean) => [
+  'px-3 py-1 rounded-full text-xs font-medium border transition',
+  on ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300',
+]
+const countOf = (t: string) => props.contatti.filter(c => (c.tags ?? []).includes(t)).length
+
+const visible = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  return props.contatti.filter(c =>
+    (!activeTag.value || (c.tags ?? []).includes(activeTag.value)) &&
+    (!q || [c.nome, c.telefono, c.email].some(v => (v ?? '').toLowerCase().includes(q)))
+  )
+})
 
 const modalOpen = ref(false)
 const editing = ref<Contatto | null>(null)
+const tagInput = ref('')
 
 const form = useForm({
-  tipo: props.tipo as 'perito' | 'carrozzeria',
   nome: '',
+  tags: [] as string[],
   telefono: '',
   email: '',
   note: '',
 })
 
+function addTag(raw: string) {
+  const t = raw.trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 30)
+  tagInput.value = ''
+  if (t && !form.tags.includes(t) && form.tags.length < 10) form.tags.push(t)
+}
+
 function openCreate() {
   editing.value = null
   form.reset()
   form.clearErrors()
-  form.tipo = props.tipo
+  form.tags = activeTag.value ? [activeTag.value] : []
+  tagInput.value = ''
   modalOpen.value = true
 }
 
 function openEdit(c: Contatto) {
   editing.value = c
   form.clearErrors()
-  form.tipo = c.tipo
   form.nome = c.nome
+  form.tags = [...(c.tags ?? [])]
   form.telefono = c.telefono ?? ''
   form.email = c.email ?? ''
   form.note = c.note ?? ''
+  tagInput.value = ''
   modalOpen.value = true
 }
 
@@ -146,6 +222,7 @@ function closeModal() {
 }
 
 function submit() {
+  addTag(tagInput.value)
   const opts = { preserveScroll: true, onSuccess: closeModal }
   if (editing.value) {
     form.put(route('contatti.update', editing.value.id), opts)
@@ -156,7 +233,7 @@ function submit() {
 
 function toggleActive(c: Contatto) {
   router.put(route('contatti.update', c.id), {
-    tipo: c.tipo, nome: c.nome, telefono: c.telefono, email: c.email, note: c.note,
+    nome: c.nome, tags: c.tags ?? [], telefono: c.telefono, email: c.email, note: c.note,
     is_active: !c.is_active,
   }, { preserveScroll: true })
 }

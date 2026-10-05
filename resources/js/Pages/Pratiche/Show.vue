@@ -126,7 +126,7 @@
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-semibold text-gray-700">Perito / Carrozzeria</h3>
-          <Link :href="route('periti.index')" class="text-xs text-indigo-600 hover:underline">Gestisci anagrafica</Link>
+          <Link :href="route('rubrica.index')" class="text-xs text-indigo-600 hover:underline">Gestisci rubrica</Link>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 

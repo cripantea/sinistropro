@@ -288,6 +288,7 @@
     <AutomationConfirmModal
       :show="assignConfirm.open"
       :automations="assignAutomations"
+      :rubrica="rubricaAutomazioni"
       @accept="onAssignConfirmAccept"
       @block-automations="onAssignConfirmBlockAutomations"
       @block-action="assignConfirm.open = false"
@@ -296,6 +297,7 @@
     <AutomationConfirmModal
       :show="statusConfirm.open"
       :automations="statusConfirm.automations"
+      :rubrica="rubricaAutomazioni"
       @accept="onStatusConfirmAccept"
       @block-automations="onStatusConfirmBlockAutomations"
       @block-action="onStatusConfirmBlockAction"
@@ -309,7 +311,7 @@ import { ref, computed, reactive, watch } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import AutomationConfirmModal, { type AutomationPlan, type AutomationOverrides } from '@/Components/AutomationConfirmModal.vue'
+import AutomationConfirmModal, { type AutomationPlan, type AutomationOverrides, type RubricaContatto } from '@/Components/AutomationConfirmModal.vue'
 
 interface TenantStatus {
   id: number
@@ -360,6 +362,7 @@ const assignForm = reactive({
   submitting:          false,
 })
 const assignAutomations = ref<AutomationSummary[]>([])
+const rubricaAutomazioni = ref<RubricaContatto[]>([])
 
 // Modale di conferma automazioni per il drop su colonne "normali" (non external)
 // Seconda conferma: dopo "Conferma e sposta" nella modale di assegnazione, mostra messaggio e destinatari
@@ -375,10 +378,11 @@ const statusConfirm = reactive({
 
 async function previewAutomations(praticaId: number, tenantStatusId: number, dateFields?: Record<string, string>, extra?: { perito_contatto_id?: number | null }): Promise<AutomationSummary[]> {
   try {
-    const resp = await axios.post<{ automations: AutomationSummary[] }>(
+    const resp = await axios.post<{ automations: AutomationSummary[]; rubrica: RubricaContatto[] }>(
       route('pratiche.automations.preview', praticaId),
       { tenant_status_id: tenantStatusId, date_fields: dateFields, ...extra }
     )
+    rubricaAutomazioni.value = resp.data.rubrica ?? []
     return resp.data.automations
   } catch {
     return []
