@@ -8,6 +8,7 @@ use App\Models\EmailMessage;
 use App\Models\EmailThread;
 use App\Models\TenantMailSettings;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -21,13 +22,26 @@ use Webklex\PHPIMAP\ClientManager;
 use Webklex\PHPIMAP\Folder;
 use Webklex\PHPIMAP\Message;
 
-class SyncTenantMailboxJob implements ShouldQueue
+class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
 
     public int $backoff = 60;
+
+    /**
+     * Un solo sync per tenant alla volta: lo scheduler lo rilancia ogni 2 minuti e, se il
+     * precedente è ancora in coda o in esecuzione (o è stato ucciso dal timeout), i nuovi si
+     * accumulavano a migliaia saturando la coda "emails" e bloccando tutto il resto.
+     * Il lock scade comunque dopo 10 minuti, così un job ucciso non blocca il tenant per sempre.
+     */
+    public int $uniqueFor = 600;
+
+    public function uniqueId(): string
+    {
+        return (string) $this->tenantId;
+    }
 
     /**
      * Nomi comuni della cartella "Inviata": i provider non concordano su

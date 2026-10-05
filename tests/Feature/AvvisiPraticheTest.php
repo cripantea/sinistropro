@@ -129,3 +129,11 @@ test('il comando di riallineamento sposta le date passate senza inviare nulla nÃ
     expect($futura->fresh()->data_prossimo_avviso->toDateString())->toBe(today()->addDays(3)->toDateString());
     expect(EmailLog::acrossAllTenants()->count())->toBe(0);
 });
+
+test('gli avvisi stanno sulla coda prioritaria e il sync caselle Ã¨ univoco per tenant', function () {
+    expect((new InviaEmailAvvisoPratica(1))->queue)->toBe('automations');
+
+    $sync = new \App\Jobs\SyncTenantMailboxJob(7);
+    expect($sync)->toBeInstanceOf(\Illuminate\Contracts\Queue\ShouldBeUnique::class)
+        ->and($sync->uniqueId())->toBe('7');
+});

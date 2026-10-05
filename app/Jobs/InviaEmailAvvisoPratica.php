@@ -25,7 +25,9 @@ class InviaEmailAvvisoPratica implements ShouldQueue
     {
         // Passiamo solo l'ID, non il modello: evita serializzazione pesante
         // e ricarica dati freschi quando il worker esegue il job.
-        $this->onQueue('emails');
+        // Coda prioritaria (il worker la legge prima di "emails"): gli avvisi non devono
+        // aspettare dietro alla sincronizzazione delle caselle IMAP.
+        $this->onQueue('automations');
     }
 
     public function handle(TenantMailerResolver $mailer): void
