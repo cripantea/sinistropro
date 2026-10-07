@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FusionsoftBadge from '@/Components/FusionsoftBadge.vue'
 import { computed } from 'vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
 import InputError from '@/Components/InputError.vue'
@@ -121,11 +122,7 @@ const submit = () => {
 
         <!-- Footer -->
         <div class="space-y-4">
-          <a href="https://fusionsoft.it" target="_blank" rel="noopener"
-             class="inline-flex items-center gap-2.5 text-emerald-600 hover:text-emerald-400 text-xs transition-colors">
-            Un prodotto
-            <img src="/images/logo-fusionsoft-dark.png" alt="Fusionsoft" class="h-7 w-auto" />
-          </a>
+          <FusionsoftBadge dark />
           <div class="flex items-center gap-4">
             <p class="text-emerald-700 text-xs">© {{ currentYear }} SinistroPro</p>
             <span class="w-px h-3 bg-emerald-900"></span>
@@ -236,11 +233,7 @@ const submit = () => {
         </form>
       </div>
 
-      <a href="https://fusionsoft.it" target="_blank" rel="noopener"
-         class="mt-10 inline-flex items-center gap-2 text-xs text-gray-400 hover:text-gray-600 transition-colors lg:hidden">
-        Un prodotto
-        <img src="/images/logo-fusionsoft.png" alt="Fusionsoft" class="h-6 w-auto" />
-      </a>
+      <FusionsoftBadge class="mt-10 lg:hidden" />
     </div>
 
   </div>

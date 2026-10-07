@@ -6,6 +6,7 @@ import DropdownLink from '@/Components/DropdownLink.vue'
 import ImpersonationBanner from '@/Components/ImpersonationBanner.vue'
 import TenantContextBanner from '@/Components/TenantContextBanner.vue'
 import SuperadminOverlay from '@/Components/SuperadminOverlay.vue'
+import FusionsoftBadge from '@/Components/FusionsoftBadge.vue'
 import type { PageProps, AppNotification } from '@/types'
 
 const collapsed = ref(localStorage.getItem('kd-sidebar-collapsed') === 'true')
@@ -310,20 +311,18 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
         </nav>
 
         <!-- Marchio Fusionsoft -->
-        <a
-          href="https://fusionsoft.it"
-          target="_blank"
-          rel="noopener"
-          class="border-t border-slate-700 flex items-center shrink-0 py-3 text-[11px] text-slate-400 hover:text-white transition-colors"
-          :class="collapsed ? 'justify-center px-0' : 'px-5 gap-2'"
-          title="Un prodotto Fusionsoft"
-        >
-          <img v-if="collapsed" src="/images/fusionsoft-mark.png" alt="Fusionsoft" class="h-5 w-5 object-contain" />
-          <template v-else>
-            <span class="whitespace-nowrap">Un prodotto</span>
-            <img src="/images/logo-fusionsoft-dark.png" alt="Fusionsoft" class="h-6 w-auto" />
-          </template>
-        </a>
+        <div class="border-t border-slate-700 shrink-0 py-3" :class="collapsed ? 'flex justify-center' : 'px-5'">
+          <a
+            v-if="collapsed"
+            href="https://fusionsoft.it"
+            target="_blank"
+            rel="noopener"
+            title="Un prodotto Fusionsoft · Fusion Media di Luca Gabriele Pantea · P.IVA 13148540969"
+          >
+            <img src="/images/fusionsoft-mark.png" alt="Fusionsoft" class="h-5 w-5 object-contain" />
+          </a>
+          <FusionsoftBadge v-else dark />
+        </div>
 
         <!-- Collapse toggle -->
         <div class="border-t border-slate-700 flex justify-end px-3 py-3 shrink-0">
