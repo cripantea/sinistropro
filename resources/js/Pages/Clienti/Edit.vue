@@ -30,14 +30,14 @@
 
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">
-              Nome e cognome <span class="text-red-500">*</span>
+              Cognome e nome <span class="text-red-500">*</span>
             </label>
             <input
               v-model="form.nome"
               type="text"
               class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
               :class="{ 'border-red-400': form.errors.nome }"
-              placeholder="Es. Mario Rossi"
+              placeholder="Es. Rossi Mario"
             />
             <p v-if="form.errors.nome" class="text-xs text-red-500 mt-1">{{ form.errors.nome }}</p>
           </div>

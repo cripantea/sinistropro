@@ -41,7 +41,7 @@
 
               <div>
                 <label class="block text-xs font-medium text-slate-700 mb-1">
-                  Nome e cognome <span class="text-red-500">*</span>
+                  Cognome e nome <span class="text-red-500">*</span>
                 </label>
                 <input
                   v-model="form.nome"
