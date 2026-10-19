@@ -1,3 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    /* Icone: tratto sottile uguale in tutti i prodotti Fusionsoft (Lucide e SVG inline a tratto). */
+    svg.lucide,
+    svg[stroke="currentColor"] path[stroke-width] {
+        stroke-width: 1.5;
+    }
+}

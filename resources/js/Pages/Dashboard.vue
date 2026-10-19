@@ -6,15 +6,18 @@ import {
   ArcElement,
   CategoryScale,
   Chart as ChartJS,
+  DoughnutController,
   Filler,
   Legend,
   LinearScale,
+  LineController,
   LineElement,
   PointElement,
   Tooltip,
 } from 'chart.js'
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler)
+// Chart.js 4 è modulare: senza i controller di linea e ciambella i grafici non vengono disegnati
+ChartJS.register(LineController, DoughnutController, CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler)
 
 // ── Types ──────────────────────────────────────────────────
 interface StatusStat {
