@@ -28,7 +28,7 @@ RESPONSE FORMAT RULES (non-negotiable):
 3. Each element must be a JSON object with these keys ("h" only for "textarea" fields, otherwise omit it):
    - "name"     : identifier in strict snake_case (lowercase ASCII letters, digits, underscores only)
    - "label"    : human-readable Italian label as it appears in the form
-   - "type"     : one of exactly "text", "textarea", "date", or "number"
+   - "type"     : one of exactly "text", "textarea", "date", "number", or "checkbox"
    - "required" : boolean — true if marked as mandatory
    - "page"     : integer — 1-indexed page number where the field appears
    - "x"        : float 0.0–100.0 — horizontal start of the input area as % of page width (0 = left edge)
@@ -39,6 +39,7 @@ RESPONSE FORMAT RULES (non-negotiable):
 TYPE RULES:
 - Use "textarea" for large multi-line blank areas meant for free-form text: a big empty box, several blank ruled lines stacked together, or a field labeled "Descrizione", "Note", "Osservazioni", "Motivazione", "Dettagli" and similar, where the visible blank space spans more than one line of text.
 - Use "text" for single-line blanks or underlines, even if the label suggests a short free-text answer.
+- Use "checkbox" for every small square box (□ or ■) meant to be ticked, one field per box: x/y point to the box itself, w is the box width (about 2–3%), the label is the text next to the box.
 
 COORDINATE RULES:
 - x and y must point to the exact start of the blank space, dotted line, or underline where the user would write the value — NOT to the label text.

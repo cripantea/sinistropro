@@ -12,6 +12,9 @@ class FieldDictionaryEntry extends Model
 
     protected $table = 'field_dictionary_entries';
 
+    /** Campi dell'anagrafica cliente usabili come sorgente di autocompilazione dei moduli. */
+    public const CLIENTE_SOURCES = ['nome', 'telefono', 'email', 'indirizzo', 'cap', 'citta', 'provincia', 'codice_fiscale', 'partita_iva'];
+
     protected $fillable = [
         'tenant_id',
         'key',

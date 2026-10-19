@@ -439,6 +439,8 @@
       :custom-fields-schema="schema"
       :cliente-schema="pratica.tenant.settings?.cliente_custom_fields_schema ?? []"
       :compagnia="pratica.compagnia"
+      :veicolo="pratica.veicolo"
+      :apertura-sinistro="pratica.created_at"
       :shared-module-values="sharedModuleValues"
       @close="moduleModalOpen = false"
       @saved="onModuleSaved"
@@ -520,7 +522,7 @@ interface Pratica {
   conducente_telefono: string | null
   utente_creatore: { id: number; name: string; email: string } | null
   cliente: Cliente | null
-  veicolo: { id: number; targa: string | null; marca: string | null; modello: string | null; telaio: string | null } | null
+  veicolo: { id: number; targa: string | null; marca: string | null; modello: string | null; telaio: string | null; data_immatricolazione?: string | null } | null
   tenant: { id: number; settings: { custom_fields_schema: FieldSchema[]; cliente_custom_fields_schema?: FieldSchema[] } | null; statuses: TenantStatus[] }
   note: Nota[]
   allegati: Allegato[]

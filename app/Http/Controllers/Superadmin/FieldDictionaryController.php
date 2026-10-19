@@ -34,7 +34,7 @@ class FieldDictionaryController extends Controller
                 Rule::unique('field_dictionary_entries', 'key')->where('tenant_id', $tenant->id),
             ],
             'fields.*.label' => ['required', 'string', 'max:255'],
-            'fields.*.type' => ['required', Rule::in(['text', 'textarea', 'date', 'number', 'boolean'])],
+            'fields.*.type' => ['required', Rule::in(['text', 'textarea', 'date', 'number', 'boolean', 'checkbox'])],
             'fields.*.source_type' => ['required', Rule::in(['manual', 'cliente', 'pratica_field'])],
             'fields.*.source_field' => [
                 'nullable',
@@ -43,7 +43,7 @@ class FieldDictionaryController extends Controller
                     preg_match('/^fields\.(\d+)\./', $attribute, $matches);
                     $sourceType = $request->input("fields.{$matches[1]}.source_type");
 
-                    if ($sourceType === 'cliente' && ! in_array($value, ['nome', 'telefono', 'email', ...$clienteCustomSources], true)) {
+                    if ($sourceType === 'cliente' && ! in_array($value, [...FieldDictionaryEntry::CLIENTE_SOURCES, ...$clienteCustomSources], true)) {
                         $fail('Seleziona un campo cliente valido.');
                     }
                     if ($sourceType === 'pratica_field' && ! in_array($value, $customFieldNames, true)) {
@@ -137,7 +137,7 @@ class FieldDictionaryController extends Controller
                     ->ignore($ignoring?->id),
             ],
             'label' => ['required', 'string', 'max:255'],
-            'type' => ['required', Rule::in(['text', 'textarea', 'date', 'number', 'boolean'])],
+            'type' => ['required', Rule::in(['text', 'textarea', 'date', 'number', 'boolean', 'checkbox'])],
             'source_type' => ['required', Rule::in(['manual', 'cliente', 'pratica_field'])],
             'source_field' => [
                 'nullable',
@@ -145,7 +145,7 @@ class FieldDictionaryController extends Controller
                 function ($attribute, $value, $fail) use ($request, $customFieldNames, $clienteCustomSources): void {
                     $sourceType = $request->input('source_type');
 
-                    if ($sourceType === 'cliente' && ! in_array($value, ['nome', 'telefono', 'email', ...$clienteCustomSources], true)) {
+                    if ($sourceType === 'cliente' && ! in_array($value, [...FieldDictionaryEntry::CLIENTE_SOURCES, ...$clienteCustomSources], true)) {
                         $fail('Seleziona un campo cliente valido.');
                     }
                     if ($sourceType === 'pratica_field' && ! in_array($value, $customFieldNames, true)) {

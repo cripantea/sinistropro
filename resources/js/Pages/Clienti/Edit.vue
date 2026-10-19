@@ -86,11 +86,10 @@
               :type="field.type"
               :class="inputClass()"
             />
-            <input
+            <DataItaliana
               v-else-if="field.type === 'date'"
               v-model="form.custom_fields[field.name]"
-              type="date"
-              :class="inputClass()"
+              :input-class="inputClass().join(' ')"
             />
             <select
               v-else-if="field.type === 'select'"
@@ -185,6 +184,7 @@ import { Link, useForm } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import TastoIndietro from '@/Components/TastoIndietro.vue'
+import DataItaliana from '@/Components/DataItaliana.vue'
 
 interface FieldSchema { name: string; label: string; type: string; required?: boolean; options?: string[] }
 interface Veicolo {
@@ -352,7 +352,12 @@ const VeicoloForm = defineComponent({
   setup: (p, { emit }) => () => h('div', { class: 'space-y-3' }, [
     h('div', { class: 'grid grid-cols-3 gap-3' }, CAMPI_VEICOLO.map(f => h('div', { class: f.span === 3 ? 'col-span-3' : f.span === 2 ? 'col-span-2' : '' }, [
       h('label', { class: 'block text-[11px] font-medium text-slate-500 mb-0.5' }, f.label),
-      h('input', {
+      f.type === 'date' ? h(DataItaliana, {
+        modelValue: p.modelValue[f.key],
+        'onUpdate:modelValue': (v: string) => emit('update:modelValue', { ...p.modelValue, [f.key]: v }),
+        inputClass: ['w-full text-sm border rounded-md px-2.5 py-1.5 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none',
+          p.errori[f.key] ? 'border-red-400' : 'border-slate-300'].join(' '),
+      }) : h('input', {
         type: f.type ?? 'text',
         value: p.modelValue[f.key],
         onInput: (e: Event) => emit('update:modelValue', { ...p.modelValue, [f.key]: (e.target as HTMLInputElement).value }),

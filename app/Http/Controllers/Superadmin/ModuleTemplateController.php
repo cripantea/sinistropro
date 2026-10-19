@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ModuleTemplate;
 use App\Models\Tenant;
 use App\Services\AiFieldExtractorService;
+use App\Services\PdfFormFillerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,13 +31,15 @@ class ModuleTemplateController extends Controller
             'fields_schema'               => ['nullable', 'array'],
             'fields_schema.*.name'     => ['required', 'string', 'max:100'],
             'fields_schema.*.label'    => ['required', 'string', 'max:255'],
-            'fields_schema.*.type'     => ['required', Rule::in(['text', 'textarea', 'date', 'number', 'boolean', 'select'])],
+            'fields_schema.*.type'     => ['required', Rule::in(['text', 'textarea', 'date', 'number', 'boolean', 'select', 'checkbox', 'radio'])],
             'fields_schema.*.required' => ['boolean'],
             'fields_schema.*.page'     => ['nullable', 'integer', 'min:1'],
             'fields_schema.*.x'        => ['nullable', 'numeric', 'min:0', 'max:100'],
             'fields_schema.*.y'        => ['nullable', 'numeric', 'min:0', 'max:100'],
             'fields_schema.*.w'        => ['nullable', 'numeric', 'min:0', 'max:100'],
             'fields_schema.*.h'        => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'fields_schema.*.options'   => ['nullable', 'array'],
+            'fields_schema.*.positions' => ['nullable', 'array'],
             'font_size'                => ['nullable', 'integer', 'min:6', 'max:24'],
         ], [
             'output_document_category_id.unique' => 'Questa categoria ha già un modulo associato. Ogni categoria può avere al massimo un modulo.',
@@ -74,13 +77,15 @@ class ModuleTemplateController extends Controller
             'fields_schema'               => ['nullable', 'array'],
             'fields_schema.*.name'     => ['required', 'string', 'max:100'],
             'fields_schema.*.label'    => ['required', 'string', 'max:255'],
-            'fields_schema.*.type'     => ['required', Rule::in(['text', 'textarea', 'date', 'number', 'boolean', 'select'])],
+            'fields_schema.*.type'     => ['required', Rule::in(['text', 'textarea', 'date', 'number', 'boolean', 'select', 'checkbox', 'radio'])],
             'fields_schema.*.required' => ['boolean'],
             'fields_schema.*.page'     => ['nullable', 'integer', 'min:1'],
             'fields_schema.*.x'        => ['nullable', 'numeric', 'min:0', 'max:100'],
             'fields_schema.*.y'        => ['nullable', 'numeric', 'min:0', 'max:100'],
             'fields_schema.*.w'        => ['nullable', 'numeric', 'min:0', 'max:100'],
             'fields_schema.*.h'        => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'fields_schema.*.options'   => ['nullable', 'array'],
+            'fields_schema.*.positions' => ['nullable', 'array'],
             'font_size'                => ['nullable', 'integer', 'min:6', 'max:24'],
         ], [
             'output_document_category_id.unique' => 'Questa categoria ha già un modulo associato. Ogni categoria può avere al massimo un modulo.',
@@ -202,9 +207,30 @@ class ModuleTemplateController extends Controller
     {
         $request->validate([
             'pdf_file' => ['required', 'file', 'mimes:pdf', 'max:20480'],
+            'solo_pdf' => ['sometimes', 'boolean'],
         ]);
 
         $s3Key = "pdf_templates/tenant_{$tenant->id}/" . Str::uuid() . '.pdf';
+
+        // Sostituzione della sola matrice: i campi già posizionati restano come sono,
+        // niente analisi IA. Restituisce il numero di pagine per scartare i campi
+        // che stavano su pagine tolte.
+        if ($request->boolean('solo_pdf')) {
+            $content = $request->file('pdf_file')->get();
+
+            try {
+                Storage::disk('s3')->put($s3Key, $content, 'private');
+            } catch (\Throwable $e) {
+                Log::warning('ModuleTemplateController: S3 upload failed in solo_pdf', ['error' => $e->getMessage()]);
+
+                return response()->json(['message' => 'Caricamento del PDF non riuscito, riprova.'], 422);
+            }
+
+            return response()->json([
+                's3_key' => $s3Key,
+                'pages'  => app(PdfFormFillerService::class)->pageCount($content),
+            ]);
+        }
 
         try {
             $file = $request->file('pdf_file');

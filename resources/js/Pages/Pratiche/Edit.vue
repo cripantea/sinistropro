@@ -67,6 +67,13 @@
               <option v-for="opt in field.options" :key="opt" :value="opt">{{ opt }}</option>
             </select>
 
+            <DataItaliana
+              v-else-if="field.type === 'date'"
+              v-model="form.custom_fields[field.name] as string"
+              :required="field.required"
+              input-class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+            />
+
             <input
               v-else
               :id="field.name"
@@ -129,6 +136,7 @@ import { Link, useForm, router } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import TastoIndietro from '@/Components/TastoIndietro.vue'
+import DataItaliana from '@/Components/DataItaliana.vue'
 import AutomationConfirmModal, { type AutomationPlan, type AutomationOverrides, type RubricaContatto } from '@/Components/AutomationConfirmModal.vue'
 
 interface FieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean' | 'select'; required?: boolean; options?: string[] }

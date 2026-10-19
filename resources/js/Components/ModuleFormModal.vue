@@ -77,7 +77,7 @@
                   v-for="field in uniqueFields"
                   :key="field.name"
                 >
-                  <label class="block text-xs font-medium text-slate-700 mb-1">
+                  <label v-if="field.type !== 'checkbox'" class="block text-xs font-medium text-slate-700 mb-1">
                     {{ field.label }}
                     <span v-if="field.required" class="text-red-500">*</span>
                     <span v-if="autoFilledFields.has(field.name)" class="text-emerald-600 font-normal">(precompilato)</span>
@@ -103,14 +103,58 @@
                     class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:bg-slate-50 resize-y"
                   />
 
-                  <input
+                  <DataItaliana
                     v-else-if="field.type === 'date'"
-                    v-model="values[field.name]"
-                    type="date"
+                    v-model="values[field.name] as string"
                     :required="field.required"
                     :disabled="submitting"
-                    class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:bg-slate-50"
                   />
+
+                  <div v-else-if="field.type === 'radio'" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <label
+                      v-for="opt in field.options ?? []"
+                      :key="opt"
+                      :class="[
+                        'flex items-center gap-2.5 rounded-lg border px-3 py-2 cursor-pointer select-none transition text-sm',
+                        values[field.name] === opt ? 'border-indigo-500 bg-indigo-50 text-indigo-900 font-semibold' : 'border-slate-300 text-slate-700 hover:bg-slate-50',
+                      ]"
+                    >
+                      <input
+                        type="radio"
+                        :name="field.name"
+                        :value="opt"
+                        :checked="values[field.name] === opt"
+                        :disabled="submitting"
+                        class="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                        @change="values[field.name] = opt"
+                      />
+                      {{ opt }}
+                    </label>
+                    <button
+                      v-if="values[field.name]"
+                      type="button"
+                      :disabled="submitting"
+                      class="sm:col-span-2 justify-self-start text-xs text-slate-500 hover:text-red-600 hover:underline"
+                      @click="values[field.name] = ''"
+                    >Togli scelta</button>
+                  </div>
+
+                  <label
+                    v-else-if="field.type === 'checkbox'"
+                    :class="[
+                      'flex items-center gap-3 rounded-lg border px-3 py-2.5 cursor-pointer select-none transition',
+                      isChecked(values[field.name]) ? 'border-indigo-400 bg-indigo-50' : 'border-slate-300 hover:bg-slate-50',
+                    ]"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="isChecked(values[field.name])"
+                      :disabled="submitting"
+                      class="w-5 h-5 rounded border-slate-400 text-indigo-600 focus:ring-indigo-500"
+                      @change="values[field.name] = ($event.target as HTMLInputElement).checked ? 'true' : ''"
+                    />
+                    <span class="text-sm text-slate-800">{{ field.label }}</span>
+                  </label>
 
                   <input
                     v-else-if="field.type === 'number'"
@@ -211,11 +255,12 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import axios from 'axios'
+import DataItaliana from '@/Components/DataItaliana.vue'
 
 interface FieldSchema {
   name: string
   label: string
-  type: 'text' | 'textarea' | 'date' | 'number' | 'boolean' | 'select'
+  type: 'text' | 'textarea' | 'date' | 'number' | 'boolean' | 'select' | 'checkbox' | 'radio'
   required?: boolean
   options?: string[]
 }
@@ -253,10 +298,23 @@ interface ClienteInfo {
   nome: string
   telefono: string | null
   email: string | null
+  indirizzo?: string | null
+  cap?: string | null
+  citta?: string | null
+  provincia?: string | null
+  codice_fiscale?: string | null
+  partita_iva?: string | null
   custom_fields?: Record<string, unknown> | null
 }
 
 interface SchemaField { name: string; label: string }
+
+interface VeicoloInfo {
+  targa: string | null
+  marca: string | null
+  modello: string | null
+  data_immatricolazione?: string | null
+}
 
 const props = defineProps<{
   show: boolean
@@ -269,6 +327,8 @@ const props = defineProps<{
   customFieldsSchema?: SchemaField[]
   clienteSchema?: SchemaField[]
   compagnia?: string | null
+  veicolo?: VeicoloInfo | null
+  aperturaSinistro?: string | null
   sharedModuleValues?: Record<string, unknown> | null
 }>()
 
@@ -318,6 +378,8 @@ const dictionaryByKey = computed(() => {
 })
 
 const isFilled = (v: unknown) => v !== null && v !== undefined && v !== ''
+const isChecked = (v: unknown) => v === true || v === 'true' || v === '1' || v === 1
+
 
 // Valore di un campo personalizzato dell'anagrafica cliente.
 function clienteCustom(key: string): unknown {
@@ -341,29 +403,101 @@ function firstMatching(
   return null
 }
 
-// Precompilazione "intelligente" per i campi del modulo che NON hanno una voce nel
-// dizionario: riconosce dal nome del campo dati comuni (email/telefono del cliente,
-// indirizzo di residenza, descrizione dell'accaduto, compagnia, nome e cognome).
+// Campo "a parte" che non riguarda il cliente (sinistro, controparte, perito…): non va
+// precompilato con i dati anagrafici del cliente anche se si chiama "indirizzo" o "telefono".
+const NON_CLIENTE = /(sinistro|luogo|evento|perito|carrozz|controparte|conducente|utilizzatore|lavoro|sede|officina|noleggio)/
+
+// Precompilazione "intelligente" per i campi del modulo che NON sono collegati nel
+// dizionario: riconosce dal nome del campo i dati del cliente (email, telefono,
+// residenza, codice fiscale), la descrizione dell'accaduto e la compagnia.
 function resolveHeuristicValue(name: string): unknown {
   const key = name.toLowerCase()
+  const c = props.cliente
 
-  if (/^(e_?mail|mail)(_(cliente|assicurato|contraente))?$/.test(key)) {
-    return props.cliente?.email ?? null
+  if (/(e_?mail|^mail|_mail)/.test(key) && !NON_CLIENTE.test(key)) {
+    return c?.email ?? null
   }
-  if (/^(telefono|tel|cellulare|cell|recapito_telefonico|numero_telefono)(_(cliente|assicurato|contraente))?$/.test(key)) {
-    return props.cliente?.telefono ?? null
+  if (/(telefono|^tel$|^tel_|_tel$|cellulare|^cell|recapito)/.test(key) && !NON_CLIENTE.test(key)) {
+    return c?.telefono ?? null
   }
-  if (/^(nome_e_cognome|nome_cognome|nominativo|nome_cliente|cliente|assicurato|contraente)$/.test(key)) {
-    return props.cliente?.nome ?? null
+  if (/^(nome_e_cognome|nome_cognome|cognome_e_nome|cognome_nome|nominativo|nome_cliente|cliente|assicurato|contraente|cedente|nome_cedente|il_sottoscritto|sottoscritto)$/.test(key)) {
+    return c?.nome ?? null
   }
-  if (/(residenza|indirizzo)/.test(key) && !/(sinistro|luogo|evento|perito|carrozz|controparte)/.test(key)) {
-    return firstMatching(props.clienteSchema, props.cliente?.custom_fields, /(residenza|indirizzo)/, /(sinistro|luogo|evento|domicilio)/)
+  if (/(codice_fiscale|^cf$|^cf_|_cf$)/.test(key) && !NON_CLIENTE.test(key)) {
+    return c?.codice_fiscale ?? null
+  }
+  if (/(partita_iva|p_iva|^piva)/.test(key) && !NON_CLIENTE.test(key)) {
+    return c?.partita_iva ?? null
+  }
+  if (/^cap(_|$)/.test(key) && !NON_CLIENTE.test(key)) {
+    return c?.cap ?? null
+  }
+  if (/(^citta|^comune_residenza|^comune$|_citta$|citta_residenza)/.test(key) && !NON_CLIENTE.test(key) && !/nascita/.test(key)) {
+    return c?.citta ?? null
+  }
+  if (/^(provincia|prov)(_|$)/.test(key) && !NON_CLIENTE.test(key)) {
+    return c?.provincia ?? null
+  }
+  if (/(residenza|indirizzo)/.test(key) && !NON_CLIENTE.test(key)) {
+    return c?.indirizzo
+      ?? firstMatching(props.clienteSchema, c?.custom_fields, /(residenza|indirizzo)/, /(sinistro|luogo|evento|domicilio)/)
   }
   if (/(descrizione|accaduto|dinamica)/.test(key)) {
     return firstMatching(props.customFieldsSchema, props.customFields, /(accaduto|dinamica|descrizione)/)
   }
-  if (/compagnia/.test(key)) {
+  if (/compagnia/.test(key) && !/controparte/.test(key)) {
     return props.compagnia ?? null
+  }
+
+  // Veicolo del sinistro (mai quello della controparte)
+  const v = props.veicolo
+  if (!/controparte/.test(key)) {
+    if (/targa/.test(key)) return v?.targa ?? null
+    if (/^marca/.test(key)) return v?.marca ?? null
+    if (/^modello/.test(key)) return v?.modello ?? null
+    if (/immatricolazione/.test(key)) return v?.data_immatricolazione?.slice(0, 10) ?? null
+  }
+
+  if (/data_apertura/.test(key)) return props.aperturaSinistro?.slice(0, 10) ?? null
+  if (/^data_(compilazione|firma|odierna)$/.test(key)) return oggiIso()
+  if (/data_(di_)?nascita/.test(key)) return nascitaDaCodiceFiscale(c?.codice_fiscale)
+  return null
+}
+
+function oggiIso(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Data di nascita dal codice fiscale di una persona (16 caratteri), anche con omocodia.
+function nascitaDaCodiceFiscale(cf: string | null | undefined): string | null {
+  const s = (cf ?? '').toUpperCase().trim()
+  if (!/^[A-Z]{6}[0-9LMNPQRSTUV]{2}[ABCDEHLMPRST][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]$/.test(s)) return null
+  const cifra = (ch: string) => (/\d/.test(ch) ? ch : String('LMNPQRSTUV'.indexOf(ch)))
+  const aa = Number(cifra(s[6]) + cifra(s[7]))
+  const mese = 'ABCDEHLMPRST'.indexOf(s[8]) + 1
+  let giorno = Number(cifra(s[9]) + cifra(s[10]))
+  if (giorno > 40) giorno -= 40
+  const annoCorrente = new Date().getFullYear() % 100
+  const anno = (aa > annoCorrente ? 1900 : 2000) + aa
+  if (giorno < 1 || giorno > 31) return null
+  return `${anno}-${String(mese).padStart(2, '0')}-${String(giorno).padStart(2, '0')}`
+}
+
+// Stesso dato con nomi diversi nei vari moduli (es. "descrizione_accaduto" nella denuncia,
+// "dinamica_sinistro" nella cessione): si scrive una volta e passa anche agli altri.
+const CONCETTI: [string, RegExp, RegExp?][] = [
+  ['descrizione', /(descrizione|accaduto|dinamica)/, /(veicolo|allegat)/],
+  ['data_sinistro', /data.*sinistro|sinistro.*data/, /apertura/],
+  ['ora_sinistro', /ora.*sinistro|sinistro.*ora/],
+  ['comune_sinistro', /(comune|luogo|citta).*sinistro/],
+  ['indirizzo_sinistro', /indirizzo.*sinistro|via.*sinistro/],
+  ['numero_sinistro', /(numero|n|num)_sinistro/],
+]
+function concetto(name: string): string | null {
+  const key = name.toLowerCase()
+  for (const [id, pattern, exclude] of CONCETTI) {
+    if (pattern.test(key) && !(exclude && exclude.test(key))) return id
   }
   return null
 }
@@ -373,15 +507,15 @@ function resolveHeuristicValue(name: string): unknown {
 function resolveAutoValue(name: string): unknown {
   const entry = dictionaryByKey.value.get(name)
 
-  if (!entry) return resolveHeuristicValue(name)
-  if (entry.source_type === 'manual' || !entry.source_field) return null
+  // Voce del dizionario senza collegamento: si prova comunque a riconoscerla dal nome.
+  if (!entry || entry.source_type === 'manual' || !entry.source_field) return resolveHeuristicValue(name)
 
   if (entry.source_type === 'cliente') {
     // `custom:<campo>` = campo personalizzato dell'anagrafica cliente (es. indirizzo di residenza)
     if (entry.source_field.startsWith('custom:')) {
       return clienteCustom(entry.source_field.slice('custom:'.length))
     }
-    return props.cliente?.[entry.source_field as 'nome' | 'telefono' | 'email'] ?? null
+    return props.cliente?.[entry.source_field as keyof Omit<ClienteInfo, 'custom_fields'>] ?? null
   }
   if (entry.source_type === 'pratica_field') {
     return props.customFields?.[entry.source_field] ?? null
@@ -394,15 +528,36 @@ function resolveAutoValue(name: string): unknown {
 // quanto l'utente ha effettivamente digitato altrove.
 function resolveSharedOrAutoValue(name: string): unknown {
   const shared = props.sharedModuleValues?.[name]
-  if (shared !== undefined && shared !== null && shared !== '') return shared
-  return resolveAutoValue(name)
+  if (isFilled(shared)) return shared
+
+  const auto = resolveAutoValue(name)
+  if (isFilled(auto)) return auto
+
+  // Stesso dato scritto in un altro modulo con un nome diverso.
+  const id = concetto(name)
+  if (id) {
+    for (const [other, value] of Object.entries(props.sharedModuleValues ?? {})) {
+      if (other !== name && isFilled(value) && concetto(other) === id) return value
+    }
+  }
+  return null
+}
+
+// Le caselle si riprendono solo da un modulo con la stessa casella, mai indovinate dal nome.
+function prefill(field: FieldSchema): unknown {
+  if (field.type === 'checkbox') return props.sharedModuleValues?.[field.name] ?? null
+  if (field.type === 'radio') {
+    const shared = props.sharedModuleValues?.[field.name]
+    return typeof shared === 'string' && field.options?.includes(shared) ? shared : null
+  }
+  return resolveSharedOrAutoValue(field.name)
 }
 
 // Campi effettivamente precompilati (da un altro modulo o da cliente/pratica).
 const autoFilledFields = computed(() => {
   const set = new Set<string>()
   for (const field of uniqueFields.value) {
-    const auto = resolveSharedOrAutoValue(field.name)
+    const auto = prefill(field)
     if (auto !== null && auto !== undefined && auto !== '') set.add(field.name)
   }
   return set
@@ -438,7 +593,7 @@ watch(selectedTemplateId, () => {
       newValues[field.name] = savedValue
       continue
     }
-    newValues[field.name] = resolveSharedOrAutoValue(field.name) ?? ''
+    newValues[field.name] = prefill(field) ?? ''
   }
   values.value = newValues
 })

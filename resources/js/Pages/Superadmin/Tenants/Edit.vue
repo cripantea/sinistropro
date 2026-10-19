@@ -973,6 +973,7 @@
                     <option value="date">Data</option>
                     <option value="number">Numero</option>
                     <option value="boolean">Sì / No</option>
+                    <option value="checkbox">Casella da spuntare</option>
                   </select>
                   <FieldError :message="dictForm.errors.type" />
                 </div>
@@ -991,9 +992,7 @@
                   <label class="field-label">Campo cliente *</label>
                   <select v-model="dictForm.source_field" class="field-input">
                     <option :value="null" disabled>— Scegli —</option>
-                    <option value="nome">Nome</option>
-                    <option value="telefono">Telefono</option>
-                    <option value="email">Email</option>
+                    <option v-for="(label, value) in CLIENTE_SOURCES" :key="value" :value="value">{{ label }}</option>
                     <option v-for="f in clienteCustomFields" :key="f.name" :value="`custom:${f.name}`">{{ f.label }}</option>
                   </select>
                   <FieldError :message="dictForm.errors.source_field" />
@@ -1106,7 +1105,19 @@
                       <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                       {{ extraction.loading ? 'Analisi PDF...' : extraction.done ? 'Rigenera Campi' : 'Genera Campi con IA' }}
                     </button>
+
+                    <button
+                      v-if="pdfFile && moduleForm.fields_schema.length > 0"
+                      type="button"
+                      @click="replacePdfOnly"
+                      :disabled="extraction.loading"
+                      title="Carica il nuovo PDF senza toccare i campi già posizionati"
+                      class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-indigo-300 text-indigo-700 bg-white hover:bg-indigo-50 transition disabled:opacity-50"
+                    >
+                      Sostituisci solo il PDF (tieni i campi)
+                    </button>
                   </div>
+                  <p v-if="replaceInfo" class="text-xs text-emerald-700 mt-2">{{ replaceInfo }}</p>
 
                   <!-- Feedback IA -->
                   <p v-if="extraction.done && !extraction.loading" class="text-xs text-emerald-600 mt-2 flex items-center gap-1">
@@ -1145,6 +1156,7 @@
                             <option value="date">Data</option>
                             <option value="number">Numero</option>
                             <option value="boolean">Sì/No</option>
+                            <option value="checkbox">Casella</option>
                           </select>
                         </div>
                         <div class="flex items-center gap-2 pl-6 flex-wrap">
@@ -1155,9 +1167,7 @@
                           </select>
                           <select v-if="s.source_type === 'cliente'" v-model="s.source_field" class="text-xs border border-slate-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-indigo-500 outline-none bg-white">
                             <option :value="null" disabled>— Campo —</option>
-                            <option value="nome">Nome</option>
-                            <option value="telefono">Telefono</option>
-                            <option value="email">Email</option>
+                            <option v-for="(label, value) in CLIENTE_SOURCES" :key="value" :value="value">{{ label }}</option>
                             <option v-for="f in clienteCustomFields" :key="f.name" :value="`custom:${f.name}`">{{ f.label }}</option>
                           </select>
                           <select v-if="s.source_type === 'pratica_field'" v-model="s.source_field" class="text-xs border border-slate-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-indigo-500 outline-none bg-white">
@@ -1241,6 +1251,8 @@
                           <option value="number">Numero</option>
                           <option value="boolean">Sì/No</option>
                           <option value="select">Selezione</option>
+                          <option value="checkbox">Casella da spuntare</option>
+                          <option value="radio">Scelta singola (una X tra più caselle)</option>
                         </select>
                         <label class="flex items-center gap-1 text-xs text-slate-600 whitespace-nowrap cursor-pointer select-none">
                           <input v-model="field.required" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
@@ -1739,11 +1751,24 @@ function deleteDictEntry(entry: DictEntry) {
   )
 }
 function typeLabel(type: string): string {
-  return { text: 'Testo', textarea: 'Paragrafo', date: 'Data', number: 'Numero', boolean: 'Sì / No' }[type] ?? type
+  return { text: 'Testo', textarea: 'Paragrafo', date: 'Data', number: 'Numero', boolean: 'Sì / No', checkbox: 'Casella', radio: 'Scelta singola' }[type] ?? type
 }
 // Campi personalizzati dell'anagrafica cliente (es. indirizzo di residenza): selezionabili
 // come sorgente di autocompilazione insieme a nome/telefono/email.
 const clienteCustomFields = computed(() => props.tenant.settings?.cliente_custom_fields_schema ?? [])
+
+// Dati fissi della scheda cliente (stesso elenco di FieldDictionaryEntry::CLIENTE_SOURCES).
+const CLIENTE_SOURCES: Record<string, string> = {
+  nome: 'Cognome e nome',
+  telefono: 'Telefono',
+  email: 'Email',
+  indirizzo: 'Indirizzo di residenza',
+  cap: 'CAP',
+  citta: 'Città',
+  provincia: 'Provincia',
+  codice_fiscale: 'Codice fiscale',
+  partita_iva: 'Partita IVA',
+}
 
 // Propone la sorgente di autocompilazione più plausibile dal nome del campo estratto
 // dal PDF (email/telefono/nome cliente, residenza, descrizione dell'accaduto).
@@ -1756,10 +1781,12 @@ function guessSource(name: string): { source_type: 'manual' | 'cliente' | 'prati
   if (/^(e_?mail|mail)(_(cliente|assicurato|contraente))?$/.test(key)) return { source_type: 'cliente', source_field: 'email' }
   if (/^(telefono|tel|cellulare|cell|recapito_telefonico|numero_telefono)(_(cliente|assicurato|contraente))?$/.test(key)) return { source_type: 'cliente', source_field: 'telefono' }
   if (/^(nome_e_cognome|nome_cognome|nominativo|nome_cliente|cliente|assicurato|contraente)$/.test(key)) return { source_type: 'cliente', source_field: 'nome' }
-  if (/(residenza|indirizzo)/.test(key) && !/(sinistro|luogo|evento|perito|carrozz|controparte)/.test(key)) {
-    const f = findIn(clienteCustomFields.value, /(residenza|indirizzo)/, /(sinistro|luogo|evento|domicilio)/)
-    if (f) return { source_type: 'cliente', source_field: `custom:${f.name}` }
-  }
+  const nonCliente = /(sinistro|luogo|evento|perito|carrozz|controparte|conducente|utilizzatore|lavoro|nascita)/
+  if (/(codice_fiscale|^cf$)/.test(key) && !nonCliente.test(key)) return { source_type: 'cliente', source_field: 'codice_fiscale' }
+  if (/^cap(_|$)/.test(key) && !nonCliente.test(key)) return { source_type: 'cliente', source_field: 'cap' }
+  if (/^(citta|comune)(_residenza)?$/.test(key)) return { source_type: 'cliente', source_field: 'citta' }
+  if (/^(provincia|prov)(_residenza)?$/.test(key)) return { source_type: 'cliente', source_field: 'provincia' }
+  if (/(residenza|indirizzo)/.test(key) && !nonCliente.test(key)) return { source_type: 'cliente', source_field: 'indirizzo' }
   if (/(descrizione|accaduto|dinamica)/.test(key)) {
     const f = findIn(props.tenant.settings?.custom_fields_schema ?? [], /(accaduto|dinamica|descrizione)/)
     if (f) return { source_type: 'pratica_field', source_field: f.name }
@@ -1769,9 +1796,8 @@ function guessSource(name: string): { source_type: 'manual' | 'cliente' | 'prati
 
 function sourceLabel(entry: DictEntry): string {
   if (entry.source_type === 'cliente') {
-    const names: Record<string, string> = { nome: 'Nome', telefono: 'Telefono', email: 'Email' }
     const custom = clienteCustomFields.value.find(f => `custom:${f.name}` === entry.source_field)
-    return `Cliente → ${names[entry.source_field ?? ''] ?? custom?.label ?? entry.source_field}`
+    return `Cliente → ${CLIENTE_SOURCES[entry.source_field ?? ''] ?? custom?.label ?? entry.source_field}`
   }
   if (entry.source_type === 'pratica_field') {
     const field = (props.tenant.settings?.custom_fields_schema ?? []).find(f => f.name === entry.source_field)
@@ -1842,6 +1868,7 @@ function openEditModule(tmpl: ModuleTemplate) {
 }
 function closeModuleModal() {
   moduleModalOpen.value = false
+  replaceInfo.value = null
   editingTemplate.value = null
   moduleForm.reset()
   moduleForm.fields_schema = []
@@ -1857,6 +1884,7 @@ function closeModuleModal() {
 function onPdfFileSelected(event: Event) {
   const input = event.target as HTMLInputElement
   pdfFile.value = input.files?.[0] ?? null
+  replaceInfo.value = null
   extraction.done = false
   extraction.error = null
   dictSuggestions.value = []
@@ -1883,7 +1911,7 @@ async function runExtraction() {
     // Suggerisci di aggiungere al dizionario i campi con un nome non ancora presente.
     const existingKeys = new Set(props.fieldDictionary.map(d => d.key))
     const seenNames     = new Set<string>()
-    const validTypes    = ['text', 'textarea', 'date', 'number', 'boolean']
+    const validTypes    = ['text', 'textarea', 'date', 'number', 'boolean', 'checkbox']
     dictSuggestions.value = []
     for (const f of resp.data.fields) {
       if (!f.name || existingKeys.has(f.name) || seenNames.has(f.name)) continue
@@ -1899,6 +1927,41 @@ async function runExtraction() {
   } catch (err: unknown) {
     const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
     extraction.error = msg ?? 'Errore durante l\'analisi del PDF.'
+  } finally {
+    extraction.loading = false
+  }
+}
+
+// Nuova versione della matrice con la stessa impaginazione: tiene i campi già posizionati
+// (senza analisi IA) e toglie solo quelli che stavano su pagine non più presenti.
+const replaceInfo = ref<string | null>(null)
+async function replacePdfOnly() {
+  if (!pdfFile.value) return
+  extraction.loading = true
+  extraction.error   = null
+  replaceInfo.value  = null
+
+  const data = new FormData()
+  data.append('pdf_file', pdfFile.value)
+  data.append('solo_pdf', '1')
+
+  try {
+    const resp = await http.post<{ s3_key: string; pages: number | null }>(
+      route('superadmin.tenants.module-templates.extract-fields', props.tenant.id),
+      data
+    )
+    moduleForm.pdf_template_s3_key = resp.data.s3_key
+    const pages = resp.data.pages
+    const before = moduleForm.fields_schema.length
+    if (pages) {
+      moduleForm.fields_schema = moduleForm.fields_schema.filter(f => (f.page ?? 1) <= pages)
+    }
+    const removed = before - moduleForm.fields_schema.length
+    replaceInfo.value = `PDF sostituito, campi tenuti${removed ? ` (tolti ${removed} campi che stavano su pagine non più presenti)` : ''}. Controlla le posizioni con l'Editor Coordinate e salva il template.`
+    pdfFile.value = null
+  } catch (err: unknown) {
+    const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+    extraction.error = msg ?? 'Errore durante il caricamento del PDF.'
   } finally {
     extraction.loading = false
   }

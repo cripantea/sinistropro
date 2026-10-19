@@ -75,6 +75,16 @@ class PdfFormFillerService
 
             $fieldsByPage = [];
             foreach ($schema as $field) {
+                // Scelta singola: la X va sulla casella dell'opzione scelta, che ha la sua posizione.
+                if (($field['type'] ?? '') === 'radio') {
+                    $scelta = $values[$field['name'] ?? ''] ?? null;
+                    $pos    = is_string($scelta) ? ($field['positions'][$scelta] ?? null) : null;
+                    if (! is_array($pos)) {
+                        continue;
+                    }
+                    $field = array_merge($field, array_intersect_key($pos, array_flip(['page', 'x', 'y', 'w'])));
+                }
+
                 $page = max(1, (int) ($field['page'] ?? 1));
                 $fieldsByPage[$page][] = $field;
             }
@@ -102,7 +112,8 @@ class PdfFormFillerService
 
                 foreach ($fields as $field) {
                     $fieldName = $field['name'] ?? '';
-                    $rawValue  = (string) ($values[$fieldName] ?? '');
+                    $fieldType = $field['type'] ?? 'text';
+                    $rawValue  = $this->formatValue($fieldType, $values[$fieldName] ?? null);
 
                     if ($rawValue === '') {
                         continue;
@@ -124,7 +135,12 @@ class PdfFormFillerService
 
                     $pdf->SetXY($mmX, $mmY);
 
-                    if (($field['type'] ?? 'text') === 'textarea') {
+                    if ($fieldType === 'checkbox' || $fieldType === 'radio') {
+                        // Casella spuntata: una X in grassetto centrata nel riquadro del campo.
+                        $pdf->SetFont('Helvetica', 'B', $fontSize + 2);
+                        $pdf->Cell($mmW, 5, 'X', 0, 0, 'C');
+                        $pdf->SetFont('Helvetica', '', $fontSize);
+                    } elseif ($fieldType === 'textarea') {
                         // A capo automatico su più righe, dentro la larghezza mmW.
                         // L'altezza (h) è solo indicativa per l'editor: MultiCell non
                         // tronca il testo, continua a scrivere oltre se necessario.
@@ -196,6 +212,58 @@ class PdfFormFillerService
             if ($inputTmp  && file_exists($inputTmp))  @unlink($inputTmp);
             if ($compatTmp && file_exists($compatTmp)) @unlink($compatTmp);
             if ($outputTmp && file_exists($outputTmp)) @unlink($outputTmp);
+        }
+    }
+
+    /**
+     * Testo da stampare per un valore: date sempre all'italiana (gg/mm/aaaa),
+     * Sì/No per i booleani, "X" per le caselle spuntate, stringa vuota se non c'è niente da scrivere.
+     */
+    public function formatValue(string $type, mixed $value): string
+    {
+        if ($value === null || $value === false) {
+            return '';
+        }
+
+        if ($type === 'radio') {
+            return trim((string) $value) !== '' ? 'X' : '';
+        }
+        if ($type === 'checkbox') {
+            return in_array($value, [true, 1, '1', 'true', 'on', 'si', 'sì', 'X', 'x'], true) ? 'X' : '';
+        }
+        if ($type === 'boolean') {
+            if (in_array($value, [true, 1, '1', 'true'], true)) return 'Sì';
+            if (in_array($value, [0, '0', 'false'], true)) return 'No';
+        }
+
+        $text = trim((string) $value);
+
+        // Data ISO (2026-07-24 o 2026-07-24T00:00:00...) → 24/07/2026, in qualunque tipo di campo.
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:[T ][\d:.]+Z?)?$/', $text, $m)) {
+            return "{$m[3]}/{$m[2]}/{$m[1]}";
+        }
+
+        return $text;
+    }
+
+    /**
+     * Numero di pagine di un PDF (null se non si riesce a leggerlo).
+     */
+    public function pageCount(string $pdfContent): ?int
+    {
+        $input  = tempnam(sys_get_temp_dir(), 'fpdi_count_');
+        $compat = null;
+
+        try {
+            file_put_contents($input, $pdfContent);
+            $compat = $this->toCompatPdf($input);
+
+            return (new Fpdi())->setSourceFile($compat ?? $input);
+        } catch (\Throwable) {
+            return null;
+        } finally {
+            @unlink($input);
+            if ($compat) @unlink($compat);
         }
     }
 
