@@ -1,15 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
-import Dropdown from '@/Components/Dropdown.vue'
-import DropdownLink from '@/Components/DropdownLink.vue'
 import ImpersonationBanner from '@/Components/ImpersonationBanner.vue'
 import TenantContextBanner from '@/Components/TenantContextBanner.vue'
 import SuperadminOverlay from '@/Components/SuperadminOverlay.vue'
-import FusionsoftBadge from '@/Components/FusionsoftBadge.vue'
 import type { PageProps, AppNotification } from '@/types'
 
 const collapsed = ref(localStorage.getItem('kd-sidebar-collapsed') === 'true')
+const userMenuOpen = ref(false)
 
 function toggleSidebar() {
   collapsed.value = !collapsed.value
@@ -80,7 +78,7 @@ function timeAgo(iso: string): string {
 }
 
 // close bell on Escape or outside click
-function onKeydown(e: KeyboardEvent) { if (e.key === 'Escape') bellOpen.value = false }
+function onKeydown(e: KeyboardEvent) { if (e.key === 'Escape') { bellOpen.value = false; userMenuOpen.value = false } }
 onMounted(()   => document.addEventListener('keydown', onKeydown))
 onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 </script>
@@ -97,12 +95,12 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 
       <!-- ────── SIDEBAR ────────────────────────────────────── -->
       <aside
-        class="flex flex-col bg-slate-900 text-slate-100 shrink-0 transition-all duration-300 ease-in-out overflow-hidden"
+        class="flex flex-col bg-gray-900 text-gray-100 shrink-0 transition-all duration-300 ease-in-out overflow-hidden"
         :class="collapsed ? 'w-16' : 'w-64'"
       >
         <!-- Brand -->
         <div
-          class="h-14 flex items-center border-b border-slate-700 shrink-0 overflow-hidden"
+          class="h-14 flex items-center border-b border-gray-800 shrink-0 overflow-hidden"
           :class="collapsed ? 'justify-center px-0' : 'px-5 gap-3'"
         >
           <div class="w-7 h-7 rounded-lg bg-indigo-500 flex items-center justify-center text-white font-bold text-xs shrink-0">
@@ -128,7 +126,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
               isOnDashboard
                 ? 'bg-indigo-600 text-white'
-                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
             ]"
             :title="collapsed ? 'Dashboard' : undefined"
           >
@@ -147,7 +145,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
               isOnPratiche
                 ? 'bg-indigo-600 text-white'
-                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
             ]"
             :title="collapsed ? 'Sinistri' : undefined"
           >
@@ -167,7 +165,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
               isOnClienti
                 ? 'bg-indigo-600 text-white'
-                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
             ]"
             :title="collapsed ? 'Clienti' : undefined"
           >
@@ -187,7 +185,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
               isOnListe
                 ? 'bg-indigo-600 text-white'
-                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
             ]"
             :title="collapsed ? 'Liste' : undefined"
           >
@@ -206,7 +204,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
               isOnKanban
                 ? 'bg-indigo-600 text-white'
-                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
             ]"
             :title="collapsed ? 'Board Kanban' : undefined"
           >
@@ -226,7 +224,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
               isOnWhatsapp
                 ? 'bg-indigo-600 text-white'
-                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
             ]"
             :title="collapsed ? 'WhatsApp' : undefined"
           >
@@ -246,7 +244,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
               isOnEmail
                 ? 'bg-indigo-600 text-white'
-                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
             ]"
             :title="collapsed ? 'Email' : undefined"
           >
@@ -266,7 +264,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
               isOnRubrica
                 ? 'bg-indigo-600 text-white'
-                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
             ]"
             :title="collapsed ? 'Rubrica' : undefined"
           >
@@ -286,7 +284,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5',
               isOnEmailLog
                 ? 'bg-indigo-600 text-white'
-                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
             ]"
             :title="collapsed ? 'Registro email' : undefined"
           >
@@ -300,7 +298,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
           <a
             v-if="isSuperadmin && hasTenantContext"
             :href="route('superadmin.dashboard')"
-            class="flex items-center rounded-lg text-sm font-medium transition-colors mt-2 border-t border-slate-700 pt-2"
+            class="flex items-center rounded-lg text-sm font-medium transition-colors mt-2 border-t border-gray-800 pt-2"
             :class="collapsed ? 'justify-center px-0 py-2.5 w-full' : 'gap-3 px-3 py-2.5'"
             :title="collapsed ? 'Pannello SA' : undefined"
           >
@@ -310,25 +308,55 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 
         </nav>
 
-        <!-- Marchio Fusionsoft -->
-        <div class="border-t border-slate-700 shrink-0 py-3" :class="collapsed ? 'flex justify-center' : 'px-5'">
-          <a
-            v-if="collapsed"
-            href="https://fusionsoft.it"
-            target="_blank"
-            rel="noopener"
-            title="Un prodotto Fusionsoft · Fusion Media di Luca Gabriele Pantea · P.IVA 13148540969"
+        <!-- Utente: in basso a sinistra, il menu si apre verso l'alto -->
+        <div class="relative border-t border-gray-800 shrink-0 p-2">
+          <div v-if="userMenuOpen" class="fixed inset-0 z-40" @click="userMenuOpen = false" />
+          <Transition
+            enter-active-class="transition ease-out duration-100"
+            enter-from-class="opacity-0 translate-y-1"
+            enter-to-class="opacity-100 translate-y-0"
+            leave-active-class="transition ease-in duration-75"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
           >
-            <img src="/images/fusionsoft-mark.png" alt="Fusionsoft" class="h-5 w-5 object-contain" />
-          </a>
-          <FusionsoftBadge v-else dark />
+            <div
+              v-if="userMenuOpen"
+              class="absolute bottom-full mb-1 z-50 w-56 bg-white rounded-xl shadow-xl ring-1 ring-black/5 py-1 text-sm"
+              :class="collapsed ? 'left-2' : 'left-2 right-2 w-auto'"
+            >
+              <div class="px-3 py-2 border-b border-gray-100">
+                <p class="font-semibold text-gray-800 truncate">{{ user.name }}</p>
+                <p class="text-xs text-gray-500 truncate">{{ user.email }}</p>
+              </div>
+              <Link :href="route('profile.edit')" class="block px-3 py-2 text-gray-700 hover:bg-gray-50">Profilo</Link>
+              <Link v-if="isTenantAdmin || hasTenantContext" :href="route('team.index')" class="block px-3 py-2 text-gray-700 hover:bg-gray-50">Team</Link>
+              <Link :href="route('logout')" method="post" as="button" class="block w-full text-left px-3 py-2 text-red-600 hover:bg-red-50">Esci</Link>
+            </div>
+          </Transition>
+
+          <button
+            type="button"
+            @click="userMenuOpen = !userMenuOpen"
+            class="w-full flex items-center rounded-lg py-2 hover:bg-gray-800 transition-colors"
+            :class="collapsed ? 'justify-center px-0' : 'gap-3 px-2'"
+            :title="collapsed ? user.name : undefined"
+          >
+            <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white shrink-0">
+              {{ initials }}
+            </div>
+            <div v-show="!collapsed" class="min-w-0 flex-1 text-left">
+              <p class="text-sm font-medium text-white truncate">{{ user.name }}</p>
+              <p class="text-[11px] text-gray-400 truncate">{{ user.email }}</p>
+            </div>
+            <svg v-show="!collapsed" class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/></svg>
+          </button>
         </div>
 
         <!-- Collapse toggle -->
-        <div class="border-t border-slate-700 flex justify-end px-3 py-3 shrink-0">
+        <div class="border-t border-gray-800 flex px-3 py-2 shrink-0" :class="collapsed ? 'justify-center' : 'justify-end'">
           <button
             @click="toggleSidebar"
-            class="w-7 h-7 rounded-full bg-emerald-500 hover:bg-emerald-400 flex items-center justify-center text-white transition-colors shrink-0"
+            class="w-7 h-7 rounded-full text-gray-400 hover:bg-gray-800 hover:text-white flex items-center justify-center transition-colors shrink-0"
             :title="collapsed ? 'Espandi' : 'Comprimi'"
           >
             <svg class="w-4 h-4 transition-transform" :class="collapsed ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -425,31 +453,6 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
                 </div>
               </div>
             </Transition>
-          </div>
-
-          <!-- User dropdown -->
-          <div class="shrink-0">
-            <Dropdown align="right" width="48">
-              <template #trigger>
-                <button
-                  type="button"
-                  class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-slate-600 hover:bg-slate-100 transition-colors"
-                >
-                  <div class="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold text-white">
-                    {{ initials }}
-                  </div>
-                  <span class="hidden sm:inline font-medium">{{ user.name }}</span>
-                  <svg class="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                  </svg>
-                </button>
-              </template>
-              <template #content>
-                <DropdownLink :href="route('profile.edit')">Profilo</DropdownLink>
-                <DropdownLink v-if="isTenantAdmin || hasTenantContext" :href="route('team.index')">Team</DropdownLink>
-                <DropdownLink :href="route('logout')" method="post" as="button">Esci</DropdownLink>
-              </template>
-            </Dropdown>
           </div>
 
         </header>

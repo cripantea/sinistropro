@@ -112,6 +112,7 @@ const FEATURE_LABELS: Record<string, string> = {
   kanban:               'Kanban',
   lista_personalizzate: 'Liste custom',
   import_clienti:       'Import',
+  veicoli:              'Veicoli',
 }
 
 const open = ref(false)

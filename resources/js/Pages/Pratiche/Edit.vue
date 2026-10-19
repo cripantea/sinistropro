@@ -5,7 +5,7 @@
         <h2 class="text-xl font-semibold text-gray-800 leading-tight">
           Modifica Sinistro <span class="font-mono text-indigo-600">#{{ pratica.id }}</span>
         </h2>
-        <Link :href="route('pratiche.show', pratica.id)" class="text-sm text-gray-500 hover:text-gray-700 transition">← Torna al sinistro</Link>
+        <TastoIndietro :href="route('pratiche.show', pratica.id)">Torna al sinistro</TastoIndietro>
       </div>
     </template>
 
@@ -128,6 +128,7 @@ import { computed, reactive, ref } from 'vue'
 import { Link, useForm, router } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import TastoIndietro from '@/Components/TastoIndietro.vue'
 import AutomationConfirmModal, { type AutomationPlan, type AutomationOverrides, type RubricaContatto } from '@/Components/AutomationConfirmModal.vue'
 
 interface FieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean' | 'select'; required?: boolean; options?: string[] }

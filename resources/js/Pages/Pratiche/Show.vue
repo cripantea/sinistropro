@@ -3,7 +3,7 @@
     <template #header>
       <div class="flex items-center justify-between gap-4">
         <div class="flex items-center gap-3 min-w-0">
-          <Link :href="route('pratiche.index')" class="text-sm text-gray-500 hover:text-gray-700 transition shrink-0">← Lista</Link>
+          <TastoIndietro :href="route('pratiche.index')">Sinistri</TastoIndietro>
           <h2 class="text-xl font-semibold text-gray-800 leading-tight truncate">
             Sinistro <span class="font-mono text-indigo-600">#{{ pratica.id }}</span>
           </h2>
@@ -11,12 +11,12 @@
         <div class="flex items-center gap-2 shrink-0">
           <Link
             :href="route('pratiche.edit', pratica.id)"
-            class="text-xs border border-gray-300 text-gray-600 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition"
+            class="inline-flex items-center h-10 px-4 rounded-lg border border-gray-300 bg-white text-[15px] font-semibold text-gray-800 hover:bg-gray-50 transition"
           >Modifica</Link>
           <a
             :href="route('pratiche.export-pdf', pratica.id)"
             target="_blank"
-            class="inline-flex items-center gap-1.5 bg-red-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-red-700 transition"
+            class="inline-flex items-center gap-2 h-10 px-4 bg-red-600 text-white text-[15px] font-semibold rounded-lg hover:bg-red-700 transition"
           >
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -49,6 +49,20 @@
           <span class="text-gray-400 text-xs uppercase tracking-wide">Compagnia</span>
           <p class="text-sm font-medium text-gray-800 mt-0.5">{{ pratica.compagnia }}</p>
         </div>
+        <div v-if="pratica.veicolo" class="ml-6">
+          <span class="text-gray-400 text-xs uppercase tracking-wide">Veicolo</span>
+          <p class="text-sm font-medium text-gray-800 mt-0.5">
+            <span class="font-mono font-semibold">{{ pratica.veicolo.targa ?? '—' }}</span>
+            <span class="text-gray-500 ml-1">{{ [pratica.veicolo.marca, pratica.veicolo.modello].filter(Boolean).join(" ") }}</span>
+          </p>
+        </div>
+        <div v-if="pratica.conducente_nome || pratica.conducente_telefono" class="ml-6">
+          <span class="text-gray-400 text-xs uppercase tracking-wide">Conducente</span>
+          <p class="text-sm font-medium text-gray-800 mt-0.5">
+            {{ pratica.conducente_nome ?? '—' }}
+            <a v-if="pratica.conducente_telefono" :href="`tel:${pratica.conducente_telefono}`" class="text-indigo-600 hover:underline ml-1">{{ pratica.conducente_telefono }}</a>
+          </p>
+        </div>
         <div v-if="pratica.cliente.telefono" class="ml-auto text-right">
           <span class="text-gray-400 text-xs uppercase tracking-wide">Telefono</span>
           <p class="text-sm font-medium text-gray-800 mt-0.5">{{ pratica.cliente.telefono }}</p>
@@ -58,10 +72,10 @@
           <p class="text-sm font-medium text-gray-800 mt-0.5">{{ pratica.cliente.email }}</p>
         </div>
         <Link
-          :href="route('clienti.edit', pratica.cliente.id)"
-          class="flex-shrink-0 ml-auto text-xs font-medium text-indigo-600 hover:underline"
+          :href="route('clienti.edit', { cliente: pratica.cliente.id, ritorno: $page.url })"
+          class="flex-shrink-0 ml-auto inline-flex items-center h-9 px-3.5 rounded-lg border border-gray-300 bg-white text-sm font-semibold text-gray-800 hover:bg-gray-50 transition"
           :class="{ 'ml-0': pratica.cliente.telefono || pratica.cliente.email }"
-        >Modifica</Link>
+        >Modifica cliente</Link>
       </div>
 
       <!-- Metadati essenziali -->
@@ -446,6 +460,7 @@ import { ref, computed, reactive } from 'vue'
 import { Link, useForm, router, usePage } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import TastoIndietro from '@/Components/TastoIndietro.vue'
 import ModuleFormModal from '@/Components/ModuleFormModal.vue'
 import AutomationConfirmModal, { type AutomationPlan } from '@/Components/AutomationConfirmModal.vue'
 import PraticaChatPanel from '@/Components/Whatsapp/PraticaChatPanel.vue'
@@ -501,8 +516,11 @@ interface Pratica {
   current_status: TenantStatus | null
   current_status_id: number | null
   compagnia: string | null
+  conducente_nome: string | null
+  conducente_telefono: string | null
   utente_creatore: { id: number; name: string; email: string } | null
   cliente: Cliente | null
+  veicolo: { id: number; targa: string | null; marca: string | null; modello: string | null; telaio: string | null } | null
   tenant: { id: number; settings: { custom_fields_schema: FieldSchema[]; cliente_custom_fields_schema?: FieldSchema[] } | null; statuses: TenantStatus[] }
   note: Nota[]
   allegati: Allegato[]

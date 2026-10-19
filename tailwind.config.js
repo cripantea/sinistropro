@@ -1,5 +1,6 @@
 import defaultTheme from 'tailwindcss/defaultTheme';
 import forms from '@tailwindcss/forms';
+import colors from 'tailwindcss/colors';
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -12,8 +13,15 @@ export default {
 
     theme: {
         extend: {
+            // Accento dell'app: blu sobrio. Le classi "indigo-*" usate nelle pagine puntano al blu,
+            // così il colore si cambia qui in un punto solo.
+            colors: {
+                indigo: colors.blue,
+            },
+            // Font comuni a tutti i prodotti Fusionsoft.
             fontFamily: {
-                sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+                sans: ['Geist', ...defaultTheme.fontFamily.sans],
+                mono: ['"Geist Mono"', ...defaultTheme.fontFamily.mono],
             },
         },
     },

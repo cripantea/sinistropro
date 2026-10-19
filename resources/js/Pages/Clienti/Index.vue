@@ -32,7 +32,7 @@
           <input
             v-model="search"
             type="text"
-            placeholder="Cerca per nome, telefono, email…"
+            placeholder="Cerca per nome, telefono, email, codice fiscale, targa…"
             class="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
             @input="onSearch"
           />
@@ -99,7 +99,7 @@
               <td class="px-5 py-3.5 text-right">
                 <div class="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Link
-                    :href="route('clienti.edit', cliente.id)"
+                    :href="route('clienti.edit', { cliente: cliente.id, ritorno: $page.url })"
                     class="text-xs text-indigo-600 hover:underline"
                     @click.stop
                   >Modifica</Link>

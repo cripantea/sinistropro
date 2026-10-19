@@ -3,135 +3,21 @@
     <template #header>
       <div class="flex items-center justify-between">
         <h2 class="text-xl font-semibold text-gray-800 leading-tight">Nuovo Sinistro</h2>
-        <Link :href="route('pratiche.index')" class="text-sm text-gray-500 hover:text-gray-700 transition">← Torna alla lista</Link>
+        <TastoIndietro :href="route('pratiche.index')">Torna ai sinistri</TastoIndietro>
       </div>
     </template>
 
-    <form @submit.prevent="submit" class="py-6 max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-
-      <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-5">
-        <div>
-          <label for="cliente_id" class="block text-sm font-medium text-gray-700 mb-1">
-            Cliente <span class="text-red-500">*</span>
-          </label>
-          <div class="flex items-center gap-2">
-            <button
-              type="button"
-              @click="showClienteModal = true"
-              title="Nuovo cliente"
-              class="shrink-0 inline-flex items-center justify-center rounded-lg bg-green-600 text-white px-3 py-2 hover:bg-green-700 transition"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-              </svg>
-            </button>
-            <div class="flex-1">
-              <SearchableSelect
-                id="cliente_id"
-                v-model="form.cliente_id"
-                :options="clienteOptions"
-                placeholder="Cerca cliente per nome..."
-              />
-            </div>
-          </div>
-          <p v-if="form.errors.cliente_id" class="text-xs text-red-600 mt-1">{{ form.errors.cliente_id }}</p>
-        </div>
-
-        <div v-if="compagnie.length > 0">
-          <label for="compagnia" class="block text-sm font-medium text-gray-700 mb-1">
-            Compagnia <span class="text-gray-400 font-normal">(opzionale)</span>
-          </label>
-          <select
-            id="compagnia"
-            v-model="form.compagnia"
-            class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-          >
-            <option :value="null">Seleziona compagnia…</option>
-            <option v-for="c in compagnie" :key="c" :value="c">{{ c }}</option>
-          </select>
-          <p v-if="form.errors.compagnia" class="text-xs text-red-600 mt-1">{{ form.errors.compagnia }}</p>
-        </div>
-
-        <div>
-          <label for="perito_contatto_id" class="block text-sm font-medium text-gray-700 mb-1">
-            Perito <span class="text-gray-400 font-normal">(opzionale)</span>
-          </label>
-          <select
-            id="perito_contatto_id"
-            v-model="form.perito_contatto_id"
-            class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-          >
-            <option :value="null">Nessun perito assegnato</option>
-            <option v-for="perito in periti" :key="perito.id" :value="perito.id">{{ perito.nome }}</option>
-          </select>
-          <p v-if="form.errors.perito_contatto_id" class="text-xs text-red-600 mt-1">{{ form.errors.perito_contatto_id }}</p>
-        </div>
-
-        <p class="text-xs text-gray-400">
-          Il sinistro verrà creato con lo stato iniziale del tenant. Potrai completare gli altri
-          dati subito dopo, nella pagina del sinistro.
-        </p>
-      </div>
-
-      <!-- Submit -->
-      <div class="flex items-center gap-4">
-        <button
-          type="submit"
-          :disabled="form.processing"
-          class="inline-flex items-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-6 py-2.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-60"
-        >
-          <svg v-if="form.processing" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-          </svg>
-          Crea Sinistro
-        </button>
-        <Link :href="route('pratiche.index')" class="text-sm text-gray-500 hover:underline">Annulla</Link>
-      </div>
-
-    </form>
-
-    <ClienteCreateModal
-      :show="showClienteModal"
-      @close="showClienteModal = false"
-      @created="onClienteCreated"
-    />
+    <div class="py-6 max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+      <NuovoSinistroForm :periti="periti" :compagnie="compagnie" :chiedi-veicolo="chiediVeicolo" @annulla="router.visit(route('pratiche.index'))" />
+    </div>
   </AuthenticatedLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { Link, useForm } from '@inertiajs/vue3'
+import { router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import SearchableSelect from '@/Components/SearchableSelect.vue'
-import ClienteCreateModal from '@/Components/ClienteCreateModal.vue'
+import TastoIndietro from '@/Components/TastoIndietro.vue'
+import NuovoSinistroForm from '@/Components/NuovoSinistroForm.vue'
 
-interface ClienteOption { id: number; nome: string; telefono?: string | null; email?: string | null }
-interface PeritoOption { id: number; nome: string }
-
-const props = defineProps<{ clienti: ClienteOption[]; periti: PeritoOption[]; compagnie: string[] }>()
-
-const clientiList = ref<ClienteOption[]>([...props.clienti])
-const showClienteModal = ref(false)
-
-const clienteOptions = computed(() =>
-  clientiList.value.map(c => ({ id: c.id, label: c.nome }))
-)
-
-const form = useForm({
-  cliente_id: null as number | null,
-  compagnia: null as string | null,
-  perito_contatto_id: null as number | null,
-})
-
-function onClienteCreated(cliente: ClienteOption) {
-  clientiList.value.push(cliente)
-  clientiList.value.sort((a, b) => a.nome.localeCompare(b.nome))
-  form.cliente_id = cliente.id
-  showClienteModal.value = false
-}
-
-function submit() {
-  form.post(route('pratiche.store'))
-}
+defineProps<{ periti: { id: number; nome: string }[]; compagnie: string[]; chiediVeicolo: boolean }>()
 </script>

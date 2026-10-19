@@ -21,7 +21,10 @@ class Pratica extends Model
         'tenant_id',
         'utente_creatore_id',
         'cliente_id',
+        'veicolo_id',
         'compagnia',
+        'conducente_nome',
+        'conducente_telefono',
         'current_status_id',
         'data_prossimo_avviso',
         'custom_fields',
@@ -56,6 +59,11 @@ class Pratica extends Model
     public function cliente(): BelongsTo
     {
         return $this->belongsTo(Cliente::class);
+    }
+
+    public function veicolo(): BelongsTo
+    {
+        return $this->belongsTo(Veicolo::class);
     }
 
     public function allegati(): HasMany

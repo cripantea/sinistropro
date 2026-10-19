@@ -123,11 +123,11 @@ class PraticaController extends Controller
 
         // Prossimo avviso più vicino in cima (le scadute prima di tutte); senza data in fondo.
         // L'ordine è globale, quindi vale per ogni colonna anche dopo lo spostamento di una scheda.
-        $pratiche = Pratica::with('cliente:id,nome')
+        $pratiche = Pratica::with(['cliente:id,nome', 'veicolo:id,targa,marca,modello'])
             ->orderByRaw('data_prossimo_avviso is null')
             ->orderBy('data_prossimo_avviso')
             ->orderBy('id')
-            ->get(['id', 'cliente_id', 'current_status_id', 'data_prossimo_avviso', 'created_at']);
+            ->get(['id', 'cliente_id', 'veicolo_id', 'compagnia', 'current_status_id', 'data_prossimo_avviso', 'created_at']);
 
         $periti = Contatto::tag(Contatto::TAG_PERITO)->where('is_active', true)->orderBy('nome')->get(['id', 'nome']);
 
@@ -135,6 +135,10 @@ class PraticaController extends Controller
             'statuses'      => $statuses,
             'pratiche'      => $pratiche,
             'periti'        => $periti,
+            // Per aprire un sinistro direttamente dalla Board.
+            'compagnie'     => $this->compagnie(),
+            'chiediVeicolo' => $tenant->hasFeature('veicoli'),
+            'nuovaPraticaId' => session('nuova_pratica_id'),
         ]);
     }
 
@@ -146,7 +150,8 @@ class PraticaController extends Controller
         abort_unless($tenant !== null, 403, 'Nessun tenant associato a questo account.');
 
         return Inertia::render('Pratiche/Create', [
-            'clienti' => $tenant->clienti()->orderBy('nome')->get(['id', 'nome']),
+            // I clienti si cercano mentre si digita (clienti.cerca): non si caricano più tutti nella pagina.
+            'chiediVeicolo' => $tenant->hasFeature('veicoli'),
             'periti'  => Contatto::tag(Contatto::TAG_PERITO)->where('is_active', true)->orderBy('nome')->get(['id', 'nome']),
             'compagnie' => $this->compagnie(),
         ]);
@@ -165,7 +170,10 @@ class PraticaController extends Controller
                 'tenant_id'            => $tenant->id,
                 'utente_creatore_id'   => $user->id,
                 'cliente_id'           => $request->integer('cliente_id'),
+                'veicolo_id'           => $request->filled('veicolo_id') ? $request->integer('veicolo_id') : null,
                 'compagnia'            => $request->input('compagnia') ?: null,
+                'conducente_nome'      => trim((string) $request->input('conducente_nome')) ?: null,
+                'conducente_telefono'  => trim((string) $request->input('conducente_telefono')) ?: null,
                 'current_status_id'    => $statoIniziale->id,
                 'data_prossimo_avviso' => now()->addDays($tenant->getDefaultNoticeDays())->toDateString(),
             ]);
@@ -180,6 +188,14 @@ class PraticaController extends Controller
             return $pratica;
         });
 
+        // Aperto dalla Board: si resta sulla Board e la nuova scheda viene evidenziata.
+        if ($request->input('da') === 'kanban') {
+            return redirect()
+                ->route('pratiche.kanban')
+                ->with('success', "Sinistro #{$pratica->id} aperto.")
+                ->with('nuova_pratica_id', $pratica->id);
+        }
+
         return redirect()
             ->route('pratiche.show', $pratica)
             ->with('success', "Sinistro #{$pratica->id} creato con successo.");
@@ -192,6 +208,7 @@ class PraticaController extends Controller
             'utenteCreatore:id,name,email',
             'currentStatus',
             'cliente:id,nome,telefono,email,custom_fields',
+            'veicolo:id,targa,marca,modello,telaio',
             'note.user:id,name',
             'allegati.category:id,name',
             'ispezioni.peritoContatto:id,nome,telefono,email',

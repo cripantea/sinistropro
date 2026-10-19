@@ -15,9 +15,16 @@ class Cliente extends Model
 
     protected $fillable = [
         'tenant_id',
+        'codice_esterno',
         'nome',
         'telefono',
         'email',
+        'codice_fiscale',
+        'partita_iva',
+        'indirizzo',
+        'cap',
+        'citta',
+        'provincia',
         'custom_fields',
     ];
 
@@ -38,5 +45,10 @@ class Cliente extends Model
     public function pratiche(): HasMany
     {
         return $this->hasMany(Pratica::class);
+    }
+
+    public function veicoli(): HasMany
+    {
+        return $this->hasMany(Veicolo::class);
     }
 }

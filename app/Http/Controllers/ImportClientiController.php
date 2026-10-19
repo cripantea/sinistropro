@@ -2,289 +2,231 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Cliente;
+use App\Jobs\ImportaClientiJob;
+use App\Models\Importazione;
+use App\Services\ImportClienti\ClientiImporter;
+use App\Services\ImportClienti\ImportFileReader;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * Zona di importazione clienti: si carica il file completo esportato dal gestionale
+ * e vengono aggiunti solo i clienti (e i veicoli) che non ci sono ancora.
+ *
+ * 1. carica  → il file viene letto una volta e salvato come righe JSON (bozza)
+ * 2. analizza → simulazione con la mappatura scelta: quanti nuovi, quanti già presenti
+ * 3. esegui  → l'import vero gira in coda; la pagina ne segue lo stato
+ */
 class ImportClientiController extends Controller
 {
-    private const ALLOWED_EXTENSIONS = ['csv', 'json', 'xml'];
-    private const MAX_FILE_MB        = 5;
-    private const PREVIEW_ROWS       = 5;
+    private const MAX_FILE_MB = 50;
+    private const PREVIEW_ROWS = 5;
 
     public function create(): Response
     {
-        $schema = TenantContext::tenant()?->getClienteCustomFieldsSchema() ?? [];
+        $schema = $this->schema();
 
         return Inertia::render('Clienti/Import', [
-            'schema' => $schema,
+            'targets' => ClientiImporter::targets($schema),
+            'formats' => ImportFileReader::EXTENSIONS,
+            'maxMb'   => self::MAX_FILE_MB,
+            'storico' => Importazione::with('user:id,name')
+                ->where('stato', '!=', 'bozza')
+                ->latest()->limit(10)
+                ->get(['id', 'user_id', 'file_name', 'stato', 'riepilogo', 'errore', 'created_at', 'completata_at']),
         ]);
     }
 
-    /** Step 1: parse uploaded file, return headers + preview rows + temp file id. */
-    public function preview(Request $request): JsonResponse
+    /** Step 1: legge il file e propone la mappatura delle colonne. */
+    public function preview(Request $request, ImportFileReader $reader): JsonResponse
     {
-        $request->validate([
-            'file'   => ['required', 'file', 'max:' . (self::MAX_FILE_MB * 1024)],
-            'format' => ['required', 'in:csv,json,xml'],
+        $this->valida($request, [
+            'file' => ['required', 'file', 'max:' . (self::MAX_FILE_MB * 1024)],
+        ], [
+            'file.required' => 'Nessun file ricevuto: potrebbe superare il limite di caricamento del server.',
+            'file.max'      => 'Il file supera i ' . self::MAX_FILE_MB . ' MB.',
         ]);
 
-        $file      = $request->file('file');
-        $format    = $request->input('format');
+        $file = $request->file('file');
         $extension = strtolower($file->getClientOriginalExtension());
-
-        if (! in_array($extension, self::ALLOWED_EXTENSIONS, true)) {
-            return response()->json(['error' => 'Formato file non supportato.'], 422);
+        if (! in_array($extension, ImportFileReader::EXTENSIONS, true)) {
+            return response()->json(['error' => 'Formato non supportato. Usa Excel (.xls, .xlsx), CSV, JSON o XML.'], 422);
         }
 
-        $tempId   = (string) Str::uuid();
-        $tempPath = "tmp/import-clienti/{$tempId}.{$extension}";
+        if (! TenantContext::id()) {
+            return response()->json(['error' => 'Seleziona prima un tenant.'], 422);
+        }
 
-        Storage::disk('local')->put($tempPath, file_get_contents($file->getRealPath()));
+        $this->pulisciBozzeVecchie();
+
+        // Un Excel da 10.000 righe occupa più dei 128 MB di default mentre viene letto.
+        ini_set('memory_limit', '512M');
 
         try {
-            $rows = $this->parseFile(Storage::disk('local')->path($tempPath), $format);
+            $table = $reader->read($file->getRealPath(), $extension);
         } catch (\Throwable $e) {
-            Storage::disk('local')->delete($tempPath);
+            report($e);
             return response()->json(['error' => 'Impossibile leggere il file: ' . $e->getMessage()], 422);
         }
 
-        if (empty($rows)) {
-            Storage::disk('local')->delete($tempPath);
+        if ($table['rows'] === []) {
             return response()->json(['error' => 'Il file è vuoto o non contiene righe valide.'], 422);
         }
 
-        $headers = array_keys($rows[0]);
-        $preview = array_slice($rows, 0, self::PREVIEW_ROWS);
-        $total   = count($rows);
+        $importazione = Importazione::create([
+            'tenant_id' => TenantContext::id(),
+            'user_id'   => auth()->id(),
+            'file_name' => mb_substr($file->getClientOriginalName(), 0, 255),
+            'file_id'   => (string) Str::uuid(),
+            'stato'     => 'bozza',
+        ]);
+        Storage::disk('local')->put($importazione->rowsPath(), json_encode($table['rows'], JSON_UNESCAPED_UNICODE));
+
+        $saved = TenantContext::tenant()?->getSetting('import_clienti.mapping', []) ?? [];
 
         return response()->json([
-            'file_id' => $tempId,
-            'format'  => $format,
-            'headers' => $headers,
-            'preview' => $preview,
-            'total'   => $total,
+            'importazione_id' => $importazione->id,
+            'headers'         => $table['headers'],
+            'preview'         => array_slice($table['rows'], 0, self::PREVIEW_ROWS),
+            'total'           => count($table['rows']),
+            'mapping'         => ClientiImporter::suggestMapping($table['headers'], $this->schema(), $saved),
         ]);
     }
 
-    /** Step 2: import with column mapping. */
-    public function execute(Request $request): JsonResponse
+    /** Step 2: simulazione, nessuna scrittura. */
+    public function analizza(Request $request, Importazione $importazione, ClientiImporter $importer): JsonResponse
     {
-        $request->validate([
-            'file_id' => ['required', 'string', 'uuid'],
-            'format'  => ['required', 'in:csv,json,xml'],
-            'mapping' => ['required', 'array'],
-        ]);
+        $data = $this->validaMappatura($request);
 
-        $tempPath = "tmp/import-clienti/{$request->file_id}.{$request->format}";
-
-        if (! Storage::disk('local')->exists($tempPath)) {
-            return response()->json(['error' => 'File temporaneo non trovato. Ricarica il file.'], 422);
+        if ($importazione->stato !== 'bozza') {
+            return response()->json(['error' => 'Questa importazione è già stata avviata.'], 422);
+        }
+        $rows = $this->rows($importazione);
+        if ($rows === null) {
+            return response()->json(['error' => 'File non più disponibile. Ricaricalo.'], 422);
         }
 
-        try {
-            $rows = $this->parseFile(Storage::disk('local')->path($tempPath), $request->input('format'));
-        } catch (\Throwable $e) {
-            return response()->json(['error' => 'Errore nella lettura del file: ' . $e->getMessage()], 422);
+        ini_set('memory_limit', '512M');
+        $result = $importer->process(TenantContext::id(), $this->schema(), $rows, $data['mapping'], $data['opzioni'], dryRun: true);
+
+        $importazione->update(['mapping' => $data['mapping'], 'opzioni' => $data['opzioni']]);
+
+        return response()->json($result);
+    }
+
+    /** Step 3: avvia l'import in coda. */
+    public function esegui(Request $request, Importazione $importazione): JsonResponse
+    {
+        $data = $this->validaMappatura($request);
+
+        if (! Storage::disk('local')->exists($importazione->rowsPath())) {
+            return response()->json(['error' => 'File non più disponibile. Ricaricalo.'], 422);
         }
 
-        $mapping = $request->input('mapping'); // ['Col A' => 'nome', 'Col B' => 'telefono', ...]
-
-        $tenantId    = TenantContext::id();
-        $created     = 0;
-        $updated     = 0;
-        $skipped     = 0;
-        $errors      = [];
-
-        foreach ($rows as $i => $row) {
-            $rowNum = $i + 2;
-
-            try {
-                $data         = $this->mapRow($row, $mapping);
-                $customFields = $data['custom_fields'] ?? [];
-                unset($data['custom_fields']);
-
-                if (empty($data['nome'])) {
-                    $skipped++;
-                    continue;
-                }
-
-                // Upsert by telefono if present, otherwise always create
-                $existing = null;
-                if (! empty($data['telefono'])) {
-                    $existing = Cliente::acrossAllTenants()
-                        ->where('tenant_id', $tenantId)
-                        ->where('telefono', $data['telefono'])
-                        ->first();
-                }
-
-                if ($existing) {
-                    $existing->update(array_merge($data, [
-                        'custom_fields' => array_merge($existing->custom_fields ?? [], $customFields),
-                    ]));
-                    $updated++;
-                } else {
-                    Cliente::create(array_merge($data, [
-                        'tenant_id'     => $tenantId,
-                        'custom_fields' => $customFields ?: null,
-                    ]));
-                    $created++;
-                }
-            } catch (\Throwable $e) {
-                $errors[] = "Riga {$rowNum}: " . $e->getMessage();
+        // Un import alla volta per tenant, e la stessa bozza non parte due volte.
+        $avviata = DB::transaction(function () use ($importazione, $data): bool {
+            $inCorso = Importazione::whereIn('stato', ['in_coda', 'in_corso'])->lockForUpdate()->exists();
+            if ($inCorso) {
+                return false;
             }
+            return Importazione::whereKey($importazione->id)->where('stato', 'bozza')->update([
+                'stato'   => 'in_coda',
+                'mapping' => json_encode($data['mapping']),
+                'opzioni' => json_encode($data['opzioni']),
+            ]) === 1;
+        });
+
+        if (! $avviata) {
+            return response()->json(['error' => 'C\'è già un\'importazione in corso. Attendi che finisca.'], 422);
         }
 
-        Storage::disk('local')->delete($tempPath);
+        // La prossima volta lo stesso file del gestionale si mappa da solo.
+        $tenant = TenantContext::tenant();
+        $settings = $tenant->settings ?? [];
+        data_set($settings, 'import_clienti.mapping', array_filter($data['mapping']));
+        $tenant->update(['settings' => $settings]);
 
-        return response()->json([
-            'created' => $created,
-            'updated' => $updated,
-            'skipped' => $skipped,
-            'errors'  => $errors,
-        ]);
+        ImportaClientiJob::dispatch($importazione->id);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Stato dell'import, per seguirne l'avanzamento. */
+    public function stato(Importazione $importazione): JsonResponse
+    {
+        return response()->json($importazione->only(['id', 'stato', 'riepilogo', 'avvisi', 'errore', 'completata_at']));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    private function parseFile(string $path, string $format): array
+    private function schema(): array
     {
-        return match ($format) {
-            'csv'  => $this->parseCsv($path),
-            'json' => $this->parseJson($path),
-            'xml'  => $this->parseXml($path),
-            default => throw new \InvalidArgumentException("Formato {$format} non supportato."),
-        };
+        return TenantContext::tenant()?->getClienteCustomFieldsSchema() ?? [];
     }
 
-    private function parseCsv(string $path): array
+    /** @return array{mapping: array<string, string>, opzioni: array{aggiorna_esistenti: bool, abbinamenti: array<int, string>}} */
+    private function validaMappatura(Request $request): array
     {
-        $rows    = [];
-        $headers = null;
+        $targets = array_column(ClientiImporter::targets($this->schema()), 'value');
 
-        $handle = fopen($path, 'r');
-        if (! $handle) throw new \RuntimeException('Impossibile aprire il file CSV.');
+        $this->valida($request, [
+            'mapping'            => ['required', 'array'],
+            'mapping.*'          => ['nullable', 'string', Rule::in($targets)],
+            'aggiorna_esistenti' => ['boolean'],
+            'abbinamenti'        => ['nullable', 'array'],
+            'abbinamenti.*'      => ['nullable', 'string', 'max:50'],
+        ], [
+            'mapping.*.in' => 'Campo di destinazione non valido.',
+        ]);
 
-        // Detect BOM (UTF-8)
-        $bom = fread($handle, 3);
-        if ($bom !== "\xEF\xBB\xBF") rewind($handle);
-
-        while (($line = fgetcsv($handle, 0, ',')) !== false) {
-            if ($headers === null) {
-                $headers = array_map('trim', $line);
-                continue;
-            }
-            if (count($line) !== count($headers)) continue;
-            $rows[] = array_combine($headers, array_map('trim', $line));
+        $mapping = array_map(fn ($v) => (string) $v, $request->input('mapping'));
+        if (! in_array('nome', $mapping, true)) {
+            abort(response()->json(['error' => 'Indica quale colonna contiene il nome del cliente.'], 422));
         }
 
-        fclose($handle);
-        return $rows;
+        return [
+            'mapping' => $mapping,
+            'opzioni' => [
+                'aggiorna_esistenti' => $request->boolean('aggiorna_esistenti', true),
+                // id cliente già presente → codice del file ('' = non abbinare): le correzioni fatte a mano nella verifica
+                'abbinamenti'        => collect($request->input('abbinamenti', []))
+                    ->filter(fn ($v, $k) => ctype_digit((string) $k))
+                    ->map(fn ($v) => trim((string) $v))->all(),
+            ],
+        ];
     }
 
-    private function parseJson(string $path): array
+    /** La pagina parla in JSON: gli errori di validazione tornano come {error}, non come redirect. */
+    private function valida(Request $request, array $rules, array $messages = []): void
     {
-        $content = file_get_contents($path);
-        $data    = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
-
-        // Accept top-level array OR { "data": [...] }
-        if (isset($data['data']) && is_array($data['data'])) {
-            $data = $data['data'];
+        $validator = Validator::make($request->all(), $rules, $messages);
+        if ($validator->fails()) {
+            abort(response()->json(['error' => $validator->errors()->first()], 422));
         }
-
-        if (! is_array($data) || empty($data)) {
-            throw new \RuntimeException('Il JSON deve essere un array di oggetti.');
-        }
-
-        // Normalize: all rows get the same keys
-        $allKeys = [];
-        foreach ($data as $row) {
-            if (is_array($row)) $allKeys = array_unique(array_merge($allKeys, array_keys($row)));
-        }
-
-        return array_map(function ($row) use ($allKeys) {
-            $out = [];
-            foreach ($allKeys as $k) {
-                $out[$k] = isset($row[$k]) ? (string) $row[$k] : '';
-            }
-            return $out;
-        }, array_filter($data, 'is_array'));
     }
 
-    private function parseXml(string $path): array
+    private function rows(Importazione $importazione): ?array
     {
-        libxml_use_internal_errors(true);
-        $xml = simplexml_load_file($path);
+        $json = Storage::disk('local')->get($importazione->rowsPath());
 
-        if ($xml === false) {
-            $errors = implode(', ', array_map(fn ($e) => $e->message, libxml_get_errors()));
-            throw new \RuntimeException("XML non valido: {$errors}");
-        }
-
-        $rows = [];
-
-        // Support <root><item>...</item></root> OR flat <root><nome>...</nome></root>
-        $children = $xml->children();
-
-        if ($children->count() === 0) {
-            return [];
-        }
-
-        // If first child has children, treat as list of records
-        $firstChild = $children[0];
-        if ($firstChild->children()->count() > 0) {
-            foreach ($children as $child) {
-                $row = [];
-                foreach ($child->children() as $key => $value) {
-                    $row[(string) $key] = (string) $value;
-                }
-                if (! empty($row)) $rows[] = $row;
-            }
-        } else {
-            // Single record at root level
-            $row = [];
-            foreach ($xml->children() as $key => $value) {
-                $row[(string) $key] = (string) $value;
-            }
-            if (! empty($row)) $rows[] = $row;
-        }
-
-        return $rows;
+        return $json === null ? null : json_decode($json, true);
     }
 
-    /**
-     * Maps a source row to Cliente fields using the user-provided mapping.
-     * Mapping: ['SourceCol' => 'nome' | 'telefono' | 'email' | 'custom_fields.field_name']
-     */
-    private function mapRow(array $row, array $mapping): array
+    /** Bozze abbandonate da più di un giorno: via il file con i dati personali e il record. */
+    private function pulisciBozzeVecchie(): void
     {
-        $result       = [];
-        $customFields = [];
-
-        foreach ($mapping as $sourceCol => $dest) {
-            if (empty($dest) || ! isset($row[$sourceCol])) continue;
-
-            $value = trim((string) $row[$sourceCol]);
-
-            if (str_starts_with($dest, 'custom_fields.')) {
-                $fieldName = substr($dest, strlen('custom_fields.'));
-                if ($value !== '') {
-                    $customFields[$fieldName] = $value;
-                }
-            } else {
-                $result[$dest] = $value !== '' ? $value : null;
-            }
-        }
-
-        if (! empty($customFields)) {
-            $result['custom_fields'] = $customFields;
-        }
-
-        return $result;
+        Importazione::where('stato', 'bozza')->where('created_at', '<', now()->subDay())->get()
+            ->each(function (Importazione $imp): void {
+                Storage::disk('local')->delete($imp->rowsPath());
+                $imp->delete();
+            });
     }
 }

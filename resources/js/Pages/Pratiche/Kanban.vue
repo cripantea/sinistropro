@@ -6,19 +6,21 @@
         <div class="flex items-center gap-3 shrink-0 ml-4">
           <Link
             :href="route('pratiche.index')"
-            class="text-sm text-gray-500 hover:text-gray-700 transition hidden sm:block"
+            class="hidden sm:inline-flex items-center gap-2 h-10 px-4 rounded-lg border border-gray-300 bg-white text-[15px] font-semibold text-gray-800 shadow-sm hover:bg-gray-50 transition"
           >
-            ← Vista tabella
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            Vista tabella
           </Link>
-          <Link
-            :href="route('pratiche.create')"
-            class="inline-flex items-center gap-1.5 bg-indigo-600 text-white text-sm font-medium px-3.5 py-2 rounded-lg hover:bg-indigo-700 transition"
+          <button
+            type="button"
+            @click="pannelloAperto = true"
+            class="inline-flex items-center gap-2 h-10 px-4 bg-indigo-600 text-white text-[15px] font-semibold rounded-lg hover:bg-indigo-700 transition"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
-            <span class="hidden sm:inline">Nuovo Sinistro</span>
-          </Link>
+            <span class="hidden sm:inline">Apri sinistro</span>
+          </button>
         </div>
       </div>
     </template>
@@ -28,8 +30,9 @@
       <div class="flex gap-3.5 h-full" :style="{ minWidth: `${columns.length * 296}px` }">
 
         <div
-          v-for="col in columns"
+          v-for="(col, colIndex) in columns"
           :key="col.id"
+          :id="`colonna-${col.id}`"
           class="flex flex-col w-72 shrink-0 rounded-xl overflow-hidden transition-all"
           :class="dragOverColumn === col.id ? 'ring-2 ring-indigo-400 ring-offset-1' : ''"
           @dragover.prevent="onDragOver(col.id)"
@@ -65,47 +68,93 @@
             class="flex-1 p-2 space-y-2 overflow-y-auto bg-slate-100"
             :class="dragOverColumn === col.id && col.pratiche.length === 0 ? 'bg-indigo-50' : ''"
           >
-            <!-- Pratica card -->
+            <!-- Apri un sinistro direttamente qui (prima colonna = stato iniziale) -->
+            <button
+              v-if="colIndex === 0"
+              type="button"
+              @click="pannelloAperto = true"
+              class="w-full flex items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-slate-300 py-2.5 text-sm font-medium text-slate-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-white transition"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Apri sinistro
+            </button>
+
+            <!-- Pratica card: clic = apri, frecce = sposta -->
             <div
               v-for="pratica in col.pratiche"
               :key="pratica.id"
+              :id="`scheda-${pratica.id}`"
               draggable="true"
               @dragstart="onDragStart($event, pratica.id, col.id)"
               @dragend="onDragEnd"
-              class="bg-white rounded-lg border border-gray-200 p-4 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-gray-300 transition-all select-none"
-              :class="{ 'opacity-40 shadow-lg scale-[0.98]': draggingId === pratica.id }"
+              @click="openPratica(pratica.id)"
+              @keydown.enter="openPratica(pratica.id)"
+              @keydown.left.prevent="neighbour(col.id, -1) && moveTo(pratica.id, neighbour(col.id, -1)!.id)"
+              @keydown.right.prevent="neighbour(col.id, 1) && moveTo(pratica.id, neighbour(col.id, 1)!.id)"
+              tabindex="0"
+              role="link"
+              :aria-label="`Apri il sinistro #${pratica.id}. Frecce sinistra e destra per cambiare stato.`"
+              class="group bg-white rounded-lg border p-3.5 cursor-pointer hover:shadow-md hover:border-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 transition-all select-none"
+              :class="[
+                draggingId === pratica.id ? 'opacity-40 shadow-lg scale-[0.98]' : '',
+                evidenziata === pratica.id ? 'border-indigo-500 ring-2 ring-indigo-300 shadow-md' : 'border-gray-200',
+              ]"
             >
-              <!-- Row: ID + open link -->
-              <div class="flex items-center justify-between mb-2.5">
-                <span class="text-sm font-mono font-semibold text-gray-600">#{{ pratica.id }}</span>
-                <Link
-                  :href="route('pratiche.show', pratica.id)"
-                  @click.stop
-                  class="cursor-pointer text-gray-500 hover:text-indigo-600 transition-colors"
-                  title="Apri fascicolo"
-                >
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                  </svg>
-                </Link>
+              <!-- Riga: numero, compagnia, data di apertura -->
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="text-xs font-mono font-semibold text-gray-500">#{{ pratica.id }}</span>
+                <span v-if="pratica.compagnia" class="text-[11px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded truncate">{{ pratica.compagnia }}</span>
+                <span class="ml-auto text-[11px] text-gray-400 tabular-nums shrink-0">aperto {{ formatDate(pratica.created_at) }}</span>
               </div>
 
-              <!-- Cliente -->
-              <p class="text-lg font-bold text-gray-900 truncate">
-                {{ pratica.cliente?.nome ?? '—' }}
-              </p>
-
-              <!-- Data apertura -->
-              <p class="text-xs text-gray-500 mt-1.5 tabular-nums">
-                Aperta il {{ formatDate(pratica.created_at) }}
+              <!-- Cliente e veicolo -->
+              <p class="text-base font-bold text-gray-900 truncate group-hover:text-indigo-700 transition-colors">{{ pratica.cliente?.nome ?? '—' }}</p>
+              <p v-if="pratica.veicolo" class="text-xs text-gray-600 mt-0.5 truncate">
+                <span class="font-mono font-semibold text-gray-800">{{ pratica.veicolo.targa }}</span>
+                {{ [pratica.veicolo.marca, pratica.veicolo.modello].filter(Boolean).join(' ') }}
               </p>
 
               <!-- Prossimo avviso: semaforo verde/giallo/rosso in base ai giorni rimanenti -->
-              <div v-if="pratica.data_prossimo_avviso" class="flex items-center gap-1.5 mt-2">
-                <span class="w-2 h-2 rounded-full shrink-0" :class="avvisoColor(pratica.data_prossimo_avviso).dot"/>
-                <span class="text-xs font-semibold tabular-nums" :class="avvisoColor(pratica.data_prossimo_avviso).text">
-                  Prossimo avviso: {{ formatDate(pratica.data_prossimo_avviso) }}
-                </span>
+              <div class="flex items-center gap-1.5 mt-2.5">
+                <template v-if="pratica.data_prossimo_avviso">
+                  <span class="w-2 h-2 rounded-full shrink-0" :class="avvisoColor(pratica.data_prossimo_avviso).dot"/>
+                  <span class="text-xs text-gray-500">Prossimo avviso</span>
+                  <span class="text-xs font-semibold tabular-nums" :class="avvisoColor(pratica.data_prossimo_avviso).text">{{ formatDate(pratica.data_prossimo_avviso) }}</span>
+                </template>
+                <span v-else class="text-xs text-gray-400">Nessun avviso in programma</span>
+              </div>
+
+              <!-- Azioni: indietro · apri · step successivo -->
+              <div class="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100" @click.stop>
+                <button
+                  v-if="columns.length > 1"
+                  type="button"
+                  :disabled="!neighbour(col.id, -1)"
+                  @click="moveTo(pratica.id, neighbour(col.id, -1)!.id)"
+                  :title="neighbour(col.id, -1) ? `Torna a «${neighbour(col.id, -1)!.name}»` : 'È già nel primo step'"
+                  :aria-label="neighbour(col.id, -1) ? `Torna a ${neighbour(col.id, -1)!.name}` : 'È già nel primo step'"
+                  class="w-9 h-9 shrink-0 inline-flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 hover:text-indigo-600 hover:border-indigo-200 disabled:opacity-30 disabled:pointer-events-none transition"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+
+                <button
+                  type="button"
+                  @click="openPratica(pratica.id)"
+                  class="flex-1 h-9 inline-flex items-center justify-center rounded-lg border border-gray-300 text-sm font-semibold text-gray-800 hover:bg-gray-50 hover:border-indigo-300 hover:text-indigo-700 transition"
+                >Apri</button>
+
+                <button
+                  v-if="columns.length > 1"
+                  type="button"
+                  :disabled="!neighbour(col.id, 1)"
+                  @click="moveTo(pratica.id, neighbour(col.id, 1)!.id)"
+                  :title="neighbour(col.id, 1) ? `Passa a «${neighbour(col.id, 1)!.name}»` : 'È già nell\'ultimo step'"
+                  class="flex-[1.8] h-9 inline-flex items-center justify-center gap-1 px-2.5 rounded-lg text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:pointer-events-none transition whitespace-nowrap"
+                >
+                  {{ neighbour(col.id, 1) ? 'Step successivo' : 'Ultimo step' }}
+                  <svg v-if="neighbour(col.id, 1)" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                </button>
               </div>
             </div>
 
@@ -126,6 +175,24 @@
         </div>
       </div>
     </div>
+
+    <!-- Pannello laterale: aprire un sinistro senza lasciare la Board -->
+    <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0" leave-active-class="transition duration-150" leave-to-class="opacity-0">
+      <div v-if="pannelloAperto" class="fixed inset-0 z-40 bg-black/30" @click="pannelloAperto = false" />
+    </Transition>
+    <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="translate-x-full" leave-active-class="transition duration-150 ease-in" leave-to-class="translate-x-full">
+      <aside v-if="pannelloAperto" class="fixed inset-y-0 right-0 z-50 w-full max-w-xl bg-slate-50 shadow-2xl flex flex-col">
+        <div class="h-14 shrink-0 flex items-center justify-between px-5 bg-white border-b border-slate-200">
+          <h3 class="text-base font-semibold text-gray-800">Apri sinistro</h3>
+          <button type="button" @click="pannelloAperto = false" class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100" title="Chiudi">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-5">
+          <NuovoSinistroForm :periti="periti" :compagnie="compagnie" :chiedi-veicolo="chiediVeicolo" da="kanban" @annulla="pannelloAperto = false" />
+        </div>
+      </aside>
+    </Transition>
 
     <!-- Toast -->
     <Transition
@@ -307,10 +374,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, watch } from 'vue'
-import { Link } from '@inertiajs/vue3'
+import { ref, computed, reactive, watch, onMounted, nextTick } from 'vue'
+import { Link, router, usePage } from '@inertiajs/vue3'
+import NuovoSinistroForm from '@/Components/NuovoSinistroForm.vue'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import TastoIndietro from '@/Components/TastoIndietro.vue'
 import AutomationConfirmModal, { type AutomationPlan, type AutomationOverrides, type RubricaContatto } from '@/Components/AutomationConfirmModal.vue'
 
 interface TenantStatus {
@@ -323,6 +392,8 @@ interface TenantStatus {
 interface PraticaKanban {
   id: number
   cliente: { id: number; nome: string } | null
+  veicolo: { id: number; targa: string | null; marca: string | null; modello: string | null } | null
+  compagnia: string | null
   current_status_id: number | null
   data_prossimo_avviso: string | null
   created_at: string
@@ -334,7 +405,31 @@ const props = defineProps<{
   statuses: TenantStatus[]
   pratiche: PraticaKanban[]
   periti: Perito[]
+  compagnie: string[]
+  chiediVeicolo: boolean
+  nuovaPraticaId: number | null
 }>()
+
+const pannelloAperto = ref(false)
+// Scheda illuminata per un momento: appena aperta o appena spostata, così si vede dove è finita.
+const evidenziata = ref<number | null>(null)
+let evidenziaTimer: ReturnType<typeof setTimeout> | null = null
+
+async function evidenzia(praticaId: number) {
+  evidenziata.value = praticaId
+  await nextTick()
+  document.getElementById(`scheda-${praticaId}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  if (evidenziaTimer) clearTimeout(evidenziaTimer)
+  evidenziaTimer = setTimeout(() => { evidenziata.value = null }, 2500)
+}
+
+onMounted(() => {
+  const flash = (usePage().props as any).flash?.success
+  if (props.nuovaPraticaId) {
+    evidenzia(props.nuovaPraticaId)
+    if (flash) showToast(flash, 'success')
+  }
+})
 
 // Local mutable copy for optimistic UI updates
 const localPratiche = ref<PraticaKanban[]>(props.pratiche.map(p => ({ ...p })))
@@ -444,9 +539,25 @@ async function onDrop(toStatusId: number) {
   draggingFromCol.value = null
 
   if (praticaId === null || fromColId === toStatusId) return
+  await moveTo(praticaId, toStatusId)
+}
 
+// Click sulla scheda = apri il fascicolo (il trascinamento non genera click)
+function openPratica(praticaId: number) {
+  if (draggingId.value !== null) return
+  router.visit(route('pratiche.show', praticaId))
+}
+
+/** Stato adiacente nell'ordine delle colonne: -1 precedente, +1 successivo. */
+function neighbour(colId: number, step: -1 | 1) {
+  const i = columns.value.findIndex(c => c.id === colId)
+  return columns.value[i + step] ?? null
+}
+
+/** Sposta una pratica in un altro stato (stesso flusso del drag & drop: perito, automazioni, conferme). */
+async function moveTo(praticaId: number, toStatusId: number) {
   const pratica = localPratiche.value.find(p => p.id === praticaId)
-  if (!pratica) return
+  if (!pratica || pratica.current_status_id === toStatusId) return
 
   const targetStatus = props.statuses.find(s => s.id === toStatusId)
 
@@ -491,7 +602,8 @@ async function commitStatusChange(praticaId: number, toStatusId: number, previou
       skip_confirmable_automations: skip,
       automation_overrides: overrides,
     })
-    showToast('Stato aggiornato.', 'success')
+    showToast(`Spostato in «${props.statuses.find(s => s.id === toStatusId)?.name ?? ''}».`, 'success')
+    evidenzia(praticaId)
   } catch {
     const pratica = localPratiche.value.find(p => p.id === praticaId)
     if (pratica) pratica.current_status_id = previousStatusId
@@ -581,6 +693,7 @@ async function submitAssign(skip: boolean, overrides?: AutomationOverrides) {
     })
     assignModal.open = false
     showToast('Incarico assegnato e stato aggiornato.', 'success')
+    evidenzia(assignModal.praticaId)
   } catch {
     cancelAssign()
     showToast('Errore: impossibile salvare l\'assegnazione.', 'error')
