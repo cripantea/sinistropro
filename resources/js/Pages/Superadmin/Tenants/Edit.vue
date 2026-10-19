@@ -178,7 +178,6 @@
               <div
                 class="w-10 h-6 rounded-full border-2 transition-colors cursor-pointer peer-focus:ring-2 peer-focus:ring-indigo-500"
                 :class="form.features[feat.key] ? 'bg-indigo-600 border-indigo-600' : 'bg-slate-200 border-slate-300'"
-                @click="form.features[feat.key] = !form.features[feat.key]"
               >
                 <div
                   class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"

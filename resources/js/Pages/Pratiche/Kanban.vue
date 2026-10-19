@@ -68,17 +68,6 @@
             class="flex-1 p-2 space-y-2 overflow-y-auto bg-slate-100"
             :class="dragOverColumn === col.id && col.pratiche.length === 0 ? 'bg-indigo-50' : ''"
           >
-            <!-- Apri un sinistro direttamente qui (prima colonna = stato iniziale) -->
-            <button
-              v-if="colIndex === 0"
-              type="button"
-              @click="pannelloAperto = true"
-              class="w-full flex items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-slate-300 py-2.5 text-sm font-medium text-slate-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-white transition"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-              Apri sinistro
-            </button>
-
             <!-- Pratica card: clic = apri, frecce = sposta -->
             <div
               v-for="pratica in col.pratiche"
