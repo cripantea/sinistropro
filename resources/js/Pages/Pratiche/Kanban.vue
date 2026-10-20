@@ -280,11 +280,24 @@
                   Data appuntamento
                   <span class="text-gray-400 font-normal">(opzionale)</span>
                 </label>
-                <input
-                  v-model="assignForm.data_appuntamento"
-                  type="datetime-local"
-                  class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none"
-                />
+                <!-- Data gg/mm/aaaa e ora 24h, sempre all'italiana (non dipende dalla lingua del browser) -->
+                <div class="flex gap-2">
+                  <DataItaliana
+                    v-model="appuntamentoData"
+                    class="flex-1"
+                    input-class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none"
+                  />
+                  <input
+                    :value="appuntamentoOra"
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="hh:mm"
+                    maxlength="5"
+                    :disabled="!appuntamentoData"
+                    class="w-24 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none disabled:bg-gray-50"
+                    @input="onOraInput"
+                  />
+                </div>
               </div>
 
               <!-- Automazioni "richiede conferma" collegate a questo cambio -->
@@ -369,6 +382,7 @@ import NuovoSinistroForm from '@/Components/NuovoSinistroForm.vue'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import TastoIndietro from '@/Components/TastoIndietro.vue'
+import DataItaliana from '@/Components/DataItaliana.vue'
 import AutomationConfirmModal, { type AutomationPlan, type AutomationOverrides, type RubricaContatto } from '@/Components/AutomationConfirmModal.vue'
 
 interface TenantStatus {
@@ -563,6 +577,8 @@ async function moveTo(praticaId: number, toStatusId: number) {
     assignModal.columnName  = targetStatus.name
     assignForm.perito_contatto_id = null
     assignForm.data_appuntamento   = ''
+    appuntamentoData.value = ''
+    appuntamentoOra.value  = ''
     assignAutomations.value = await previewAutomations(praticaId, toStatusId, undefined, { perito_contatto_id: null })
     return
   }
@@ -628,6 +644,21 @@ function cancelAssign() {
   }
   assignModal.open = false
 }
+
+// Data appuntamento: giorno (gg/mm/aaaa) + ora facoltativa (hh:mm, 24h) → "AAAA-MM-GGThh:mm" come prima.
+const appuntamentoData = ref('')
+const appuntamentoOra  = ref('')
+function onOraInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  let v = el.value.replace(/[^\d]/g, '').slice(0, 4)
+  if (v.length > 2) v = `${v.slice(0, 2)}:${v.slice(2)}`
+  el.value = v
+  appuntamentoOra.value = v
+}
+watch([appuntamentoData, appuntamentoOra], ([data, ora]) => {
+  const oraValida = /^([01]\d|2[0-3]):[0-5]\d$/.test(ora)
+  assignForm.data_appuntamento = data ? (oraValida ? `${data}T${ora}` : data) : ''
+})
 
 // Ricalcola le automazioni in attesa quando l'utente inserisce/modifica la data appuntamento
 watch(() => assignForm.data_appuntamento, async (value) => {

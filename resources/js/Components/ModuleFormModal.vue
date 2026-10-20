@@ -515,17 +515,17 @@ function resolveAutoValue(field: FieldSchema): unknown {
     return isFilled(delSinistro) ? delSinistro : resolveHeuristicValue(name)
   }
 
+  let collegato: unknown = null
   if (entry.source_type === 'cliente') {
     // `custom:<campo>` = campo personalizzato dell'anagrafica cliente (es. indirizzo di residenza)
-    if (entry.source_field.startsWith('custom:')) {
-      return clienteCustom(entry.source_field.slice('custom:'.length))
-    }
-    return props.cliente?.[entry.source_field as keyof Omit<ClienteInfo, 'custom_fields'>] ?? null
+    collegato = entry.source_field.startsWith('custom:')
+      ? clienteCustom(entry.source_field.slice('custom:'.length))
+      : props.cliente?.[entry.source_field as keyof Omit<ClienteInfo, 'custom_fields'>] ?? null
+  } else if (entry.source_type === 'pratica_field') {
+    collegato = props.customFields?.[entry.source_field] ?? null
   }
-  if (entry.source_type === 'pratica_field') {
-    return props.customFields?.[entry.source_field] ?? null
-  }
-  return null
+  // Campo collegato ma vuoto (es. targa non scritta nel sinistro): si prova con il veicolo, la data di oggi…
+  return isFilled(collegato) ? collegato : resolveHeuristicValue(name)
 }
 
 // Testo confrontabile: minuscolo, senza accenti, punteggiatura e articoli/preposizioni.

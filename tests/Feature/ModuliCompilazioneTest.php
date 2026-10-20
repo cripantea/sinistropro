@@ -132,3 +132,19 @@ test('la tipologia è una scelta singola: un solo campo, la X va solo sulla case
     expect(substr_count(implode('', $pagine), '(X)'))->toBe(1)
         ->and(testoPdf($pdf))->not->toContain('(Altro)');
 });
+
+test('nei messaggi automatici e nel fascicolo le date dei campi sono all\'italiana', function () {
+    expect(App\Support\Formato::valore('2026-10-12'))->toBe('12/10/2026')
+        ->and(App\Support\Formato::valore('2026-10-12T15:30'))->toBe('12/10/2026 15:30')
+        ->and(App\Support\Formato::valore('2026-10-12 00:00:00'))->toBe('12/10/2026')
+        ->and(App\Support\Formato::valore('2026-02-30'))->toBe('2026-02-30') // non è una data vera: resta com'è
+        ->and(App\Support\Formato::valore('GT066RR'))->toBe('GT066RR')
+        ->and(App\Support\Formato::valore(true))->toBe('Sì');
+
+    $cliente = Cliente::create(['tenant_id' => $this->tenant->id, 'nome' => 'ROSSI MARIO']);
+    $pratica = Pratica::create(['tenant_id' => $this->tenant->id, 'cliente_id' => $cliente->id, 'utente_creatore_id' => $this->user->id,
+        'custom_fields' => ['data_sinistro' => '2026-10-12', 'targa_veicolo' => 'GT066RR']]);
+    $testo = app(App\Services\AutomationPlanner::class)
+        ->compilePratica('Sinistro del {campi_custom.data_sinistro}, auto {campi_custom.targa_veicolo}', $pratica, 'Mario');
+    expect($testo)->toBe('Sinistro del 12/10/2026, auto GT066RR');
+});

@@ -296,7 +296,7 @@
                 @elseif(is_bool($valore))
                   {{ $valore ? 'Sì' : 'No' }}
                 @else
-                  {{ $valore !== null && $valore !== '' ? $valore : '—' }}
+                  {{ $valore !== null && $valore !== '' ? \App\Support\Formato::valore($valore) : '—' }}
                 @endif
               </td>
             </tr>

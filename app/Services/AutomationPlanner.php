@@ -123,7 +123,7 @@ class AutomationPlanner
         ];
 
         foreach ($pratica->custom_fields ?? [] as $key => $value) {
-            $replacements["{campi_custom.{$key}}"] = is_scalar($value) ? (string) $value : '';
+            $replacements["{campi_custom.{$key}}"] = \App\Support\Formato::valore($value);
         }
 
         return str_replace(array_keys($replacements), array_values($replacements), $template);
@@ -220,7 +220,7 @@ class AutomationPlanner
             '{campo_data}'    => $data,
         ];
         foreach ($cliente->custom_fields ?? [] as $key => $value) {
-            $replacements["{cliente.{$key}}"] = is_scalar($value) ? (string) $value : '';
+            $replacements["{cliente.{$key}}"] = \App\Support\Formato::valore($value);
         }
 
         return str_replace(array_keys($replacements), array_values($replacements), $template);

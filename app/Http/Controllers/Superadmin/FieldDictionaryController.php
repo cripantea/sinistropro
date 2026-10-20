@@ -34,7 +34,7 @@ class FieldDictionaryController extends Controller
                 Rule::unique('field_dictionary_entries', 'key')->where('tenant_id', $tenant->id),
             ],
             'fields.*.label' => ['required', 'string', 'max:255'],
-            'fields.*.type' => ['required', Rule::in(['text', 'textarea', 'date', 'number', 'boolean', 'checkbox'])],
+            'fields.*.type' => ['required', Rule::in(['text', 'textarea', 'date', 'number', 'boolean', 'checkbox', 'radio'])],
             'fields.*.source_type' => ['required', Rule::in(['manual', 'cliente', 'pratica_field'])],
             'fields.*.source_field' => [
                 'nullable',
@@ -137,7 +137,7 @@ class FieldDictionaryController extends Controller
                     ->ignore($ignoring?->id),
             ],
             'label' => ['required', 'string', 'max:255'],
-            'type' => ['required', Rule::in(['text', 'textarea', 'date', 'number', 'boolean', 'checkbox'])],
+            'type' => ['required', Rule::in(['text', 'textarea', 'date', 'number', 'boolean', 'checkbox', 'radio'])],
             'source_type' => ['required', Rule::in(['manual', 'cliente', 'pratica_field'])],
             'source_field' => [
                 'nullable',

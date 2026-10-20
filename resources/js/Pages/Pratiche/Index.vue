@@ -67,10 +67,15 @@
             <option value="">Tutti</option>
             <option v-for="opt in selectedFieldSchema.options" :key="opt" :value="opt">{{ opt }}</option>
           </select>
+          <DataItaliana
+            v-else-if="selectedFieldSchema.type === 'date'"
+            v-model="filterValue"
+            input-class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+          />
           <input
             v-else
             v-model="filterValue"
-            :type="selectedFieldSchema.type === 'date' ? 'date' : selectedFieldSchema.type === 'number' ? 'number' : 'text'"
+            :type="selectedFieldSchema.type === 'number' ? 'number' : 'text'"
             :placeholder="`Filtra ${selectedFieldSchema.label}…`"
             class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
           />
@@ -203,6 +208,7 @@ import { computed, ref, watch } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import SortIcon from '@/Components/SortIcon.vue'
+import DataItaliana from '@/Components/DataItaliana.vue'
 
 interface Status { id: number; name: string; color: string }
 interface CustomFieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean' | 'select'; options?: string[] }

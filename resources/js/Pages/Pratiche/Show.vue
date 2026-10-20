@@ -130,6 +130,7 @@
                   {{ customFields[field.name] ? 'Sì' : 'No' }}
                 </span>
               </template>
+              <template v-else-if="field.type === 'date' && customFields[field.name]">{{ formatDate(String(customFields[field.name])) }}</template>
               <template v-else>{{ customFields[field.name] ?? '—' }}</template>
             </p>
           </div>
