@@ -37,7 +37,7 @@ class InstallaModuli extends Command
 
     /** Campi che vengono dall'anagrafica cliente. */
     private const DAL_CLIENTE = [
-        'nome_cognome' => 'nome', 'indirizzo_residenza' => 'indirizzo', 'cap' => 'cap', 'citta' => 'citta',
+        'cognome_nome' => 'nome', 'nome_cognome' => 'nome', 'indirizzo_residenza' => 'indirizzo', 'cap' => 'cap', 'citta' => 'citta',
         'provincia' => 'provincia', 'telefono' => 'telefono', 'email' => 'email', 'codice_fiscale' => 'codice_fiscale',
     ];
 

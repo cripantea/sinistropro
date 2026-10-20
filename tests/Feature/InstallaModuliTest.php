@@ -21,12 +21,12 @@ beforeEach(function () {
     mkdir($this->dir);
     $campo = fn ($name, $label, $type = 'text', $page = 1) => compact('name', 'label', 'type', 'page') + ['required' => false, 'x' => 10, 'y' => 10, 'w' => 30];
     $schemi = [
-        'MODULO_DENUNCIA_SINISTRO_MALACRIDA' => [$campo('nome_cognome', 'Cognome e nome'), $campo('telefono', 'Telefono'), $campo('numero_sinistro', 'Numero sinistro'),
+        'MODULO_DENUNCIA_SINISTRO_MALACRIDA' => [$campo('cognome_nome', 'Cognome e nome'), $campo('telefono', 'Telefono'), $campo('numero_sinistro', 'Numero sinistro'),
             $campo('data_prima_immatricolazione', 'Data prima immatricolazione', 'date'),
             $campo('tipologia_sinistro', 'Tipologia di sinistro', 'radio') + ['options' => ['Kasko'], 'positions' => ['Kasko' => ['page' => 2, 'x' => 8, 'y' => 60, 'w' => 2]]]],
-        'DICHIARAZIONE_SCOPERTI_ASSICURATIVI_MALACRIDA' => [$campo('nome_cognome', 'Cognome e nome'), $campo('garanzia_copertura', 'Garanzia / Copertura')],
-        'MODULO_CESSIONE_CREDITO_MALACRIDA' => [$campo('nome_cognome', 'Cognome e nome'), $campo('data_compilazione', 'Data compilazione', 'date', 2)],
-        'GIUSTIFICATIVO_NOLEGGIO_MALACRIDA' => [$campo('nome_cognome', 'Cognome e nome'), $campo('motivo_lavoro', 'Lavoro', 'checkbox')],
+        'DICHIARAZIONE_SCOPERTI_ASSICURATIVI_MALACRIDA' => [$campo('cognome_nome', 'Cognome e nome'), $campo('garanzia_copertura', 'Garanzia / Copertura')],
+        'MODULO_CESSIONE_CREDITO_MALACRIDA' => [$campo('cognome_nome', 'Cognome e nome'), $campo('data_compilazione', 'Data compilazione', 'date', 2)],
+        'GIUSTIFICATIVO_NOLEGGIO_MALACRIDA' => [$campo('cognome_nome', 'Cognome e nome'), $campo('motivo_lavoro', 'Lavoro', 'checkbox')],
     ];
     foreach ($schemi as $base => $schema) {
         $pdf = new Fpdi('P', 'mm', 'A4');
@@ -58,13 +58,13 @@ test('carica i 4 PDF sui modelli giusti, con i campi, il dizionario e il backup'
 
     $denuncia = ModuleTemplate::where('name', 'Modulo denuncia sinistro')->first();
     expect($denuncia->pdf_template_s3_key)->not->toBe('vecchio.pdf')
-        ->and(array_column($denuncia->fields_schema, 'name'))->toBe(['nome_cognome', 'telefono', 'numero_sinistro', 'data_prima_immatricolazione', 'tipologia_sinistro'])
+        ->and(array_column($denuncia->fields_schema, 'name'))->toBe(['cognome_nome', 'telefono', 'numero_sinistro', 'data_prima_immatricolazione', 'tipologia_sinistro'])
         ->and($denuncia->fields_schema[4]['positions']['Kasko']['page'])->toBe(2);
     Storage::disk('s3')->assertExists($denuncia->pdf_template_s3_key);
-    expect(array_column(ModuleTemplate::where('name', 'Modulo stato necessità auto')->first()->fields_schema, 'name'))->toBe(['nome_cognome', 'motivo_lavoro']);
+    expect(array_column(ModuleTemplate::where('name', 'Modulo stato necessità auto')->first()->fields_schema, 'name'))->toBe(['cognome_nome', 'motivo_lavoro']);
 
     $diz = FieldDictionaryEntry::get()->keyBy('key');
-    expect($diz['nome_cognome']->only(['source_type', 'source_field']))->toBe(['source_type' => 'cliente', 'source_field' => 'nome'])
+    expect($diz['cognome_nome']->only(['source_type', 'source_field']))->toBe(['source_type' => 'cliente', 'source_field' => 'nome'])
         ->and($diz['telefono']->only(['source_type', 'source_field']))->toBe(['source_type' => 'cliente', 'source_field' => 'telefono']) // voce esistente aggiornata
         ->and($diz['numero_sinistro']->only(['source_type', 'source_field']))->toBe(['source_type' => 'pratica_field', 'source_field' => 'numero_sinistro_compagnia'])
         ->and($diz['data_prima_immatricolazione']->source_field)->toBe('data_prima_immatricolazioe') // stessa etichetta, nome con refuso
