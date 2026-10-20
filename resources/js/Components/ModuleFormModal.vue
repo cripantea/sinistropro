@@ -459,9 +459,13 @@ function resolveHeuristicValue(name: string): unknown {
   }
 
   if (/data_apertura/.test(key)) return props.aperturaSinistro?.slice(0, 10) ?? null
-  if (/^data_(compilazione|firma|odierna)$/.test(key)) return oggiIso()
+  if (eDataDiOggi(key)) return oggiIso()
   if (/data_(di_)?nascita/.test(key)) return nascitaDaCodiceFiscale(c?.codice_fiscale)
   return null
+}
+
+function eDataDiOggi(name: string): boolean {
+  return /^data_(compilazione|firma|odierna)$/.test(name.toLowerCase())
 }
 
 function oggiIso(): string {
@@ -571,6 +575,7 @@ function resolveSharedOrAutoValue(field: FieldSchema): unknown {
 
 // Le caselle si riprendono solo da un modulo con la stessa casella, mai indovinate dal nome.
 function prefill(field: FieldSchema): unknown {
+  if (eDataDiOggi(field.name)) return oggiIso()
   if (field.type === 'checkbox') return props.sharedModuleValues?.[field.name] ?? null
   if (field.type === 'radio') {
     // Solo un valore che è davvero una delle opzioni: un campo del sinistro con lo stesso
@@ -618,6 +623,12 @@ watch(selectedTemplateId, () => {
 
   const newValues: Record<string, unknown> = {}
   for (const field of uniqueFields.value) {
+    // La data di compilazione è sempre quella di oggi (modificabile), mai quella di una bozza
+    // vecchia o di un altro modulo compilato giorni fa.
+    if (eDataDiOggi(field.name)) {
+      newValues[field.name] = oggiIso()
+      continue
+    }
     const savedValue = existing[field.name]
     if (savedValue !== undefined && savedValue !== '') {
       newValues[field.name] = savedValue
