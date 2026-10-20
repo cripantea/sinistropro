@@ -26,19 +26,34 @@
     </template>
 
     <!-- Rassicurazione: spostare un sinistro non invia mai niente senza conferma -->
-    <div class="mx-5 mt-4 flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
-      <svg class="w-5 h-5 shrink-0 text-indigo-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-      <p>
-        <strong>«Step successivo» non manda mai niente da solo.</strong>
-        Se il nuovo stato fa partire email o WhatsApp, prima vedi <strong>a chi e cosa</strong> viene inviato
-        e puoi togliere destinatari o bloccare l'invio.
+    <div class="mx-5 mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
+      <div class="flex items-center gap-2 font-semibold">
+        <svg class="w-5 h-5 shrink-0 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+        Tranquillo: spostando un sinistro non parte nessuna email o WhatsApp senza il tuo consenso.
+      </div>
+      <ol class="mt-2 grid gap-2 sm:grid-cols-3">
+        <li class="flex gap-2 rounded-lg bg-white/70 px-3 py-2">
+          <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white">1</span>
+          <span>Premi <strong>«Step successivo»</strong> o trascini la scheda in un'altra colonna.</span>
+        </li>
+        <li class="flex gap-2 rounded-lg bg-white/70 px-3 py-2">
+          <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white">2</span>
+          <span>Se il nuovo stato prevede invii, ti mostriamo <strong>cosa partirebbe, a chi e con quale testo</strong>.</span>
+        </li>
+        <li class="flex gap-2 rounded-lg bg-white/70 px-3 py-2">
+          <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white">3</span>
+          <span>Decidi tu: <strong>confermi</strong>, togli destinatari, <strong>sposti senza inviare</strong> o annulli.</span>
+        </li>
+      </ol>
+      <p class="mt-2 text-xs text-emerald-800">
+        Se lo stato non prevede invii il sinistro si sposta e basta. Se il controllo non riesce, il sinistro resta dov'è.
       </p>
     </div>
 
     <!-- Board -->
-    <div class="overflow-x-auto overflow-y-hidden p-5" style="height: calc(100vh - 112px - 76px)">
+    <div class="overflow-x-auto overflow-y-hidden p-5" style="height: calc(100vh - 112px - 150px)">
       <div class="flex gap-3.5 h-full" :style="{ minWidth: `${columns.length * 296}px` }">
 
         <div
