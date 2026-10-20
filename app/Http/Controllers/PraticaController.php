@@ -349,11 +349,15 @@ class PraticaController extends Controller
         // Legacy: notifica email diretta tramite flag send_email_notification sullo stato
         if ($newStatusId) {
             $stato = TenantStatus::find($newStatusId);
-            if ($stato && $stato->send_email_notification) {
+            // Come le automazioni: non parte se nella conferma sono state bloccate o se questa
+            // voce è stata esclusa; se sono stati cambiati i destinatari, va a quelli.
+            $ovStato = $overrides[AutomationPlanner::EMAIL_STATO] ?? null;
+            if ($stato && $stato->send_email_notification && ! $skip && ($ovStato['send'] ?? true)) {
                 $fields = $pratica->custom_fields ?? [];
                 $pratica->loadMissing('cliente');
-                $emailCliente = $pratica->cliente?->email
-                    ?? $fields['email'] ?? $fields['email_cliente'] ?? $fields['email_contatto'] ?? null;
+                $emailCliente = $ovStato
+                    ? (collect($ovStato['recipients'])->pluck('email')->filter()->first())
+                    : ($pratica->cliente?->email ?? $fields['email'] ?? $fields['email_cliente'] ?? $fields['email_contatto'] ?? null);
                 if ($emailCliente && filter_var($emailCliente, FILTER_VALIDATE_EMAIL)) {
                     $pratica->load('tenant');
                     try {

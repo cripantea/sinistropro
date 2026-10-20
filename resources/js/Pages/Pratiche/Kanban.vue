@@ -25,8 +25,20 @@
       </div>
     </template>
 
+    <!-- Rassicurazione: spostare un sinistro non invia mai niente senza conferma -->
+    <div class="mx-5 mt-4 flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+      <svg class="w-5 h-5 shrink-0 text-indigo-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <p>
+        <strong>«Step successivo» non manda mai niente da solo.</strong>
+        Se il nuovo stato fa partire email o WhatsApp, prima vedi <strong>a chi e cosa</strong> viene inviato
+        e puoi togliere destinatari o bloccare l'invio.
+      </p>
+    </div>
+
     <!-- Board -->
-    <div class="overflow-x-auto overflow-y-hidden p-5" style="height: calc(100vh - 112px)">
+    <div class="overflow-x-auto overflow-y-hidden p-5" style="height: calc(100vh - 112px - 76px)">
       <div class="flex gap-3.5 h-full" :style="{ minWidth: `${columns.length * 296}px` }">
 
         <div
@@ -474,7 +486,8 @@ const statusConfirm = reactive({
   previousStatusId: null as number | null,
 })
 
-async function previewAutomations(praticaId: number, tenantStatusId: number, dateFields?: Record<string, string>, extra?: { perito_contatto_id?: number | null }): Promise<AutomationSummary[]> {
+// null = controllo non riuscito: in quel caso non si sposta niente (mai automazioni senza averle viste).
+async function previewAutomations(praticaId: number, tenantStatusId: number, dateFields?: Record<string, string>, extra?: { perito_contatto_id?: number | null }): Promise<AutomationSummary[] | null> {
   try {
     const resp = await axios.post<{ automations: AutomationSummary[]; rubrica: RubricaContatto[] }>(
       route('pratiche.automations.preview', praticaId),
@@ -483,7 +496,7 @@ async function previewAutomations(praticaId: number, tenantStatusId: number, dat
     rubricaAutomazioni.value = resp.data.rubrica ?? []
     return resp.data.automations
   } catch {
-    return []
+    return null
   }
 }
 
@@ -579,7 +592,14 @@ async function moveTo(praticaId: number, toStatusId: number) {
     assignForm.data_appuntamento   = ''
     appuntamentoData.value = ''
     appuntamentoOra.value  = ''
-    assignAutomations.value = await previewAutomations(praticaId, toStatusId, undefined, { perito_contatto_id: null })
+    const previste = await previewAutomations(praticaId, toStatusId, undefined, { perito_contatto_id: null })
+    if (previste === null) {
+      assignModal.open = false
+      pratica.current_status_id = previousStatusId
+      showToast('Non è stato possibile controllare le automazioni: il sinistro non è stato spostato. Riprova.', 'error')
+      return
+    }
+    assignAutomations.value = previste
     return
   }
 
@@ -588,6 +608,11 @@ async function moveTo(praticaId: number, toStatusId: number) {
   pratica.current_status_id = toStatusId // optimistic move
 
   const automations = await previewAutomations(praticaId, toStatusId)
+  if (automations === null) {
+    pratica.current_status_id = previousStatusId
+    showToast('Non è stato possibile controllare le automazioni: il sinistro non è stato spostato. Riprova.', 'error')
+    return
+  }
   if (automations.length > 0) {
     statusConfirm.open             = true
     statusConfirm.automations      = automations
@@ -663,23 +688,23 @@ watch([appuntamentoData, appuntamentoOra], ([data, ora]) => {
 // Ricalcola le automazioni in attesa quando l'utente inserisce/modifica la data appuntamento
 watch(() => assignForm.data_appuntamento, async (value) => {
   if (!assignModal.open || assignModal.toStatusId === null || assignModal.praticaId === null) return
-  assignAutomations.value = await previewAutomations(
+  assignAutomations.value = (await previewAutomations(
     assignModal.praticaId,
     assignModal.toStatusId,
     value ? { data_appuntamento: value } : undefined,
     { perito_contatto_id: assignForm.perito_contatto_id }
-  )
+  )) ?? assignAutomations.value
 })
 
 // Il perito scelto cambia i destinatari (es. automazioni verso il perito): ricalcolo l'anteprima.
 watch(() => assignForm.perito_contatto_id, async (value) => {
   if (!assignModal.open || assignModal.toStatusId === null || assignModal.praticaId === null) return
-  assignAutomations.value = await previewAutomations(
+  assignAutomations.value = (await previewAutomations(
     assignModal.praticaId,
     assignModal.toStatusId,
     assignForm.data_appuntamento ? { data_appuntamento: assignForm.data_appuntamento } : undefined,
     { perito_contatto_id: value }
-  )
+  )) ?? assignAutomations.value
 })
 
 // "Conferma e sposta": se scattano automazioni, prima mostro messaggio e destinatari.

@@ -195,6 +195,67 @@
         </div>
       </div>
 
+      <!-- MODULI — una scheda per modulo, come le categorie, più "Compila tutti" -->
+      <div v-if="moduliConPdf.length" class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
+          <div>
+            <h3 class="text-sm font-semibold text-gray-700">Moduli</h3>
+            <p class="text-xs text-gray-400">{{ moduliGenerati }} di {{ moduliConPdf.length }} generati</p>
+          </div>
+          <button
+            type="button"
+            @click="openTuttiModal"
+            class="inline-flex items-center gap-2 h-10 px-4 bg-indigo-600 text-white text-[15px] font-semibold rounded-lg hover:bg-indigo-700 transition"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Compila tutti i moduli
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div
+            v-for="tpl in moduliConPdf"
+            :key="tpl.id"
+            class="rounded-xl border-2 bg-white p-4 transition-colors flex flex-col gap-3"
+            :class="latestGeneratedAllegato(tpl.id) ? 'border-green-500' : draftModule(tpl.id) ? 'border-amber-300' : 'border-gray-200'"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <h4 class="text-sm font-semibold text-gray-800">{{ tpl.name }}</h4>
+              <span
+                class="shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                :class="latestGeneratedAllegato(tpl.id) ? 'bg-green-100 text-green-700' : draftModule(tpl.id) ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'"
+              >
+                {{ latestGeneratedAllegato(tpl.id) ? `Generato ${formatDate(latestGeneratedAllegato(tpl.id)!.created_at)}` : draftModule(tpl.id) ? 'Bozza salvata' : 'Da compilare' }}
+              </span>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap mt-auto">
+              <template v-if="latestGeneratedAllegato(tpl.id)">
+                <button
+                  type="button"
+                  @click="downloadAllegato(latestGeneratedAllegato(tpl.id)!.id)"
+                  class="inline-flex items-center gap-1.5 h-9 px-3 text-sm font-semibold rounded-lg border border-green-300 text-green-700 bg-green-50 hover:bg-green-100"
+                >↓ Scarica PDF</button>
+                <button
+                  type="button"
+                  @click="rigenera(tpl.id)"
+                  class="h-9 px-3 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                >Modifica e rigenera</button>
+              </template>
+              <button
+                v-else
+                type="button"
+                @click="openGenerateModal(tpl)"
+                class="h-9 px-3 text-sm font-semibold rounded-lg border transition"
+                :class="draftModule(tpl.id) ? 'border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100' : 'border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100'"
+              >{{ draftModule(tpl.id) ? 'Riprendi modulo' : 'Compila modulo' }}</button>
+              <span v-if="recompileMsg[tpl.id]" class="text-xs font-medium" :class="recompileMsg[tpl.id]?.startsWith('✓') ? 'text-green-600' : 'text-amber-600'">
+                {{ recompileMsg[tpl.id] }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ALLEGATI — una riga per categoria -->
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <div class="flex items-center justify-between mb-4">
@@ -219,56 +280,9 @@
               <span class="text-xs text-gray-400">{{ filesForCategory(cat.id).length }} file · max {{ cat.max_file_size_mb }} MB</span>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 gap-4">
 
-              <!-- Colonna sinistra: genera modulo -->
-              <div class="space-y-2">
-                <p v-if="templatesForCategory(cat.id).length === 0" class="text-xs text-gray-400 italic">
-                  Nessun modulo configurato per questa categoria.
-                </p>
-                <div v-for="tpl in templatesForCategory(cat.id)" :key="tpl.id" class="flex items-center gap-2 flex-wrap">
-                  <button
-                    type="button"
-                    :disabled="!!latestGeneratedAllegato(tpl.id)"
-                    @click="openGenerateModal(tpl)"
-                    class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition"
-                    :class="latestGeneratedAllegato(tpl.id)
-                      ? 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed'
-                      : draftModule(tpl.id)
-                        ? 'border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100'
-                        : 'border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100'"
-                  >
-                    <svg v-if="latestGeneratedAllegato(tpl.id)" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                    </svg>
-                    {{ !latestGeneratedAllegato(tpl.id) && draftModule(tpl.id) ? 'Riprendi Modulo' : 'Compila Modulo' }}
-                  </button>
-                  <template v-if="latestGeneratedAllegato(tpl.id)">
-                    <button
-                      type="button"
-                      @click="downloadAllegato(latestGeneratedAllegato(tpl.id)!.id)"
-                      class="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:underline"
-                    >
-                      ↓ {{ latestGeneratedAllegato(tpl.id)!.nome_file }}
-                    </button>
-                    <button
-                      type="button"
-                      @click="rigenera(tpl.id)"
-                      class="text-xs text-slate-500 hover:text-slate-700 underline"
-                    >
-                      Rigenera
-                    </button>
-                  </template>
-                  <Transition enter-active-class="transition" enter-from-class="opacity-0" leave-active-class="transition" leave-to-class="opacity-0">
-                    <span v-if="recompileMsg[tpl.id]" class="text-xs font-medium"
-                          :class="recompileMsg[tpl.id]?.startsWith('✓') ? 'text-green-600' : 'text-amber-600'">
-                      {{ recompileMsg[tpl.id] }}
-                    </span>
-                  </Transition>
-                </div>
-              </div>
-
-              <!-- Colonna destra: upload file firmato -->
+              <!-- Caricamento file firmati / documenti della categoria -->
               <div
                 class="rounded-lg border-2 border-dashed transition-all overflow-hidden"
                 :class="tileDragOver[cat.id] ? 'border-indigo-400 bg-indigo-50 shadow-md' : 'border-gray-200 bg-gray-50/70 hover:bg-gray-100'"
@@ -433,6 +447,7 @@
       :show="moduleModalOpen"
       :pratica-id="pratica.id"
       :templates="activeModuleTemplates"
+      :tutti="modalTutti"
       :pratica-modules="praticaModulesList"
       :field-dictionary="fieldDictionary"
       :cliente="pratica.cliente"
@@ -611,7 +626,18 @@ const sharedModuleValues = ref<Record<string, unknown>>({ ...(props.pratica.shar
 
 const recompileMsg = reactive<Record<number, string | null>>({})
 
+const moduliConPdf = computed(() => props.moduleTemplates.filter(t => t.pdf_template_s3_key))
+const moduliGenerati = computed(() => moduliConPdf.value.filter(t => latestGeneratedAllegato(t.id)).length)
+const modalTutti = ref(false)
+
+function openTuttiModal() {
+  activeModuleTemplates.value = moduliConPdf.value
+  modalTutti.value = true
+  moduleModalOpen.value = true
+}
+
 function openGenerateModal(tpl: ModuleTemplate) {
+  modalTutti.value = false
   activeModuleTemplates.value = [tpl]
   moduleModalOpen.value = true
 }

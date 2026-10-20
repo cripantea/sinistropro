@@ -22,9 +22,9 @@
             <!-- Header -->
             <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
               <div>
-                <p class="text-sm font-semibold text-slate-800">Compila Modulo</p>
+                <p class="text-sm font-semibold text-slate-800">{{ tutti ? 'Compila tutti i moduli' : 'Compila Modulo' }}</p>
                 <p class="text-xs text-slate-400 mt-0.5">
-                  {{ selectedTemplate ? selectedTemplate.name : 'Seleziona un template' }}
+                  {{ tutti ? `Tutti i moduli (${templatesAttivi.length}) — i dati comuni si scrivono una volta sola` : (selectedTemplate ? selectedTemplate.name : 'Seleziona un template') }}
                 </p>
               </div>
               <button
@@ -47,9 +47,12 @@
               <div v-if="warningMsg" class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-700">
                 {{ warningMsg }}
               </div>
+              <div v-if="avanzamento" class="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3 text-xs font-medium text-indigo-700">
+                {{ avanzamento }}
+              </div>
 
               <!-- Template selector (solo se c'è più di un template tra cui scegliere) -->
-              <div v-if="templates.length > 1">
+              <div v-if="!tutti && templates.length > 1">
                 <label class="block text-xs font-medium text-slate-700 mb-1">Template modulo *</label>
                 <select
                   v-model="selectedTemplateId"
@@ -73,8 +76,10 @@
               <!-- Dynamic fields from fields_schema (un solo input per nome univoco,
                    anche se il campo compare più volte nel PDF) -->
               <template v-if="uniqueFields.length > 0">
+                <template v-for="g in gruppi" :key="g.titolo ?? '-'">
+                <h4 v-if="g.titolo" class="pt-3 first:pt-0 text-xs font-bold uppercase tracking-wide text-indigo-700 border-b border-indigo-100 pb-1">{{ g.titolo }}</h4>
                 <div
-                  v-for="field in uniqueFields"
+                  v-for="field in g.campi"
                   :key="field.name"
                 >
                   <label v-if="field.type !== 'checkbox'" class="block text-xs font-medium text-slate-700 mb-1">
@@ -197,7 +202,9 @@
                     class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:bg-slate-50"
                   />
                 </div>
+                </template>
               </template>
+
 
               <p v-else-if="selectedTemplate" class="text-xs text-slate-400 italic">
                 Questo template non ha campi configurati.
@@ -209,7 +216,7 @@
             <div class="flex items-center gap-3 px-6 py-4 border-t border-slate-100">
               <button
                 type="button"
-                :disabled="!selectedTemplateId || submitting || savingDraft"
+                :disabled="!templatesAttivi.length || submitting || savingDraft"
                 @click="save"
                 title="Salva i campi compilati finora, senza generare il PDF — utile se il modulo è ancora parziale"
                 class="inline-flex items-center justify-center gap-2 border border-slate-300 text-slate-700 text-sm font-semibold py-2.5 px-4 rounded-lg hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
@@ -222,7 +229,7 @@
               </button>
               <button
                 type="button"
-                :disabled="!selectedTemplateId || submitting || savingDraft"
+                :disabled="!templatesAttivi.length || submitting || savingDraft"
                 @click="submit"
                 class="flex-1 inline-flex items-center justify-center gap-2 bg-indigo-600 text-white text-sm font-semibold py-2.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -233,7 +240,7 @@
                 <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
-                {{ submitting ? 'Generazione PDF...' : 'Genera PDF' }}
+                {{ submitting ? 'Generazione PDF...' : (tutti ? `Genera tutti i PDF (${templatesAttivi.length})` : 'Genera PDF') }}
               </button>
               <button
                 type="button"
@@ -327,6 +334,8 @@ const props = defineProps<{
   customFieldsSchema?: SchemaField[]
   clienteSchema?: SchemaField[]
   compagnia?: string | null
+  /** Compila insieme tutti i moduli: i campi comuni una volta sola, poi quelli di ogni modulo. */
+  tutti?: boolean
   veicolo?: VeicoloInfo | null
   aperturaSinistro?: string | null
   sharedModuleValues?: Record<string, unknown> | null
@@ -354,11 +363,19 @@ const existingModule = computed<PraticaModule | null>(
   () => props.praticaModules.find(m => m.module_template_id === selectedTemplateId.value) ?? null
 )
 
+// Moduli su cui si lavora: quello scelto, oppure tutti quelli con un PDF (modalità "Compila tutti").
+const templatesAttivi = computed<ModuleTemplate[]>(() =>
+  props.tutti
+    ? props.templates.filter(t => t.pdf_template_s3_key)
+    : (selectedTemplate.value ? [selectedTemplate.value] : [])
+)
+const avanzamento = ref<string | null>(null)
+
 // Un solo campo per nome univoco, anche se il template lo posiziona più volte
 // nel PDF (es. "Nome Cliente" in intestazione e in calce) — required vince se
 // anche una sola occorrenza lo richiede.
 const uniqueFields = computed<FieldSchema[]>(() => {
-  const schema = selectedTemplate.value?.fields_schema ?? []
+  const schema = templatesAttivi.value.flatMap(t => t.fields_schema ?? [])
   const byName = new Map<string, FieldSchema>()
   for (const field of schema) {
     const current = byName.get(field.name)
@@ -369,6 +386,27 @@ const uniqueFields = computed<FieldSchema[]>(() => {
     }
   }
   return Array.from(byName.values())
+})
+
+// In "Compila tutti": prima i dati che compaiono in più moduli, poi quelli di ogni modulo.
+const gruppi = computed<{ titolo: string | null; campi: FieldSchema[] }[]>(() => {
+  if (!props.tutti) return [{ titolo: null, campi: uniqueFields.value }]
+  const quanti = new Map<string, number>()
+  for (const t of templatesAttivi.value) {
+    for (const nome of new Set((t.fields_schema ?? []).map(f => f.name))) quanti.set(nome, (quanti.get(nome) ?? 0) + 1)
+  }
+  const perNome = new Map(uniqueFields.value.map(f => [f.name, f]))
+  const out: { titolo: string | null; campi: FieldSchema[] }[] = []
+  const comuni = uniqueFields.value.filter(f => (quanti.get(f.name) ?? 0) > 1)
+  if (comuni.length) out.push({ titolo: 'Dati comuni a più moduli', campi: comuni })
+  const giaMessi = new Set(comuni.map(f => f.name))
+  for (const t of templatesAttivi.value) {
+    const solo = [...new Set((t.fields_schema ?? []).map(f => f.name))]
+      .filter(n => !giaMessi.has(n)).map(n => perNome.get(n)!).filter(Boolean)
+    solo.forEach(f => giaMessi.add(f.name))
+    if (solo.length) out.push({ titolo: `Solo «${t.name}»`, campi: solo })
+  }
+  return out
 })
 
 const dictionaryByKey = computed(() => {
@@ -605,8 +643,10 @@ const autoFilledFields = computed(() => {
 // evitando il passaggio manuale dal dropdown.
 watch(() => props.show, (open) => {
   if (open) {
-    selectedTemplateId.value = props.templates.length === 1 ? props.templates[0].id : null
+    selectedTemplateId.value = !props.tutti && props.templates.length === 1 ? props.templates[0].id : null
     values.value             = {}
+    avanzamento.value        = null
+    if (props.tutti) inizializza()
     errorMsg.value           = null
     warningMsg.value         = null
     submitting.value         = false
@@ -616,10 +656,19 @@ watch(() => props.show, (open) => {
 // When template changes, pre-fill: 1) valore già salvato in QUESTO modulo,
 // 2) valore condiviso da un ALTRO modulo della stessa pratica, 3) dizionario
 // (cliente/pratica), altrimenti campo vuoto da compilare a mano.
-watch(selectedTemplateId, () => {
+watch(selectedTemplateId, () => inizializza())
+
+function inizializza() {
   errorMsg.value   = null
   warningMsg.value = null
-  const existing   = existingModule.value?.values ?? {}
+  // Valori già salvati: del modulo scelto, oppure (Compila tutti) di qualunque modulo di questo sinistro.
+  const existing: Record<string, unknown> = {}
+  const salvati = props.tutti
+    ? props.praticaModules.filter(m => templatesAttivi.value.some(t => t.id === m.module_template_id))
+    : (existingModule.value ? [existingModule.value] : [])
+  for (const m of salvati) {
+    for (const [k, v] of Object.entries(m.values ?? {})) if (isFilled(v) && existing[k] === undefined) existing[k] = v
+  }
 
   const newValues: Record<string, unknown> = {}
   for (const field of uniqueFields.value) {
@@ -637,76 +686,50 @@ watch(selectedTemplateId, () => {
     newValues[field.name] = prefill(field) ?? ''
   }
   values.value = newValues
-})
+}
 
 // ── Actions ─────────────────────────────────────────────────────────────────
-async function submit() {
-  if (!selectedTemplateId.value) return
+// Genera il PDF (o salva la bozza) di ogni modulo attivo; il server tiene per ciascuno solo i suoi campi.
+async function invia(generaPdf: boolean) {
+  if (!templatesAttivi.value.length) return
   errorMsg.value   = null
   warningMsg.value = null
-  submitting.value = true
+  if (generaPdf) submitting.value = true; else savingDraft.value = true
 
+  const avvisi: string[] = []
   try {
-    const resp = await axios.post<{
-      module: PraticaModule
-      allegato: Allegato | null
-      warning: string | null
-      sharedModuleValues: Record<string, unknown>
-    }>(
-      route('pratica-modules.store', props.praticaId),
-      {
-        module_template_id: selectedTemplateId.value,
+    for (const [i, tpl] of templatesAttivi.value.entries()) {
+      if (props.tutti) avanzamento.value = `${generaPdf ? 'Genero' : 'Salvo'} ${i + 1} di ${templatesAttivi.value.length}: ${tpl.name}…`
+      const resp = await axios.post<{
+        module: PraticaModule
+        allegato: Allegato | null
+        warning: string | null
+        sharedModuleValues: Record<string, unknown>
+      }>(route('pratica-modules.store', props.praticaId), {
+        module_template_id: tpl.id,
         values: values.value,
-      }
-    )
-
-    if (resp.data.warning) {
-      warningMsg.value = resp.data.warning
+        ...(generaPdf ? {} : { generate_pdf: false }),
+      })
+      if (resp.data.warning) avvisi.push(props.tutti ? `${tpl.name}: ${resp.data.warning}` : resp.data.warning)
+      emit('saved', resp.data.module, generaPdf ? resp.data.allegato : null, generaPdf ? resp.data.warning : null, resp.data.sharedModuleValues)
     }
-
-    emit('saved', resp.data.module, resp.data.allegato, resp.data.warning, resp.data.sharedModuleValues)
-
-    if (!resp.data.warning) {
+    avanzamento.value = null
+    if (avvisi.length) {
+      warningMsg.value = avvisi.join(' · ')
+    } else {
       emit('close')
     }
   } catch (err: unknown) {
     const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-    errorMsg.value = msg ?? 'Errore durante la generazione del modulo.'
+    errorMsg.value = (avanzamento.value ? `${avanzamento.value} ` : '') + (msg ?? (generaPdf ? 'Errore durante la generazione del modulo.' : 'Errore durante il salvataggio della bozza.'))
+    avanzamento.value = null
   } finally {
     submitting.value = false
-  }
-}
-
-// Salva i valori compilati finora senza generare il PDF — pensato per moduli
-// ancora parziali, da riprendere più avanti riaprendo "Compila Modulo".
-async function save() {
-  if (!selectedTemplateId.value) return
-  errorMsg.value   = null
-  warningMsg.value = null
-  savingDraft.value = true
-
-  try {
-    const resp = await axios.post<{
-      module: PraticaModule
-      allegato: Allegato | null
-      warning: string | null
-      sharedModuleValues: Record<string, unknown>
-    }>(
-      route('pratica-modules.store', props.praticaId),
-      {
-        module_template_id: selectedTemplateId.value,
-        values: values.value,
-        generate_pdf: false,
-      }
-    )
-
-    emit('saved', resp.data.module, null, null, resp.data.sharedModuleValues)
-    emit('close')
-  } catch (err: unknown) {
-    const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-    errorMsg.value = msg ?? 'Errore durante il salvataggio della bozza.'
-  } finally {
     savingDraft.value = false
   }
 }
+
+const submit = () => invia(true)
+// Salva i valori compilati finora senza generare il PDF — per moduli ancora parziali.
+const save = () => invia(false)
 </script>

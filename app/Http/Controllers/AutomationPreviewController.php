@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Automation;
 use App\Models\Contatto;
 use App\Models\Pratica;
+use App\Models\TenantStatus;
 use App\Services\AutomationPlanner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -67,11 +68,22 @@ class AutomationPreviewController extends Controller
             'carrozzeria_contatto_id' => $data['carrozzeria_contatto_id'] ?? null,
         ];
 
+        $plans = $matches->unique('id')->values()
+            ->map(fn (Automation $a) => $planner->planPratica($pratica, $a, $ctx));
+
+        // Email "di cambio stato" impostata sullo stato stesso: anche lei si vede e si può
+        // escludere nella conferma, come le automazioni (voce con id 0).
+        if (! empty($data['tenant_status_id']) && (int) $data['tenant_status_id'] !== $pratica->current_status_id) {
+            $stato = TenantStatus::find($data['tenant_status_id']);
+            if ($stato?->send_email_notification) {
+                $plans->prepend($planner->planEmailStato($pratica, $stato));
+            }
+        }
+
         return response()->json([
             // Rubrica attiva: nella finestra di conferma si possono aggiungere destinatari da qui.
             'rubrica' => Contatto::where('is_active', true)->orderBy('nome')->get(['id', 'nome', 'tags', 'telefono', 'email']),
-            'automations' => $matches->unique('id')->values()
-                ->map(fn (Automation $a) => $planner->planPratica($pratica, $a, $ctx)),
+            'automations' => $plans->values(),
         ]);
     }
 }

@@ -91,6 +91,7 @@
       </div>
 
       <!-- Pulsanti -->
+      <p v-if="erroreVerifica" class="text-sm font-medium text-red-600">{{ erroreVerifica }}</p>
       <div class="flex items-center gap-4">
         <button
           type="submit"
@@ -175,7 +176,10 @@ const automationConfirm = reactive({
   automations: [] as AutomationSummary[],
 })
 
+const erroreVerifica = ref<string | null>(null)
+
 async function submit() {
+  erroreVerifica.value = null
   const changedDateFields: Record<string, string> = {}
   for (const field of schema.value) {
     if (field.type !== 'date') continue
@@ -206,7 +210,9 @@ async function submit() {
       return
     }
   } catch {
-    // Se la verifica automazioni fallisce, procedi comunque con il salvataggio normale.
+    // Mai cambiare stato o date senza aver visto le automazioni che scatterebbero.
+    erroreVerifica.value = 'Non è stato possibile controllare le automazioni: modifiche non salvate. Riprova.'
+    return
   }
 
   doSubmit(false)

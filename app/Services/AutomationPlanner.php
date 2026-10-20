@@ -65,6 +65,28 @@ class AutomationPlanner
         ];
     }
 
+    /** Id della voce "email di cambio stato al cliente" nella finestra di conferma (non è un'automazione). */
+    public const EMAIL_STATO = 0;
+
+    /** Email impostata sullo stato ("invia email al cliente"), mostrata in conferma come le automazioni. */
+    public function planEmailStato(Pratica $pratica, TenantStatus $stato): array
+    {
+        $pratica->loadMissing('cliente');
+        $email = $pratica->cliente?->email ?: (($pratica->custom_fields ?? [])['email'] ?? null);
+
+        return [
+            'id'         => self::EMAIL_STATO,
+            'name'       => 'Email al cliente per il cambio di stato',
+            'channel'    => 'email',
+            'subject'    => "Aggiornamento sinistro #{$pratica->id}",
+            'recipients' => [$this->recipient('cliente', $pratica->cliente?->nome, filter_var($email, FILTER_VALIDATE_EMAIL) ?: null, null, 'cliente')],
+            'cc'         => [],
+            'documents'  => [],
+            'document_categories' => [],
+            'message'    => "Email standard di SinistroPro: il sinistro #{$pratica->id} è passato allo stato «{$stato->name}».",
+        ];
+    }
+
     /** Destinatari risolti per una pratica (anche quelli senza recapito: la UI li segnala). */
     public function defaultRecipientsPratica(Pratica $pratica, Automation $automation, array $ctx = []): array
     {
