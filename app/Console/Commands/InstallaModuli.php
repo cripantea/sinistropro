@@ -23,6 +23,7 @@ class InstallaModuli extends Command
     protected $signature = 'app:installa-moduli
                             {cartella : Cartella con i PDF e gli schemi JSON}
                             {--tenant= : ID del tenant (obbligatorio)}
+                            {--solo-campi= : Nomi di campo separati da virgola: tiene lo schema attuale (posizioni sistemate a mano) e aggiorna solo questi; i moduli che non li hanno restano intatti}
                             {--dry-run : Mostra cosa cambierebbe senza modificare nulla}';
 
     protected $description = 'Carica i nuovi modelli PDF con i campi già posizionati e compila il dizionario campi (con backup).';
@@ -56,6 +57,8 @@ class InstallaModuli extends Command
             return self::FAILURE;
         }
 
+        $soloCampi = array_values(array_filter(array_map('trim', explode(',', (string) $this->option('solo-campi')))));
+
         $this->info(($dry ? '[SIMULAZIONE] ' : '') . "Tenant #{$tenant->id} {$tenant->name}");
         $modelli = ModuleTemplate::acrossAllTenants()->where('tenant_id', $tenant->id)->get();
 
@@ -79,6 +82,16 @@ class InstallaModuli extends Command
                 $this->error("{$base}.json non è uno schema valido.");
                 return self::FAILURE;
             }
+            $modello = $trovati->first();
+            if ($soloCampi) {
+                $daAggiornare = array_values(array_filter($schema, fn ($c) => in_array($c['name'], $soloCampi, true)));
+                if ($daAggiornare === []) {
+                    $this->newLine();
+                    $this->line("• {$modello->name} (#{$modello->id}): nessuno dei campi indicati, resta com'è");
+                    continue;
+                }
+                $schema = [...array_values(array_filter($modello->fields_schema ?? [], fn ($c) => ! in_array($c['name'], $soloCampi, true))), ...$daAggiornare];
+            }
             $contenuto = (string) file_get_contents($fPdf);
             $pagine = $pdf->pageCount($contenuto);
             $maxPagina = (int) max(array_map(fn ($c) => max([(int) ($c['page'] ?? 1), ...array_map(fn ($p) => (int) ($p['page'] ?? 1), $c['positions'] ?? [])]), $schema));
@@ -87,7 +100,6 @@ class InstallaModuli extends Command
                 return self::FAILURE;
             }
 
-            $modello = $trovati->first();
             $vecchi = array_unique(array_column($modello->fields_schema ?? [], 'name'));
             $nuovi = array_unique(array_column($schema, 'name'));
             $piano[] = compact('modello', 'base', 'schema', 'contenuto', 'pagine');
@@ -102,7 +114,8 @@ class InstallaModuli extends Command
         }
 
         // ── 2. Dizionario campi ────────────────────────────────────────────────────────
-        $dizionario = $this->dizionario($tenant, array_merge(...array_column($piano, 'schema')));
+        $campi = array_merge(...array_column($piano, 'schema'));
+        $dizionario = $this->dizionario($tenant, $soloCampi ? array_filter($campi, fn ($c) => in_array($c['name'], $soloCampi, true)) : $campi);
         $esistenti = FieldDictionaryEntry::acrossAllTenants()->where('tenant_id', $tenant->id)->get()->keyBy('key');
         $this->newLine();
         $this->line('Dizionario campi: ' . count($dizionario) . ' voci');

@@ -85,3 +85,16 @@ test('se un modello non si abbina in modo sicuro non tocca niente', function () 
 
     expect(ModuleTemplate::whereNotNull('pdf_template_s3_key')->pluck('pdf_template_s3_key')->unique()->all())->toBe(['vecchio.pdf']);
 });
+
+test('con --solo-campi tiene le posizioni sistemate a mano e aggiorna solo quei campi', function () {
+    $this->artisan('app:installa-moduli', ['cartella' => $this->dir, '--tenant' => $this->tenant->id, '--solo-campi' => 'tipologia_sinistro'])
+        ->expectsOutputToContain("nessuno dei campi indicati, resta com'è")
+        ->assertSuccessful();
+
+    $denuncia = ModuleTemplate::where('name', 'Modulo denuncia sinistro')->first();
+    expect($denuncia->pdf_template_s3_key)->not->toBe('vecchio.pdf')
+        ->and(array_column($denuncia->fields_schema, 'name'))->toBe(['nome_cognome', 'tipologia_sinistro'])
+        ->and($denuncia->fields_schema[0]['x'])->toBe(1);
+    expect(ModuleTemplate::where('name', 'Modulo cessione credito')->first()->pdf_template_s3_key)->toBe('vecchio.pdf')
+        ->and(FieldDictionaryEntry::pluck('key')->sort()->values()->all())->toBe(['telefono', 'tipologia_sinistro']);
+});

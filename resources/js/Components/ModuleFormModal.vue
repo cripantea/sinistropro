@@ -611,17 +611,41 @@ function resolveSharedOrAutoValue(field: FieldSchema): unknown {
   return null
 }
 
+// Valori della "Tipologia Sinistro" del sinistro (lista diversa) → opzione del modulo.
+const SINONIMI_OPZIONE: [RegExp, RegExp][] = [
+  [/cristall|parabrezza|lunotto|vetr/, /cristall/],
+  [/grandin|alluvion|tempest|eventi naturali/, /eventi naturali/],
+  [/vandal/, /vandal/],
+  [/minicollision|minikasko/, /minicollision/],
+]
+
+// L'opzione del modulo che corrisponde al valore del sinistro: uguale, contenuta
+// ("Cristalli" → "Rottura cristalli") o sinonimo ("Parabrezza" → "Rottura cristalli").
+// Se non corrisponde a niente (es. "Carrozzeria") non si barra nulla.
+function opzioneCorrispondente(v: unknown, opzioni: string[]): string | null {
+  if (typeof v !== 'string' || v.trim() === '') return null
+  if (opzioni.includes(v)) return v
+  const cv = confrontabile(v)
+  const uguale = opzioni.find((o) => confrontabile(o) === cv)
+  if (uguale) return uguale
+  const contenuta = opzioni.filter((o) => ` ${confrontabile(o)} `.includes(` ${cv} `))
+  if (contenuta.length === 1) return contenuta[0]
+  for (const [valore, opzione] of SINONIMI_OPZIONE) {
+    if (!valore.test(cv)) continue
+    const trovate = opzioni.filter((o) => opzione.test(confrontabile(o)))
+    if (trovate.length === 1) return trovate[0]
+  }
+  return null
+}
+
 // Le caselle si riprendono solo da un modulo con la stessa casella, mai indovinate dal nome.
 function prefill(field: FieldSchema): unknown {
   if (eDataDiOggi(field.name)) return oggiIso()
   if (field.type === 'checkbox') return props.sharedModuleValues?.[field.name] ?? null
   if (field.type === 'radio') {
-    // Solo un valore che è davvero una delle opzioni: un campo del sinistro con lo stesso
-    // nome ma un'altra lista (es. "Grandine") non viene messo.
-    for (const v of [props.sharedModuleValues?.[field.name], daSinistro(field)]) {
-      if (typeof v === 'string' && field.options?.includes(v)) return v
-    }
-    return null
+    const condiviso = props.sharedModuleValues?.[field.name]
+    if (typeof condiviso === 'string' && field.options?.includes(condiviso)) return condiviso
+    return opzioneCorrispondente(daSinistro(field), field.options ?? [])
   }
   return resolveSharedOrAutoValue(field)
 }
