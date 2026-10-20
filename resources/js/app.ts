@@ -11,10 +11,9 @@ configureEcho({
     broadcaster: 'reverb',
 });
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
-
 createInertiaApp({
-    title: (title) => `${title} - ${appName}`,
+    // Nella scheda del browser sempre e solo il nome del prodotto.
+    title: () => 'SinistroPro',
     resolve: (name) =>
         resolvePageComponent(
             `./Pages/${name}.vue`,

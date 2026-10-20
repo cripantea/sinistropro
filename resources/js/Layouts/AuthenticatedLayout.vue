@@ -106,13 +106,13 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
           :class="collapsed ? 'justify-center px-0' : 'px-5 gap-3'"
         >
           <div class="w-7 h-7 rounded-lg bg-indigo-500 flex items-center justify-center text-white font-bold text-xs shrink-0">
-            G
+            S
           </div>
           <span
             v-show="!collapsed"
             class="font-semibold text-sm text-white whitespace-nowrap overflow-hidden"
           >
-            Gestionale Sinistri
+            SinistroPro
           </span>
         </div>
 
