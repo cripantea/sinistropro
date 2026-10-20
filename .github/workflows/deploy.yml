@@ -83,6 +83,15 @@ jobs:
 
             pm2 save
 
+            echo "==> Scheduler (cron)…"
+            # Lo scheduler (avvisi delle 07:00, sync email, scadenze clienti) parte solo se il cron
+            # lancia schedule:run sulla release attiva. Riga garantita a ogni deploy, senza doppioni.
+            CRON_LINE="* * * * * cd $CURRENT && php artisan schedule:run >> /dev/null 2>&1"
+            # Prima si legge tutto il crontab, poi lo si riscrive: le altre righe restano com'erano.
+            CRON_ATTUALE="$(crontab -l 2>/dev/null || true)"
+            { if [ -n "$CRON_ATTUALE" ]; then printf '%s\n' "$CRON_ATTUALE" | grep -vF "cd $CURRENT && php artisan schedule:run" || true; fi; echo "$CRON_LINE"; } | crontab -
+            crontab -l | grep -F "cd $CURRENT && php artisan schedule:run"
+
             echo "==> Cleaning old releases (keep 5)…"
             ls -dt "$RELEASES"/* | tail -n +6 | xargs -d "\n" rm -rf || echo "WARN: pulizia vecchie release incompleta (permessi?), non blocco il deploy"
 

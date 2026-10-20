@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\{Cliente, Importazione, Tenant, User, Veicolo};
+use App\Jobs\ImportaClientiJob;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xls;
@@ -55,7 +57,7 @@ test('excel una riga per veicolo: un cliente con più veicoli, mappatura propost
         ->and($rci->veicoli()->pluck('targa')->all())->toBe(['EL041BW', 'GT066RR'])
         ->and($rci->veicoli()->first()->data_immatricolazione->toDateString())->toBe('2012-01-31');
     expect(Cliente::where('codice_esterno', '000002')->first()->email)->toBeNull();
-    Storage::disk('local')->assertMissing($imp->rowsPath());
+    expect($imp->fresh()->leggiRighe())->toBeNull(); // le righe del file non restano salvate
 });
 
 test('il file completo ricaricato aggiunge solo i nuovi e non tocca né toglie quelli presenti', function () {
@@ -280,4 +282,20 @@ test('auto vendute: se il telaio passa a un altro cliente l\'auto viene spostata
         ['000002', 'BIANCHI ANNA', '3335556666', '', '', 'TELAIO1', 'FIAT', 'AA111AA', ''],
     ]));
     expect($analisi['riepilogo']['veicoli_spostati'])->toBe(0);
+});
+
+test('se le righe del file non si leggono l\'import risulta interrotto, mai "completato con 0 clienti"', function () {
+    $imp = Importazione::create([
+        'tenant_id' => $this->tenant->id, 'user_id' => $this->user->id, 'file_name' => 'clienti.xls',
+        'file_id' => (string) Str::uuid(), 'stato' => 'in_coda', 'mapping' => ['nome' => 'Cognome'], 'opzioni' => [],
+    ]);
+
+    try {
+        ImportaClientiJob::dispatch($imp->id);
+    } catch (\Throwable) {
+        // la coda sync dei test rilancia l'errore dopo aver chiamato failed()
+    }
+
+    expect($imp->fresh()->stato)->toBe('fallita')
+        ->and($imp->fresh()->errore)->toContain('ricarica il file');
 });

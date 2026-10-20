@@ -504,11 +504,16 @@ function concetto(name: string): string | null {
 
 // Risolve il valore di un campo: prima dal dizionario (anagrafica cliente, campo
 // personalizzato del cliente o del sinistro), se collegato; altrimenti per nome del campo.
-function resolveAutoValue(name: string): unknown {
+function resolveAutoValue(field: FieldSchema): unknown {
+  const name = field.name
   const entry = dictionaryByKey.value.get(name)
 
-  // Voce del dizionario senza collegamento: si prova comunque a riconoscerla dal nome.
-  if (!entry || entry.source_type === 'manual' || !entry.source_field) return resolveHeuristicValue(name)
+  // Voce del dizionario senza collegamento: prima i campi del sinistro con lo stesso
+  // nome o la stessa etichetta, poi si prova a riconoscerla dal nome.
+  if (!entry || entry.source_type === 'manual' || !entry.source_field) {
+    const delSinistro = daSinistro(field)
+    return isFilled(delSinistro) ? delSinistro : resolveHeuristicValue(name)
+  }
 
   if (entry.source_type === 'cliente') {
     // `custom:<campo>` = campo personalizzato dell'anagrafica cliente (es. indirizzo di residenza)
@@ -523,14 +528,35 @@ function resolveAutoValue(name: string): unknown {
   return null
 }
 
+// Testo confrontabile: minuscolo, senza accenti, punteggiatura e articoli/preposizioni.
+function confrontabile(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\b(di|del|della|dello|dei|delle|il|lo|la|i|gli|le)\b/g, ' ')
+    .replace(/\s+/g, ' ').trim()
+}
+
+// Campo personalizzato del sinistro con lo stesso nome tecnico o la stessa etichetta
+// (es. il modulo "Numero sinistro" ← il campo del sinistro "Numero sinistro").
+function daSinistro(field: FieldSchema): unknown {
+  const valori = props.customFields ?? {}
+  if (isFilled(valori[field.name])) return valori[field.name]
+  const cercati = new Set([confrontabile(field.label), confrontabile(field.name.replace(/_/g, ' '))])
+  for (const f of props.customFieldsSchema ?? []) {
+    if (isFilled(valori[f.name]) && cercati.has(confrontabile(f.label))) return valori[f.name]
+  }
+  return null
+}
+
 // Un campo compilato in un ALTRO modulo della stessa pratica (es. "telefono")
 // ha priorità sull'autofill statico da cliente/pratica, perché riflette
 // quanto l'utente ha effettivamente digitato altrove.
-function resolveSharedOrAutoValue(name: string): unknown {
+function resolveSharedOrAutoValue(field: FieldSchema): unknown {
+  const name = field.name
   const shared = props.sharedModuleValues?.[name]
   if (isFilled(shared)) return shared
 
-  const auto = resolveAutoValue(name)
+  const auto = resolveAutoValue(field)
   if (isFilled(auto)) return auto
 
   // Stesso dato scritto in un altro modulo con un nome diverso.
@@ -547,10 +573,14 @@ function resolveSharedOrAutoValue(name: string): unknown {
 function prefill(field: FieldSchema): unknown {
   if (field.type === 'checkbox') return props.sharedModuleValues?.[field.name] ?? null
   if (field.type === 'radio') {
-    const shared = props.sharedModuleValues?.[field.name]
-    return typeof shared === 'string' && field.options?.includes(shared) ? shared : null
+    // Solo un valore che è davvero una delle opzioni: un campo del sinistro con lo stesso
+    // nome ma un'altra lista (es. "Grandine") non viene messo.
+    for (const v of [props.sharedModuleValues?.[field.name], daSinistro(field)]) {
+      if (typeof v === 'string' && field.options?.includes(v)) return v
+    }
+    return null
   }
-  return resolveSharedOrAutoValue(field.name)
+  return resolveSharedOrAutoValue(field)
 }
 
 // Campi effettivamente precompilati (da un altro modulo o da cliente/pratica).

@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Jobs\InviaEmailAvvisoPratica;
 use App\Models\Pratica;
+use App\Support\Heartbeat;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
@@ -68,6 +69,11 @@ class ProcessDailyReminders extends Command
             'skipped'    => $skipped,
             'dry_run'    => $isDryRun,
         ];
+
+        // Segna il giro: se il cron smette di lanciare questo comando, l'app lo mostra entro un giorno.
+        if (! $isDryRun && ! $tenantId) {
+            Heartbeat::segna('avvisi');
+        }
 
         $this->info("✔ Completato: {$dispatched} job accodati, {$skipped} pratiche saltate.");
         Log::info('ProcessDailyReminders completato', $summary);

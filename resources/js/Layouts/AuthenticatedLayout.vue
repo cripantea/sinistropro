@@ -3,6 +3,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
 import ImpersonationBanner from '@/Components/ImpersonationBanner.vue'
 import TenantContextBanner from '@/Components/TenantContextBanner.vue'
+import AvvisiFermiBanner from '@/Components/AvvisiFermiBanner.vue'
 import SuperadminOverlay from '@/Components/SuperadminOverlay.vue'
 import type { PageProps, AppNotification } from '@/types'
 
@@ -89,6 +90,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
     <!-- ── Banners (impersonazione e contesto tenant superadmin) ── -->
     <ImpersonationBanner />
     <TenantContextBanner />
+    <AvvisiFermiBanner />
 
     <!-- ── App Shell ────────────────────────────────────────── -->
     <div class="flex flex-1 overflow-hidden min-h-0">

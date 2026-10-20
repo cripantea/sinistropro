@@ -77,6 +77,8 @@
     <!-- ── Main area ───────────────────────────────────── -->
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
 
+      <AvvisiFermiBanner />
+
       <!-- Top bar -->
       <header class="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shrink-0">
         <div>
@@ -105,6 +107,7 @@
 import { computed } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
 import SidebarLink from '@/Components/Superadmin/SidebarLink.vue'
+import AvvisiFermiBanner from '@/Components/AvvisiFermiBanner.vue'
 
 defineProps<{ title?: string }>()
 

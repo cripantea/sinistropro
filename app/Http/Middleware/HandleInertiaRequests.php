@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Tenant;
+use App\Support\Heartbeat;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -32,7 +33,16 @@ class HandleInertiaRequests extends Middleware
             'tenantFeatures' => $this->tenantFeatures($request),
             'impersonating'  => $this->impersonatingInfo($request),
             'tenantContext'  => $this->tenantContextInfo($request),
+            'avvisiFermiDal' => $this->avvisiFermiDal($request),
         ];
+    }
+
+    /** Data dell'ultimo giro degli avvisi automatici se sono fermi da più di un giorno (solo per chi può intervenire). */
+    protected function avvisiFermiDal(Request $request): ?string
+    {
+        if (! in_array($request->user()?->role, ['tenant-admin', 'superadmin'], true)) return null;
+
+        return Heartbeat::fermoDa('avvisi')?->timezone('Europe/Rome')->format('d/m/Y H:i');
     }
 
     protected function tenantFeatures(Request $request): array

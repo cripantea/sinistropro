@@ -10,7 +10,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class ImportaClientiJob implements ShouldQueue
 {
@@ -32,7 +31,11 @@ class ImportaClientiJob implements ShouldQueue
         }
         $imp->update(['stato' => 'in_corso']);
 
-        $rows = json_decode(Storage::disk('local')->get($imp->rowsPath()) ?? '[]', true);
+        // Mai "completata con 0 righe" se i dati non si leggono: deve risultare interrotta.
+        $rows = $imp->leggiRighe();
+        if ($rows === null || $rows === []) {
+            throw new \RuntimeException('Le righe del file non sono disponibili: ricarica il file e riprova.');
+        }
         $schema = Tenant::find($imp->tenant_id)?->getClienteCustomFieldsSchema() ?? [];
 
         $result = $importer->process(
@@ -49,8 +52,8 @@ class ImportaClientiJob implements ShouldQueue
             'completata_at' => now(),
         ]);
 
-        // I dati personali del file non restano su disco oltre il necessario.
-        Storage::disk('local')->delete($imp->rowsPath());
+        // I dati personali del file non restano salvati oltre il necessario.
+        $imp->cancellaRighe();
     }
 
     public function failed(\Throwable $e): void
@@ -59,8 +62,6 @@ class ImportaClientiJob implements ShouldQueue
 
         $imp = Importazione::acrossAllTenants()->find($this->importazioneId);
         $imp?->update(['stato' => 'fallita', 'errore' => mb_substr($e->getMessage(), 0, 1000)]);
-        if ($imp) {
-            Storage::disk('local')->delete($imp->rowsPath());
-        }
+        $imp?->cancellaRighe();
     }
 }

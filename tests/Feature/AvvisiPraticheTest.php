@@ -3,6 +3,7 @@
 use App\Jobs\InviaEmailAvvisoPratica;
 use App\Models\{Cliente, EmailLog, Pratica, Tenant, TenantStatus, User};
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use App\Services\TenantMailerResolver;
 use Illuminate\Mail\Mailable;
 
@@ -146,4 +147,44 @@ test('il board mostra i sinistri con il prossimo avviso più vicino in cima, sen
 
     $this->actingAs($this->admin1)->get('/pratiche/kanban')->assertOk()
         ->assertInertia(fn ($p) => $p->where('pratiche', fn ($list) => collect($list)->pluck('id')->all() === [$scaduta->id, $vicina->id, $lontana->id, $senza->id]));
+});
+
+test('se gli avvisi automatici non girano da più di un giorno, amministratori e superadmin lo vedono subito', function () {
+    // Giro regolare: nessun allarme, e il comando segna l'ora del giro.
+    $this->artisan('app:process-daily-reminders')->assertSuccessful();
+    $this->actingAs($this->admin1)->get('/dashboard')->assertInertia(fn ($page) => $page->where('avvisiFermiDal', null));
+
+    // Il cron smette di lanciarlo: dopo 26 ore compare la striscia rossa.
+    DB::table('scheduler_heartbeats')->where('name', 'avvisi')->update(['ran_at' => now()->subDays(2)]);
+    $this->actingAs($this->admin1)->get('/dashboard')->assertInertia(fn ($page) => $page->whereNot('avvisiFermiDal', null));
+    // Un utente normale non può farci niente: non la vede.
+    $this->actingAs($this->creator)->get('/dashboard')->assertInertia(fn ($page) => $page->where('avvisiFermiDal', null));
+
+    // La simulazione non conta come giro vero.
+    $this->artisan('app:process-daily-reminders --dry-run')->assertSuccessful();
+    $this->actingAs($this->admin1)->get('/dashboard')->assertInertia(fn ($page) => $page->whereNot('avvisiFermiDal', null));
+});
+
+test('gli avvisi arretrati si scaglionano su più giorni lavorativi, senza inviare niente', function () {
+    Bus::fake();
+    $this->travelTo(Carbon\Carbon::parse('2026-10-20 02:00')); // martedì
+    foreach (range(1, 10) as $i) {
+        nuovaPratica(['data_prossimo_avviso' => '2026-10-'.str_pad((string) (8 + $i), 2, '0', STR_PAD_LEFT)]);
+    }
+    $chiuso = TenantStatus::create(['tenant_id' => $this->tenant->id, 'name' => 'Chiuso', 'color' => '#000', 'order' => 1, 'is_closed' => true]);
+    $chiusa = nuovaPratica(['data_prossimo_avviso' => '2026-10-01', 'current_status_id' => $chiuso->id]);
+    $futura = nuovaPratica(['data_prossimo_avviso' => '2026-10-30']);
+
+    $this->artisan('app:scagliona-avvisi --giorni=4 --dry-run')->assertSuccessful();
+    expect(Pratica::whereDate('data_prossimo_avviso', '<', '2026-10-20')->count())->toBe(11); // dry-run: niente cambia
+
+    $this->artisan('app:scagliona-avvisi --giorni=4')->assertSuccessful();
+
+    $perGiorno = Pratica::where('current_status_id', $this->status->id)->whereKeyNot($futura->id)
+        ->get()->countBy(fn ($p) => $p->data_prossimo_avviso->toDateString())->sortKeys()->all();
+    // 10 avvisi su 4 giorni lavorativi da martedì: mar, mer, gio, ven (il weekend si salta)
+    expect($perGiorno)->toBe(['2026-10-20' => 3, '2026-10-21' => 3, '2026-10-22' => 3, '2026-10-23' => 1])
+        ->and($chiusa->fresh()->data_prossimo_avviso->toDateString())->toBe('2026-10-01') // sinistro chiuso: non si tocca
+        ->and($futura->fresh()->data_prossimo_avviso->toDateString())->toBe('2026-10-30');
+    Bus::assertNothingDispatched();
 });

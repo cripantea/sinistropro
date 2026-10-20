@@ -88,7 +88,7 @@ class ImportClientiController extends Controller
             'file_id'   => (string) Str::uuid(),
             'stato'     => 'bozza',
         ]);
-        Storage::disk('local')->put($importazione->rowsPath(), json_encode($table['rows'], JSON_UNESCAPED_UNICODE));
+        $importazione->salvaRighe($table['rows']);
 
         $saved = TenantContext::tenant()?->getSetting('import_clienti.mapping', []) ?? [];
 
@@ -127,7 +127,7 @@ class ImportClientiController extends Controller
     {
         $data = $this->validaMappatura($request);
 
-        if (! Storage::disk('local')->exists($importazione->rowsPath())) {
+        if ($importazione->leggiRighe() === null) {
             return response()->json(['error' => 'File non più disponibile. Ricaricalo.'], 422);
         }
 
@@ -215,18 +215,17 @@ class ImportClientiController extends Controller
 
     private function rows(Importazione $importazione): ?array
     {
-        $json = Storage::disk('local')->get($importazione->rowsPath());
-
-        return $json === null ? null : json_decode($json, true);
+        return $importazione->leggiRighe();
     }
 
     /** Bozze abbandonate da più di un giorno: via il file con i dati personali e il record. */
     private function pulisciBozzeVecchie(): void
     {
         Importazione::where('stato', 'bozza')->where('created_at', '<', now()->subDay())->get()
-            ->each(function (Importazione $imp): void {
-                Storage::disk('local')->delete($imp->rowsPath());
-                $imp->delete();
-            });
+            ->each(fn (Importazione $imp) => $imp->delete());
+
+        // File su disco lasciati dagli import fatti prima che le righe passassero dal database
+        // (li può cancellare solo il sito, che li aveva scritti).
+        Storage::disk('local')->deleteDirectory('importazioni');
     }
 }

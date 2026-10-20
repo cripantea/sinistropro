@@ -28,14 +28,42 @@ class Importazione extends Model
         'completata_at' => 'datetime',
     ];
 
-    protected $hidden = ['file_id'];
+    protected $hidden = ['file_id', 'righe'];
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    /** Righe del file già lette e salvate in JSON al caricamento. */
+    /**
+     * Righe del file già lette, salvate compresse nel database al caricamento (non su disco:
+     * il sito e il worker della coda girano con utenti diversi e non leggono gli stessi file privati).
+     */
+    public function salvaRighe(array $rows): void
+    {
+        $this->forceFill(['righe' => base64_encode(gzcompress(json_encode($rows, JSON_UNESCAPED_UNICODE), 6))])->save();
+    }
+
+    /** @return array<int, array<string, mixed>>|null  null se le righe non ci sono più */
+    public function leggiRighe(): ?array
+    {
+        $raw = $this->attributes['righe'] ?? null;
+        if (! is_string($raw) || $raw === '') {
+            return null;
+        }
+        $json = @gzuncompress((string) base64_decode($raw, true));
+        $rows = $json === false ? null : json_decode($json, true);
+
+        return is_array($rows) ? $rows : null;
+    }
+
+    /** I dati personali del file non restano salvati oltre il necessario. */
+    public function cancellaRighe(): void
+    {
+        $this->forceFill(['righe' => null])->save();
+    }
+
+    /** Vecchio percorso su disco (import fatti prima che le righe passassero dal database). */
     public function rowsPath(): string
     {
         return "importazioni/{$this->file_id}.json";
