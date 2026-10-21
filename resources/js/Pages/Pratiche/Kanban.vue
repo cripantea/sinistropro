@@ -132,7 +132,8 @@
 
               <!-- Prossimo avviso: semaforo verde/giallo/rosso in base ai giorni rimanenti -->
               <div class="flex items-center gap-1.5 mt-2.5">
-                <template v-if="pratica.data_prossimo_avviso">
+                <span v-if="statoChiuso(pratica.current_status_id)" class="text-xs text-gray-400">Sinistro chiuso · nessun avviso</span>
+                <template v-else-if="pratica.data_prossimo_avviso">
                   <span class="w-2 h-2 rounded-full shrink-0" :class="avvisoColor(pratica.data_prossimo_avviso).dot"/>
                   <span class="text-xs text-gray-500">Prossimo avviso</span>
                   <span class="text-xs font-semibold tabular-nums" :class="avvisoColor(pratica.data_prossimo_avviso).text">{{ formatDate(pratica.data_prossimo_avviso) }}</span>
@@ -418,6 +419,7 @@ interface TenantStatus {
   color: string
   order: number
   responsible_role: string
+  is_closed: boolean
 }
 interface PraticaKanban {
   id: number
@@ -534,6 +536,11 @@ function daysUntil(dateStr: string): number {
   // aggiungere l'orario locale, altrimenti la stringa risulterebbe non valida.
   const target = new Date(dateStr.substring(0, 10) + 'T00:00:00')
   return Math.round((target.getTime() - today.getTime()) / 86_400_000)
+}
+
+// Su un sinistro chiuso gli avvisi non partono (vedi ProcessDailyReminders): non mostriamo la data.
+function statoChiuso(statusId: number | null): boolean {
+  return props.statuses.find(s => s.id === statusId)?.is_closed ?? false
 }
 
 function avvisoColor(dateStr: string): { dot: string; text: string } {
