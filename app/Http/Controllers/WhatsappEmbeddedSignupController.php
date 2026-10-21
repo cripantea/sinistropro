@@ -5,17 +5,25 @@ namespace App\Http\Controllers;
 use App\Jobs\TriggerWhatsappHistorySyncJob;
 use App\Models\WhatsappHistorySync;
 use App\Models\WhatsappSession;
+use App\Services\FusionWaConnectionClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class WhatsappEmbeddedSignupController extends Controller
 {
+    public function __construct(private readonly FusionWaConnectionClient $fusionWa) {}
+
     /**
-     * Persiste una connessione già stabilita tramite il widget Embedded Signup
-     * di FusionWA: il frontend ha già verificato lo stato CONNECTED
-     * interrogando FusionWA direttamente (vedi EmbeddedSignupButton.vue), qui
-     * ci limitiamo a registrarlo. Nessuno scambio OAuth in questo controller:
-     * il token WABA resta custodito da FusionWA, mai qui.
+     * Persiste una connessione stabilita tramite il widget Embedded Signup di
+     * FusionWA. waba_id/phone_number_id/phone_number arrivano dal browser (il
+     * frontend li legge dal polling di FusionWA) ma non ci si può fidare:
+     * qualunque tenant-admin autenticato potrebbe mandare qui i dati di un
+     * altro cliente. Prima di salvare si verifica server-to-server con
+     * FusionWA (stesso principio già applicato in fusion-crm) che quella
+     * connessione esista davvero, sia operativa, e corrisponda esattamente a
+     * quanto dichiarato — i valori salvati sono quelli verificati da FusionWA,
+     * non quelli ricevuti dal client. Nessuno scambio OAuth in questo
+     * controller: il token WABA resta custodito da FusionWA, mai qui.
      */
     public function sync(Request $request): JsonResponse
     {
@@ -28,12 +36,27 @@ class WhatsappEmbeddedSignupController extends Controller
             'phone_number' => ['required', 'string'],
         ]);
 
+        $status = $this->fusionWa->status($authed->tenant_id);
+        if ($status === null) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Verifica della connessione non disponibile al momento. Riprova tra poco; il collegamento non è stato salvato.',
+            ], 503);
+        }
+        if (! $this->fusionWa->matches($status, $data)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'La connessione dichiarata non corrisponde a quella attiva su FusionWA per questo account.',
+            ], 422);
+        }
+        $connection = $status['connection'];
+
         $session = WhatsappSession::updateOrCreate(
             ['tenant_id' => $authed->tenant_id],
             [
-                'phone_number_id' => $data['phone_number_id'],
-                'display_phone_number' => $data['phone_number'],
-                'waba_id' => $data['waba_id'],
+                'phone_number_id' => $connection['phoneNumberId'],
+                'display_phone_number' => $connection['phoneNumber'],
+                'waba_id' => $connection['wabaId'],
                 'access_token' => null,
                 'is_on_biz_app' => true,
                 'platform_type' => 'CLOUD_API',
