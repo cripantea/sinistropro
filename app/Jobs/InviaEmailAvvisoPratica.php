@@ -38,6 +38,11 @@ class InviaEmailAvvisoPratica implements ShouldQueue
             ->with(['tenant', 'utenteCreatore', 'currentStatus'])
             ->findOrFail($this->praticaId);
 
+        // Chiuso tra l'accodamento e l'esecuzione: niente avviso.
+        if ($pratica->currentStatus?->is_closed) {
+            return;
+        }
+
         $tenant         = $pratica->tenant;
         $giorni         = $tenant->getDefaultNoticeDays();
         $nuovaData      = now()->addDays($giorni)->startOfDay();

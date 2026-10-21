@@ -36,7 +36,11 @@ class DashboardController extends Controller
         $total          = $statuses->sum('count');
         $open           = $statuses->where('is_closed', false)->sum('count');
         $closed         = $statuses->where('is_closed', true)->sum('count');
-        $todayReminders = Pratica::whereDate('data_prossimo_avviso', today())->count();
+        // Stesso filtro di ProcessDailyReminders: sui sinistri chiusi l'avviso non parte.
+        $todayReminders = Pratica::whereDate('data_prossimo_avviso', today())
+            ->where(fn ($q) => $q->whereNull('current_status_id')
+                ->orWhereHas('currentStatus', fn ($s) => $s->where('is_closed', false)))
+            ->count();
 
         // Trend mensile ultimi 12 mesi (Pratica è auto-scoped al tenant corrente)
         $trend = [];

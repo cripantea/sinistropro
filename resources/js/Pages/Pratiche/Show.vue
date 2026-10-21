@@ -95,7 +95,9 @@
           </div>
           <div>
             <span class="text-gray-400 text-xs uppercase tracking-wide">Prossimo avviso</span>
+            <p v-if="pratica.current_status?.is_closed" class="text-sm mt-0.5 text-gray-400">Nessuno (sinistro chiuso)</p>
             <p
+              v-else
               class="text-sm mt-0.5"
               :class="isOverdue(pratica.data_prossimo_avviso) ? 'text-red-600 font-semibold' : 'font-medium text-gray-800'"
             >
@@ -509,7 +511,7 @@ interface Ispezione {
   perito_contatto: ContattoInfo | null
   carrozzeria_contatto: ContattoInfo | null
 }
-interface TenantStatus { id: number; name: string; color: string }
+interface TenantStatus { id: number; name: string; color: string; is_closed?: boolean }
 interface Nota { id: number; nota: string; user: { id: number; name: string } | null; created_at: string }
 interface DocumentCategory { id: number; name: string; max_file_size_mb: number }
 interface Allegato {

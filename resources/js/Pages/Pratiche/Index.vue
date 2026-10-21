@@ -154,8 +154,9 @@
               </td>
 
               <td class="px-5 py-3.5">
+                <span v-if="pratica.current_status?.is_closed" class="text-gray-300 text-xs" title="Sinistro chiuso: nessun avviso">—</span>
                 <span
-                  v-if="pratica.data_prossimo_avviso"
+                  v-else-if="pratica.data_prossimo_avviso"
                   :class="isOverdue(pratica.data_prossimo_avviso) ? 'text-red-600 font-semibold' : 'text-gray-700'"
                   class="text-xs tabular-nums"
                 >
@@ -210,7 +211,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import SortIcon from '@/Components/SortIcon.vue'
 import DataItaliana from '@/Components/DataItaliana.vue'
 
-interface Status { id: number; name: string; color: string }
+interface Status { id: number; name: string; color: string; is_closed?: boolean }
 interface CustomFieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean' | 'select'; options?: string[] }
 interface PraticaRow {
   id: number
