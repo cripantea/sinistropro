@@ -51,6 +51,35 @@ class FusionWaConnectionClient
     }
 
     /**
+     * Token firmato a breve scadenza per il widget di collegamento (vedi
+     * FusionWA: src/lib/widget-token.ts): sostituisce l'apiKey pubblica + il
+     * tenantId numerico passati finora al widget, che da soli permettevano a
+     * chi indovinava un tenantId di leggere o sostituire la connessione
+     * WhatsApp di un altro cliente. Va chiamato server-to-server (qui, non
+     * nel browser) subito prima di renderizzare EmbeddedSignupButton.
+     * Ritorna null se la richiesta fallisce o FusionWA non dà un token.
+     */
+    public function getWidgetToken(string|int $externalCustomerId): ?string
+    {
+        $response = Http::withHeaders([
+            'x-fusionwa-api-key' => config('services.fusionwa.api_key'),
+            'x-fusionwa-api-secret' => config('services.fusionwa.api_secret'),
+        ])
+            ->timeout(10)
+            ->post("{$this->baseUrl}/api/v1/widget/token", [
+                'customerId' => (string) $externalCustomerId,
+            ]);
+
+        if ($response->failed()) {
+            return null;
+        }
+
+        $token = $response->json('token');
+
+        return is_string($token) ? $token : null;
+    }
+
+    /**
      * True solo se la connessione riportata da FusionWA per questo customer
      * è attiva, operativa, e corrisponde esattamente (waba_id, phone_number_id,
      * phone_number) a quella che si vuole salvare — non un confronto parziale.
