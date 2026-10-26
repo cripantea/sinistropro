@@ -14,8 +14,7 @@ class TeamController extends Controller
 {
     public function index(): Response
     {
-        $authed = auth()->user();
-        abort_unless($authed->isTenantAdmin(), 403, 'Solo il tenant-admin può gestire il team.');
+        $authed = $this->tenantAdmin();
 
         $members = User::where('tenant_id', $authed->tenant_id)
             ->where('role', '!=', 'superadmin')
@@ -30,8 +29,7 @@ class TeamController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $authed = auth()->user();
-        abort_unless($authed->isTenantAdmin(), 403);
+        $authed = $this->tenantAdmin();
 
         $data = $request->validate([
             'name'          => ['required', 'string', 'max:255'],
@@ -58,9 +56,8 @@ class TeamController extends Controller
 
     public function update(Request $request, User $member): RedirectResponse
     {
-        $authed = auth()->user();
-        abort_unless($authed->isTenantAdmin(), 403);
-        abort_unless($member->tenant_id === $authed->tenant_id, 403);
+        $authed = $this->tenantAdmin();
+        $this->authorizeMember($authed, $member);
 
         $data = $request->validate([
             'name'          => ['required', 'string', 'max:255'],
@@ -89,14 +86,27 @@ class TeamController extends Controller
 
     public function toggleActive(User $member): RedirectResponse
     {
-        $authed = auth()->user();
-        abort_unless($authed->isTenantAdmin(), 403);
-        abort_unless($member->tenant_id === $authed->tenant_id, 403);
+        $authed = $this->tenantAdmin();
+        $this->authorizeMember($authed, $member);
         abort_if($member->id === $authed->id, 403, 'Non puoi disattivare il tuo stesso account.');
 
         $member->update(['is_active' => ! $member->is_active]);
         $label = $member->is_active ? 'attivato' : 'disattivato';
 
         return redirect()->back()->with('success', "{$member->name} {$label}.");
+    }
+
+    /** Tenant-admin con un tenant: senza tenant_id il confronto "stesso tenant" non avrebbe senso. */
+    private function tenantAdmin(): User
+    {
+        $authed = auth()->user();
+        abort_unless($authed->isTenantAdmin() && $authed->tenant_id !== null, 403, 'Solo il tenant-admin può gestire il team.');
+
+        return $authed;
+    }
+
+    private function authorizeMember(User $authed, User $member): void
+    {
+        abort_unless($member->tenant_id === $authed->tenant_id && $member->role !== 'superadmin', 403);
     }
 }

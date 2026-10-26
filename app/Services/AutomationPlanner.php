@@ -47,7 +47,7 @@ class AutomationPlanner
         $documents  = $this->documentRefs($pratica, $automation);
 
         $statusName = ! empty($ctx['status_id'])
-            ? (TenantStatus::find($ctx['status_id'])?->name ?? '')
+            ? (TenantStatus::where('tenant_id', $pratica->tenant_id)->find($ctx['status_id'])?->name ?? '')
             : ($pratica->currentStatus?->name ?? '');
 
         return [

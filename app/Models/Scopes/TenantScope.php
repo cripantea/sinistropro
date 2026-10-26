@@ -14,6 +14,12 @@ class TenantScope implements Scope
         $tenantId = TenantContext::id();
 
         if (! $tenantId) {
+            // Senza tenant si vede tutto solo il superadmin (o il codice di sistema senza utente):
+            // qualsiasi altro utente autenticato non vede nulla, mai i dati di tutti i tenant.
+            if (auth()->check() && auth()->user()->role !== 'superadmin') {
+                $builder->whereRaw('1 = 0');
+            }
+
             return;
         }
 

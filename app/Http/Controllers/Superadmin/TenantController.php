@@ -263,7 +263,12 @@ class TenantController extends Controller
     public function destroy(Tenant $tenant): RedirectResponse
     {
         $name = $tenant->name;
-        $tenant->delete();
+
+        // La FK users.tenant_id è nullOnDelete: gli utenti resterebbero attivi senza tenant.
+        DB::transaction(function () use ($tenant): void {
+            User::where('tenant_id', $tenant->id)->update(['is_active' => false]);
+            $tenant->delete();
+        });
 
         return redirect()
             ->route('superadmin.tenants.index')

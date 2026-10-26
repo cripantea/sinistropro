@@ -29,8 +29,14 @@ class WhatsappWebhookController extends Controller
         $token = $request->query('hub_verify_token');
         $challenge = $request->query('hub_challenge', '');
 
-        if ($mode === 'subscribe' && $token === config('services.whatsapp_cloud.verify_token')) {
-            return response($challenge, 200);
+        $expected = config('services.whatsapp_cloud.verify_token');
+
+        // Token non configurato = verifica sempre rifiutata (prima null === null passava).
+        // La challenge torna come testo semplice, mai come HTML.
+        if ($mode === 'subscribe' && filled($expected) && is_string($token) && hash_equals((string) $expected, $token)) {
+            return response((string) $challenge, 200)
+                ->header('Content-Type', 'text/plain; charset=utf-8')
+                ->header('X-Content-Type-Options', 'nosniff');
         }
 
         return response('', 403);

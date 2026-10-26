@@ -9,6 +9,7 @@ use App\Models\TenantStatus;
 use App\Services\AutomationPlanner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class AutomationPreviewController extends Controller
 {
@@ -24,7 +25,7 @@ class AutomationPreviewController extends Controller
         abort_unless($pratica->tenant_id === $user->tenant_id, 403);
 
         $data = $request->validate([
-            'tenant_status_id'        => ['nullable', 'integer'],
+            'tenant_status_id'        => ['nullable', 'integer', Rule::exists('tenant_statuses', 'id')->where('tenant_id', $pratica->tenant_id)],
             'date_fields'             => ['nullable', 'array'],
             'date_fields.*'           => ['nullable', 'string'],
             'perito_contatto_id'      => ['nullable', 'integer'],
@@ -74,7 +75,7 @@ class AutomationPreviewController extends Controller
         // Email "di cambio stato" impostata sullo stato stesso: anche lei si vede e si può
         // escludere nella conferma, come le automazioni (voce con id 0).
         if (! empty($data['tenant_status_id']) && (int) $data['tenant_status_id'] !== $pratica->current_status_id) {
-            $stato = TenantStatus::find($data['tenant_status_id']);
+            $stato = TenantStatus::where('tenant_id', $pratica->tenant_id)->find($data['tenant_status_id']);
             if ($stato?->send_email_notification) {
                 $plans->prepend($planner->planEmailStato($pratica, $stato));
             }
@@ -82,7 +83,10 @@ class AutomationPreviewController extends Controller
 
         return response()->json([
             // Rubrica attiva: nella finestra di conferma si possono aggiungere destinatari da qui.
-            'rubrica' => Contatto::where('is_active', true)->orderBy('nome')->get(['id', 'nome', 'tags', 'telefono', 'email']),
+            // Gli esterni non vedono la rubrica (stessa regola di ContattoController).
+            'rubrica' => $user->role === 'external'
+                ? []
+                : Contatto::where('is_active', true)->orderBy('nome')->get(['id', 'nome', 'tags', 'telefono', 'email']),
             'automations' => $plans->values(),
         ]);
     }

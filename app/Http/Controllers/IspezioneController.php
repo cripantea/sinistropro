@@ -29,7 +29,7 @@ class IspezioneController extends Controller
         abort_unless($pratica->tenant_id === $user->tenant_id, 403);
 
         $data = $request->validate([
-            'current_status_id'    => ['nullable', 'integer', 'exists:tenant_statuses,id'],
+            'current_status_id'    => ['nullable', 'integer', Rule::exists('tenant_statuses', 'id')->where('tenant_id', $pratica->tenant_id)],
             'perito_contatto_id'      => ['nullable', 'integer', Rule::exists('contatti', 'id')->where(fn ($q) => $q->where('tenant_id', $user->tenant_id)->whereJsonContains('tags', 'perito'))],
             'carrozzeria_contatto_id' => ['nullable', 'integer', Rule::exists('contatti', 'id')->where(fn ($q) => $q->where('tenant_id', $user->tenant_id)->whereJsonContains('tags', 'carrozzeria'))],
             'data_appuntamento'    => ['nullable', 'date'],
