@@ -108,7 +108,10 @@ test('prezzo personalizzato del tenant, altrimenti quello standard', function ()
     expect($this->tenant->priceCents('month'))->toBe(9900)->and($this->tenant->priceCents('year'))->toBe(99000);
 
     $this->tenant->forceFill(['price_monthly_cents' => 7900])->save();
-    expect($this->tenant->fresh()->priceCents('month'))->toBe(7900)->and($this->tenant->fresh()->priceCents('year'))->toBe(99000);
+    expect($this->tenant->fresh()->priceCents('month'))->toBe(7900)->and($this->tenant->fresh()->priceCents('year'))->toBe(79000);
+
+    $this->tenant->forceFill(['price_yearly_cents' => 75000])->save();
+    expect($this->tenant->fresh()->priceCents('year'))->toBe(75000);
 });
 
 test('il webhook aggiorna lo stato dell\'abbonamento e sblocca il tenant', function () {
@@ -163,4 +166,18 @@ test('il link di pagamento funziona solo se firmato', function () {
     $this->get("/paga/{$this->tenant->id}")->assertForbidden();
     $this->get(URL::signedRoute('paga', $this->tenant))->assertOk();
     $this->get(URL::signedRoute('paga.grazie', $this->tenant) . '&session_id=cs_test')->assertOk();
+});
+
+test('il superadmin vede stato e link di pagamento nella scheda e nell\'elenco agenzie', function () {
+    $this->actingAs($this->superadmin)->get("/superadmin/tenants/{$this->tenant->id}/edit")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('billing.state', 'non_attivo')
+            ->where('billing.billing_mode', 'stripe')
+            ->where('billing.price_monthly_cents', 9900)
+            ->where('billing.payment_link', fn ($url) => str_contains($url, '/paga/' . $this->tenant->id) && str_contains($url, 'signature=')));
+
+    $this->actingAs($this->superadmin)->get('/superadmin/tenants')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('tenants.data', fn ($rows) => collect($rows)->pluck('billing_state')->contains('non_attivo')));
 });

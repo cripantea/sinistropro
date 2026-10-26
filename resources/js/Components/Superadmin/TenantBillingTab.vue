@@ -33,7 +33,7 @@
     <template v-if="form.billing_mode === 'stripe'">
       <FormSection title="Prezzo (IVA inclusa)">
         <p class="text-xs text-slate-500 -mt-2 mb-4">
-          Lascia vuoto per il prezzo standard. Se l'agenzia paga già, il nuovo prezzo vale dal prossimo rinnovo.
+          Lascia vuoto per il prezzo standard. Con solo il mensile, l'annuale vale 10 mesi. Se l'agenzia paga già, il nuovo prezzo vale dal prossimo rinnovo.
         </p>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
           <div>
@@ -43,7 +43,7 @@
           </div>
           <div>
             <label class="field-label">Annuale (€)</label>
-            <input v-model="form.price_yearly" type="number" step="0.01" min="1" class="field-input" :placeholder="String(billing.standard_yearly)" />
+            <input v-model="form.price_yearly" type="number" step="0.01" min="1" class="field-input" :placeholder="form.price_monthly ? String(Number(form.price_monthly) * 10) : String(billing.standard_yearly)" />
             <FieldError :message="form.errors.price_yearly" />
           </div>
           <div>

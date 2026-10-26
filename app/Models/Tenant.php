@@ -145,12 +145,18 @@ class Tenant extends Model
         return in_array($this->subscription_status, self::SUBSCRIPTION_ACTIVE_STATUSES, true);
     }
 
-    /** Prezzo in centesimi (IVA inclusa) per 'month' o 'year': quello del tenant o lo standard. */
+    /**
+     * Prezzo in centesimi (IVA inclusa) per 'month' o 'year': quello del tenant o lo standard.
+     * Con solo il mensile personalizzato, l'annuale vale 10 mesi (come lo standard 99 → 990).
+     */
     public function priceCents(string $interval): int
     {
-        return $interval === 'year'
-            ? ($this->price_yearly_cents ?? (int) config('billing.price_yearly_cents'))
-            : ($this->price_monthly_cents ?? (int) config('billing.price_monthly_cents'));
+        if ($interval !== 'year') {
+            return $this->price_monthly_cents ?? (int) config('billing.price_monthly_cents');
+        }
+
+        return $this->price_yearly_cents
+            ?? ($this->price_monthly_cents ? $this->price_monthly_cents * 10 : (int) config('billing.price_yearly_cents'));
     }
 
     /** Costo di attivazione ancora da pagare (una tantum, con la prima rata). */
