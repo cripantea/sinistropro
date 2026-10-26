@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AbbonamentoController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AutomationPreviewController;
 use App\Http\Controllers\ClienteController;
@@ -26,6 +27,7 @@ use App\Http\Controllers\Superadmin\DocumentCategoryController;
 use App\Http\Controllers\Superadmin\FieldDictionaryController;
 use App\Http\Controllers\Superadmin\ModuleTemplateController;
 use App\Http\Controllers\Superadmin\SuperadminController;
+use App\Http\Controllers\Superadmin\TenantBillingController;
 use App\Http\Controllers\Superadmin\TenantController;
 use App\Http\Controllers\Superadmin\TenantMailSettingsController;
 use App\Http\Controllers\Superadmin\TenantWhatsappController;
@@ -148,6 +150,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/email/attachments/{attachment}/download', [EmailController::class, 'downloadAttachment'])->name('email.attachments.download');
 });
 
+// --- Abbonamento (la pagina la vedono tutti, pagare e gestire solo il tenant-admin) ---
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/abbonamento',           [AbbonamentoController::class, 'show'])->name('abbonamento');
+    Route::post('/abbonamento/checkout', [AbbonamentoController::class, 'checkout'])->name('abbonamento.checkout');
+    Route::get('/abbonamento/attivo',    [AbbonamentoController::class, 'attivo'])->name('abbonamento.attivo');
+    Route::post('/abbonamento/annuale',  [AbbonamentoController::class, 'annuale'])->name('abbonamento.annuale');
+    Route::post('/abbonamento/gestisci', [AbbonamentoController::class, 'portale'])->name('abbonamento.gestisci');
+});
+
+// Link di pagamento senza login, mandato dal superadmin dopo la demo (URL firmato, non scade).
+Route::middleware('throttle:30,1')->group(function () {
+    Route::get('/paga/{tenant}',           [AbbonamentoController::class, 'paga'])->middleware('signed')->name('paga');
+    Route::post('/paga/{tenant}/checkout', [AbbonamentoController::class, 'pagaCheckout'])->middleware('signed')->name('paga.checkout');
+    Route::get('/paga/{tenant}/grazie',    [AbbonamentoController::class, 'pagaGrazie'])->name('paga.grazie');
+});
+
 // --- Audit Log (solo tenant-admin) ---
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
@@ -185,6 +203,9 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
 
     // Configurazione categorie per tenant
     Route::post('/tenants/{tenant}/document-categories', [TenantController::class, 'syncDocumentCategories'])->name('tenants.document-categories.sync');
+
+    // Abbonamento del tenant: modalità, prezzi personalizzati, link di pagamento
+    Route::post('/tenants/{tenant}/billing', [TenantBillingController::class, 'update'])->name('tenants.billing.update');
 
     // Configurazione email per tenant
     Route::post('/tenants/{tenant}/mail-settings', [TenantMailSettingsController::class, 'update'])->name('tenants.mail-settings.update');

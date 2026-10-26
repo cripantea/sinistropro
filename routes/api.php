@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AllegatoController;
 use App\Http\Controllers\PraticaNotaController;
+use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\WhatsappWebhookController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -14,6 +15,9 @@ Route::get('/user', function (Request $request) {
 // POST per gli eventi (autenticati via firma X-Hub-Signature-256, non da un utente).
 Route::match(['get', 'post'], '/whatsapp/webhook', [WhatsappWebhookController::class, 'handle'])
     ->name('api.whatsapp.webhook');
+
+// Webhook Stripe (abbonamenti SinistroPro), autenticato dalla firma Stripe-Signature.
+Route::post('/stripe/webhook', StripeWebhookController::class)->name('api.stripe.webhook');
 
 Route::middleware('auth:sanctum')->group(function () {
     // Allegati: upload (legato alla pratica)

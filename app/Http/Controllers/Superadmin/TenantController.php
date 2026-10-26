@@ -11,9 +11,11 @@ use App\Models\FieldDictionaryEntry;
 use App\Models\ModuleTemplate;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\Billing\StripeBilling;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -25,6 +27,8 @@ class TenantController extends Controller
             ->latest()
             ->paginate(20)
             ->withQueryString();
+
+        $tenants->getCollection()->each(fn (Tenant $t) => $t->setAttribute('billing_state', $t->billingState()));
 
         return Inertia::render('Superadmin/Tenants/Index', [
             'tenants' => $tenants,
@@ -47,7 +51,7 @@ class TenantController extends Controller
     public function store(StoreTenantRequest $request): RedirectResponse
     {
         $tenant = DB::transaction(function () use ($request): Tenant {
-            $tenant = Tenant::create([
+            $tenant = new Tenant([
                 'name' => $request->name,
                 'settings' => [
                     'default_notice_days'          => $request->integer('default_notice_days'),
@@ -56,6 +60,9 @@ class TenantController extends Controller
                     'features'                      => $request->input('features', []),
                 ],
             ]);
+            // Le agenzie nuove pagano con Stripe; dalla scheda Abbonamento si può passare a "fatturato a parte".
+            $tenant->billing_mode = 'stripe';
+            $tenant->save();
 
             $initialAssigned = false;
             foreach ($request->input('statuses', []) as $i => $statusData) {
@@ -166,6 +173,21 @@ class TenantController extends Controller
             'fieldDictionary'   => $fieldDictionary,
             'tenantUsers'       => $tenantUsers,
             'availableFeatures' => $availableFeatures,
+            'billing'           => [
+                ...$tenant->billingSummary(),
+                'billing_mode'        => $tenant->billing_mode,
+                'price_monthly'       => $tenant->price_monthly_cents !== null ? $tenant->price_monthly_cents / 100 : null,
+                'price_yearly'        => $tenant->price_yearly_cents !== null ? $tenant->price_yearly_cents / 100 : null,
+                'setup_fee'           => $tenant->setup_fee_cents !== null ? $tenant->setup_fee_cents / 100 : null,
+                'setup_fee_paid_at'   => $tenant->setup_fee_paid_at?->toDateString(),
+                'standard_monthly'    => config('billing.price_monthly_cents') / 100,
+                'standard_yearly'     => config('billing.price_yearly_cents') / 100,
+                'subscription_status' => $tenant->subscription_status,
+                'billing_details'     => $tenant->billing_details,
+                'stripe_customer_url' => $tenant->stripe_customer_id ? "https://dashboard.stripe.com/customers/{$tenant->stripe_customer_id}" : null,
+                'payment_link'        => URL::signedRoute('paga', $tenant),
+                'stripe_ready'        => StripeBilling::configured(),
+            ],
             'mailSettings' => $mailSettings ? [
                 'host'         => $mailSettings->host,
                 'port'         => $mailSettings->port,

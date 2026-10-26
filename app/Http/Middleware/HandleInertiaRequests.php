@@ -34,6 +34,7 @@ class HandleInertiaRequests extends Middleware
             'impersonating'  => $this->impersonatingInfo($request),
             'tenantContext'  => $this->tenantContextInfo($request),
             'avvisiFermiDal' => $this->avvisiFermiDal($request),
+            'abbonamento'    => $this->abbonamento($request),
         ];
     }
 
@@ -75,6 +76,19 @@ class HandleInertiaRequests extends Middleware
     }
 
     private ?Tenant $cachedTenant = null;
+
+    /** Per il banner "sola lettura" e la voce di menu: null per i tenant fatturati a parte. */
+    protected function abbonamento(Request $request): ?array
+    {
+        $tenant = $this->currentTenant($request);
+        if (! $tenant || $tenant->isBilledExternally()) return null;
+
+        return [
+            'state'      => $tenant->billingState(),
+            'has_access' => $tenant->hasAccess(),
+            'free_until' => $tenant->free_until?->format('d/m/Y'),
+        ];
+    }
 
     protected function currentTenant(Request $request): ?Tenant
     {

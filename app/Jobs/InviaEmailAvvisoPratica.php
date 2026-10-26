@@ -43,6 +43,12 @@ class InviaEmailAvvisoPratica implements ShouldQueue
             return;
         }
 
+        // Abbonamento non attivo: sola lettura, nessun avviso. Quando riattiva, gli avvisi
+        // rimasti indietro vengono distribuiti su più giorni (StripeBilling::syncSubscription).
+        if (! $pratica->tenant->hasAccess()) {
+            return;
+        }
+
         $tenant         = $pratica->tenant;
         $giorni         = $tenant->getDefaultNoticeDays();
         $nuovaData      = now()->addDays($giorni)->startOfDay();

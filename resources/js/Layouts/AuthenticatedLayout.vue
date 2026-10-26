@@ -4,6 +4,7 @@ import { Link, usePage } from '@inertiajs/vue3'
 import ImpersonationBanner from '@/Components/ImpersonationBanner.vue'
 import TenantContextBanner from '@/Components/TenantContextBanner.vue'
 import AvvisiFermiBanner from '@/Components/AvvisiFermiBanner.vue'
+import AbbonamentoBanner from '@/Components/AbbonamentoBanner.vue'
 import SuperadminOverlay from '@/Components/SuperadminOverlay.vue'
 import type { PageProps, AppNotification } from '@/types'
 
@@ -91,6 +92,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
     <ImpersonationBanner />
     <TenantContextBanner />
     <AvvisiFermiBanner />
+    <AbbonamentoBanner />
 
     <!-- ── App Shell ────────────────────────────────────────── -->
     <div class="flex flex-1 overflow-hidden min-h-0">
@@ -332,6 +334,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               </div>
               <Link :href="route('profile.edit')" class="block px-3 py-2 text-gray-700 hover:bg-gray-50">Profilo</Link>
               <Link v-if="isTenantAdmin || hasTenantContext" :href="route('team.index')" class="block px-3 py-2 text-gray-700 hover:bg-gray-50">Team</Link>
+              <Link v-if="page.props.abbonamento && !isSuperadmin" :href="route('abbonamento')" class="block px-3 py-2 text-gray-700 hover:bg-gray-50">Abbonamento</Link>
               <Link :href="route('logout')" method="post" as="button" class="block w-full text-left px-3 py-2 text-red-600 hover:bg-red-50">Esci</Link>
             </div>
           </Transition>

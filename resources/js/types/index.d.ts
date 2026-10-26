@@ -36,4 +36,20 @@ export type PageProps<T extends Record<string, unknown> = Record<string, unknown
   tenantFeatures: Record<string, boolean>
   impersonating: { tenant_id: number; tenant_name: string } | null
   tenantContext: { tenant_id: number; tenant_name: string } | null
+  abbonamento?: { state: BillingState; has_access: boolean; free_until: string | null } | null
+}
+
+export type BillingState = 'esterno' | 'gratis' | 'attivo' | 'disdetto' | 'in_ritardo' | 'non_attivo'
+
+export interface BillingSummary {
+  state: BillingState
+  has_access: boolean
+  has_subscription: boolean
+  interval: 'month' | 'year' | null
+  ends_at: string | null
+  cancel_at_period_end: boolean
+  free_until: string | null
+  price_monthly_cents: number
+  price_yearly_cents: number
+  setup_fee_cents: number
 }

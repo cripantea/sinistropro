@@ -22,13 +22,14 @@
               <th class="px-5 py-3 text-left font-medium text-slate-500">Sinistri</th>
               <th class="px-5 py-3 text-left font-medium text-slate-500">Stati</th>
               <th class="px-5 py-3 text-left font-medium text-slate-500">Avviso (gg)</th>
+              <th class="px-5 py-3 text-left font-medium text-slate-500">Abbonamento</th>
               <th class="px-5 py-3 text-left font-medium text-slate-500">Creato</th>
               <th class="px-5 py-3"></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr v-if="tenants.data.length === 0">
-              <td colspan="7" class="px-5 py-10 text-center text-slate-400">Nessun tenant creato.</td>
+              <td colspan="8" class="px-5 py-10 text-center text-slate-400">Nessun tenant creato.</td>
             </tr>
             <tr v-for="tenant in tenants.data" :key="tenant.id" class="hover:bg-slate-50 transition-colors group">
               <td class="px-5 py-3.5 font-semibold text-slate-800">{{ tenant.name }}</td>
@@ -36,6 +37,7 @@
               <td class="px-5 py-3.5 text-slate-600 tabular-nums">{{ tenant.pratiche_count }}</td>
               <td class="px-5 py-3.5 text-slate-600 tabular-nums">{{ tenant.statuses_count }}</td>
               <td class="px-5 py-3.5 text-slate-600">{{ tenant.settings?.default_notice_days ?? 30 }} gg</td>
+              <td class="px-5 py-3.5"><span :class="['inline-flex rounded-full px-2 py-0.5 text-xs font-semibold', BILLING_BADGE[tenant.billing_state].classe]">{{ BILLING_BADGE[tenant.billing_state].testo }}</span></td>
               <td class="px-5 py-3.5 text-slate-400 text-xs">{{ formatDate(tenant.created_at) }}</td>
               <td class="px-5 py-3.5 text-right">
                 <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -77,12 +79,23 @@
 </template>
 
 <script setup lang="ts">
+import type { BillingState } from '@/types'
+
+const BILLING_BADGE: Record<BillingState, { testo: string; classe: string }> = {
+  esterno:    { testo: 'Fatturato a parte', classe: 'bg-slate-100 text-slate-600' },
+  attivo:     { testo: 'Attivo', classe: 'bg-emerald-100 text-emerald-800' },
+  disdetto:   { testo: 'Disdetto', classe: 'bg-gray-100 text-gray-700' },
+  in_ritardo: { testo: 'Pagamento fallito', classe: 'bg-amber-100 text-amber-800' },
+  gratis:     { testo: 'Gratis', classe: 'bg-indigo-100 text-indigo-800' },
+  non_attivo: { testo: 'Non pagato', classe: 'bg-red-100 text-red-800' },
+}
 import { Link, router } from '@inertiajs/vue3'
 import SuperadminLayout from '@/Layouts/SuperadminLayout.vue'
 
 interface TenantRow {
   id: number; name: string; users_count: number; pratiche_count: number
   statuses_count: number; settings: { default_notice_days?: number } | null; created_at: string
+  billing_state: BillingState
 }
 interface PaginationLink { url: string | null; label: string; active: boolean }
 

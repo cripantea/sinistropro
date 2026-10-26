@@ -37,6 +37,11 @@ class ExecuteClienteAutomationJob implements ShouldQueue
         $cliente    = Cliente::with('tenant')->findOrFail($this->cliente->id);
         $automation = $this->automation;
 
+        // Abbonamento non attivo: sola lettura, nessun messaggio automatico.
+        if (! $cliente->tenant->hasAccess()) {
+            return;
+        }
+
         $fieldValue = $cliente->custom_fields[$this->fieldName] ?? null;
 
         // Con override (conferma dell'utente) si usano esattamente i destinatari scelti;

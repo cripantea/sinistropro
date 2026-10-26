@@ -70,4 +70,10 @@ return [
         'api_secret' => env('FUSIONWA_API_SECRET'),
     ],
 
+    // Abbonamenti SinistroPro (account Stripe condiviso Fusion Media, vedi config/billing.php).
+    'stripe' => [
+        'secret'         => env('STRIPE_SECRET'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+    ],
+
 ];

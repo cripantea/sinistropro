@@ -671,6 +671,8 @@
     </form>
 
     <!-- ── Tab: WhatsApp (sola lettura, supporto) ──────────────────────────────── -->
+    <TenantBillingTab v-show="activeTab === 'billing'" :tenant-id="tenant.id" :billing="billing" />
+
     <div v-show="activeTab === 'whatsapp'" class="p-6 max-w-3xl space-y-8">
       <FormSection title="Stato collegamento">
         <p class="text-xs text-slate-500 -mt-2 mb-4">
@@ -1342,6 +1344,7 @@ const http = axios.create()
 import SuperadminLayout from '@/Layouts/SuperadminLayout.vue'
 import FormSection from '@/Components/Superadmin/FormSection.vue'
 import FieldError from '@/Components/Superadmin/FieldError.vue'
+import TenantBillingTab, { type TenantBilling } from '@/Components/Superadmin/TenantBillingTab.vue'
 import FieldCoordEditor from '@/Components/Superadmin/FieldCoordEditor.vue'
 
 // ── Interfaces ───────────────────────────────────────────────────────────────
@@ -1439,6 +1442,7 @@ const props = defineProps<{
   mailSettings: MailSettings | null
   whatsappSession: WhatsappSessionInfo | null
   availableFeatures: AvailableFeature[]
+  billing: TenantBilling
 }>()
 
 // ── UID counter (shared across all lists) ────────────────────────────────────
@@ -1458,6 +1462,7 @@ const TABS = [
   { id: 'modules',     label: 'Template Moduli PDF' },
   { id: 'email',       label: 'Email' },
   { id: 'whatsapp',    label: 'WhatsApp' },
+  { id: 'billing',     label: 'Abbonamento' },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -1465,7 +1470,7 @@ type TabId = typeof TABS[number]['id']
 function tabFromUrl(url: string): TabId {
   const search = url.includes('?') ? url.split('?')[1] : ''
   const tab = new URLSearchParams(search).get('tab')
-  return (['config', 'features', 'clienti', 'categories', 'automations', 'dictionary', 'modules', 'email', 'whatsapp'] as const).includes(tab as TabId)
+  return (['config', 'features', 'clienti', 'categories', 'automations', 'dictionary', 'modules', 'email', 'whatsapp', 'billing'] as const).includes(tab as TabId)
     ? (tab as TabId)
     : 'config'
 }

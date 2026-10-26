@@ -46,6 +46,11 @@ class ExecuteAutomationJob implements ShouldQueue
             'ispezioni' => fn ($q) => $q->latest()->limit(1)->with(['peritoContatto', 'carrozzeriaContatto', 'assegnatoa', 'carrozzeria']),
         ])->findOrFail($this->pratica->id);
 
+        // Abbonamento non attivo: sola lettura, nessun messaggio automatico.
+        if (! $pratica->tenant->hasAccess()) {
+            return;
+        }
+
         $automation = $this->automation->loadMissing('documentCategories');
 
         if ($this->override !== null) {
