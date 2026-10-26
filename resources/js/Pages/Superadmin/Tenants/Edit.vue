@@ -8,7 +8,7 @@
 
     <!-- ── Tab bar ──────────────────────────────────────────────────────────── -->
     <div class="px-6 pt-4">
-      <nav class="flex gap-1 bg-slate-100 rounded-xl p-1 max-w-4xl">
+      <nav class="flex gap-1 bg-slate-100 rounded-xl p-1 max-w-5xl overflow-x-auto">
         <button
           v-for="tab in TABS"
           :key="tab.id"

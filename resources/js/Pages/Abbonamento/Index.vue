@@ -97,7 +97,7 @@ function post(name: string) {
 
 function euro(cents: number): string {
   const v = cents / 100
-  return v.toLocaleString('it-IT', { minimumFractionDigits: Number.isInteger(v) ? 0 : 2, maximumFractionDigits: 2 }) + ' €'
+  return v.toLocaleString('it-IT', { minimumFractionDigits: Number.isInteger(v) ? 0 : 2, maximumFractionDigits: 2, useGrouping: 'always' } as Intl.NumberFormatOptions) + ' €'
 }
 
 function data(iso: string | null): string {
