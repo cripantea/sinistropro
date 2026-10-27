@@ -56,12 +56,27 @@ test('i tenant già esistenti sono "fatturati a parte" e hanno sempre accesso pi
 
 test('il superadmin crea agenzie nuove che pagano con Stripe', function () {
     $this->actingAs($this->superadmin)->post('/superadmin/tenants', [
-        'name' => 'Agenzia Nuova', 'default_notice_days' => 30,
-        'statuses' => [['name' => 'Nuova', 'color' => '#000000', 'is_initial' => true]],
-    ])->assertRedirect();
+        'name' => 'Agenzia Nuova', 'admin_name' => 'Mario Rossi', 'admin_email' => 'mario@nuova.it', 'admin_password' => 'Provvisoria23',
+    ])->assertRedirect()->assertSessionHas('credenziali', fn ($testo) => str_contains($testo, 'mario@nuova.it') && str_contains($testo, 'Provvisoria23'));
 
     $nuova = Tenant::where('name', 'Agenzia Nuova')->first();
-    expect($nuova->billing_mode)->toBe('stripe')->and($nuova->hasAccess())->toBeFalse();
+    expect($nuova->billing_mode)->toBe('stripe')->and($nuova->hasAccess())->toBeFalse()
+        ->and($nuova->initialStatus())->not->toBeNull();
+
+    $admin = User::where('email', 'mario@nuova.it')->first();
+    expect($admin->tenant_id)->toBe($nuova->id)->and($admin->role)->toBe('tenant-admin')->and($admin->must_change_password)->toBeTrue();
+
+    // Primo accesso: ogni pagina porta a "Scegli la tua password"; dopo si va a pagare.
+    $this->post('/logout');
+    $this->post('/login', ['email' => 'mario@nuova.it', 'password' => 'Provvisoria23']);
+    $this->get('/dashboard')->assertRedirect(route('password.scegli'));
+    $this->get('/scegli-password')->assertOk();
+    $this->put('/scegli-password', ['password' => 'corta'])->assertSessionHasErrors('password');
+    $this->put('/scegli-password', ['password' => 'LaMiaPassword9'])->assertRedirect(route('abbonamento'));
+
+    expect($admin->fresh()->must_change_password)->toBeFalse()
+        ->and(\Illuminate\Support\Facades\Hash::check('LaMiaPassword9', $admin->fresh()->password))->toBeTrue();
+    $this->get('/dashboard')->assertOk();
 });
 
 test('senza abbonamento si consulta ma non si modifica', function () {

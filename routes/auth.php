@@ -7,6 +7,8 @@ use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\RegistrazioneAgenziaController;
+use App\Http\Controllers\Auth\ScegliPasswordController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,6 +17,10 @@ Route::middleware('guest')->group(function () {
         ->name('login');
 
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
+
+    // Registrazione da soli di una nuova agenzia (poi paga dalla pagina Abbonamento).
+    Route::get('registrati', [RegistrazioneAgenziaController::class, 'create'])->name('registrati');
+    Route::post('registrati', [RegistrazioneAgenziaController::class, 'store'])->middleware('throttle:5,1');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
@@ -30,6 +36,10 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+    // Primo accesso con password provvisoria (account creato dal superadmin).
+    Route::get('scegli-password', [ScegliPasswordController::class, 'create'])->name('password.scegli');
+    Route::put('scegli-password', [ScegliPasswordController::class, 'store'])->name('password.scegli.store');
+
     Route::get('verify-email', EmailVerificationPromptController::class)
         ->name('verification.notice');
 

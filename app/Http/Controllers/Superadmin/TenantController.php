@@ -12,6 +12,7 @@ use App\Models\ModuleTemplate;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Billing\StripeBilling;
+use App\Services\NuovaAgenzia;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -50,41 +51,22 @@ class TenantController extends Controller
 
     public function store(StoreTenantRequest $request): RedirectResponse
     {
-        $tenant = DB::transaction(function () use ($request): Tenant {
-            $tenant = new Tenant([
-                'name' => $request->name,
-                'settings' => [
-                    'default_notice_days'          => $request->integer('default_notice_days'),
-                    'custom_fields_schema'          => $request->input('custom_fields_schema', []),
-                    'cliente_custom_fields_schema'  => $request->input('cliente_custom_fields_schema', []),
-                    'features'                      => $request->input('features', []),
-                ],
-            ]);
-            // Le agenzie nuove pagano con Stripe; dalla scheda Abbonamento si può passare a "fatturato a parte".
-            $tenant->billing_mode = 'stripe';
-            $tenant->save();
+        $nome = $request->input('admin_name') ?: $request->input('name');
+        $user = NuovaAgenzia::crea($request->input('name'), $nome, $request->input('admin_email'), $request->input('admin_password'), passwordDaCambiare: true);
 
-            $initialAssigned = false;
-            foreach ($request->input('statuses', []) as $i => $statusData) {
-                // Solo il primo status marcato is_initial viene tenuto come tale per il tenant.
-                $isInitial = ! $initialAssigned && (bool) ($statusData['is_initial'] ?? false);
-                $initialAssigned = $initialAssigned || $isInitial;
-
-                $tenant->statuses()->create([
-                    'name' => $statusData['name'],
-                    'color' => $statusData['color'],
-                    'is_closed' => (bool) ($statusData['is_closed'] ?? false),
-                    'is_initial' => $isInitial,
-                    'order' => $i,
-                ]);
-            }
-
-            return $tenant;
-        });
+        // Testo pronto da mandare al cliente (WhatsApp o email): la password si vede solo qui, una volta.
+        $credenziali = implode("\n", [
+            "Ciao {$nome}, ecco il tuo accesso a SinistroPro:",
+            route('login'),
+            "Email: {$user->email}",
+            'Password provvisoria: ' . $request->input('admin_password'),
+            'Al primo accesso scegli una password tua, poi attiva l\'abbonamento dalla pagina che si apre.',
+        ]);
 
         return redirect()
-            ->route('superadmin.tenants.index')
-            ->with('success', "Tenant \"{$tenant->name}\" creato con successo.");
+            ->route('superadmin.tenants.edit', ['tenant' => $user->tenant_id, 'tab' => 'billing'])
+            ->with('success', "Agenzia \"{$user->tenant->name}\" creata.")
+            ->with('credenziali', $credenziali);
     }
 
     public function edit(Tenant $tenant): Response

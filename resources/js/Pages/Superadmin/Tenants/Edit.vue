@@ -1,6 +1,16 @@
 <template>
   <SuperadminLayout :title="`Modifica Tenant: ${tenant.name}`">
 
+    <!-- ── Agenzia appena creata: messaggio da mandare al cliente ──────────── -->
+    <div v-if="credenziali" class="mx-6 mt-5 max-w-3xl bg-emerald-50 border border-emerald-200 rounded-xl p-5">
+      <p class="text-sm font-semibold text-emerald-900">Manda questo messaggio al cliente</p>
+      <p class="text-xs text-emerald-800 mt-0.5">La password provvisoria si vede solo ora. Al primo accesso il cliente ne sceglie una sua e poi paga.</p>
+      <pre class="mt-3 bg-white border border-emerald-200 rounded-lg p-3 text-sm text-slate-800 whitespace-pre-wrap font-sans">{{ credenziali }}</pre>
+      <button type="button" @click="copiaCredenziali" class="mt-3 inline-flex items-center bg-emerald-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-emerald-700">
+        {{ credenzialiCopiate ? 'Copiato ✓' : 'Copia messaggio' }}
+      </button>
+    </div>
+
     <!-- ── Header con azioni rapide ────────────────────────────────────────── -->
     <div class="px-6 pt-5 flex items-center justify-between max-w-4xl">
       <p class="text-xs text-slate-500">ID: {{ tenant.id }}</p>
@@ -1476,6 +1486,14 @@ function tabFromUrl(url: string): TabId {
 }
 
 const page      = usePage()
+
+// Mostrato una sola volta dopo "Crea agenzia": resta finché non si ricarica la pagina.
+const credenziali = ref<string | undefined>((page.props as any).flash?.credenziali)
+const credenzialiCopiate = ref(false)
+async function copiaCredenziali() {
+  await navigator.clipboard.writeText(credenziali.value ?? '')
+  credenzialiCopiate.value = true
+}
 const activeTab = ref<TabId>(tabFromUrl(page.url))
 watch(() => page.url, (url) => { activeTab.value = tabFromUrl(url) })
 

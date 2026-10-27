@@ -4,6 +4,7 @@ namespace App\Http\Requests\Superadmin;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/** Nuova agenzia dal superadmin: solo nome e account del referente, il resto si configura dopo. */
 class StoreTenantRequest extends FormRequest
 {
     public function authorize(): bool
@@ -14,49 +15,18 @@ class StoreTenantRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'                          => ['required', 'string', 'max:255', 'unique:tenants,name'],
-            'default_notice_days'           => ['required', 'integer', 'min:1', 'max:365'],
-            'custom_fields_schema'          => ['nullable', 'array', 'max:20'],
-            'custom_fields_schema.*.name'   => ['required', 'string', 'max:50', 'regex:/^[a-z][a-z0-9_]*$/'],
-            'custom_fields_schema.*.label'  => ['required', 'string', 'max:100'],
-            'custom_fields_schema.*.type'   => ['required', 'in:text,date,number,boolean,select'],
-            'custom_fields_schema.*.required' => ['boolean'],
-            'custom_fields_schema.*.options'   => [
-                'nullable',
-                'array',
-                function ($attribute, $value, $fail): void {
-                    preg_match('/^custom_fields_schema\.(\d+)\.options$/', $attribute, $matches);
-                    $type = $this->input("custom_fields_schema.{$matches[1]}.type");
-                    if ($type === 'select' && empty(array_filter($value ?? [], fn ($v) => trim((string) $v) !== ''))) {
-                        $fail('Aggiungi almeno un\'opzione per i campi di tipo "Selezione".');
-                    }
-                },
-            ],
-            'custom_fields_schema.*.options.*' => ['string', 'max:255'],
-            'statuses'                      => ['nullable', 'array', 'max:20'],
-            'statuses.*.name'               => ['required', 'string', 'max:100'],
-            'statuses.*.color'              => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'statuses.*.is_closed'          => ['boolean'],
-            'statuses.*.is_initial'         => ['boolean'],
-            'cliente_custom_fields_schema'          => ['nullable', 'array', 'max:20'],
-            'cliente_custom_fields_schema.*.name'   => ['required', 'string', 'max:50', 'regex:/^[a-z][a-z0-9_]*$/'],
-            'cliente_custom_fields_schema.*.label'  => ['required', 'string', 'max:100'],
-            'cliente_custom_fields_schema.*.type'   => ['required', 'in:text,date,number,boolean,select'],
-            'cliente_custom_fields_schema.*.required' => ['boolean'],
-            'cliente_custom_fields_schema.*.options'  => ['nullable', 'array'],
-            'cliente_custom_fields_schema.*.options.*' => ['string', 'max:255'],
-            'features'                      => ['nullable', 'array'],
-            'features.*'                    => ['boolean'],
+            'name'           => ['required', 'string', 'max:255', 'unique:tenants,name'],
+            'admin_name'     => ['nullable', 'string', 'max:255'],
+            'admin_email'    => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
+            'admin_password' => ['required', 'string', 'min:8', 'max:100'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'name.unique'                        => 'Esiste già un tenant con questo nome.',
-            'custom_fields_schema.*.name.regex'  => 'Il nome del campo deve usare solo lettere minuscole, numeri e underscore.',
-            'custom_fields_schema.*.type.in'     => 'Tipo campo non valido (text, date, number, boolean, select).',
-            'statuses.*.color.regex'             => 'Il colore deve essere un hex valido (es. #3B82F6).',
+            'name.unique'        => 'Esiste già un\'agenzia con questo nome.',
+            'admin_email.unique' => 'Questa email ha già un account.',
         ];
     }
 }

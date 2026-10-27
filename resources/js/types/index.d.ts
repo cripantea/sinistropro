@@ -31,6 +31,7 @@ export type PageProps<T extends Record<string, unknown> = Record<string, unknown
   flash: {
     success?: string
     error?: string
+    credenziali?: string
   }
   notifications: AppNotification[]
   tenantFeatures: Record<string, boolean>

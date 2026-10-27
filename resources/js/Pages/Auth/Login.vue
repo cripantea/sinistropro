@@ -231,6 +231,11 @@ const submit = () => {
           </button>
 
         </form>
+
+        <p class="text-sm text-gray-500 text-center mt-6">
+          Nuova agenzia?
+          <Link :href="route('registrati')" class="font-medium" style="color: #1e3a8a;">Crea il tuo account</Link>
+        </p>
       </div>
 
       <FusionsoftBadge class="mt-10 lg:hidden" />

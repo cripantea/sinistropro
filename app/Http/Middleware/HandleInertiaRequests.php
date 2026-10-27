@@ -28,6 +28,8 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error'   => $request->session()->get('error'),
+                // Credenziali di un'agenzia appena creata dal superadmin (mostrate una volta).
+                'credenziali' => $request->session()->get('credenziali'),
             ],
             'notifications'  => $this->recentNotifications($request),
             'tenantFeatures' => $this->tenantFeatures($request),
