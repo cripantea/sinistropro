@@ -41,6 +41,13 @@ class TenantMailerResolver
      */
     public function send(Tenant $tenant, string $to, Mailable $mailable, array $cc = [], array $logContext = []): void
     {
+        // Account dimostrativo (demo:popola): dati finti, nessuna email parte davvero.
+        if ($tenant->getSetting('demo')) {
+            $this->registraSaltata($tenant, 'Account demo: email non inviata.', $logContext, $to);
+
+            return;
+        }
+
         try {
             $from = $this->fromFor($tenant);
             $mailable->from($from['address'], $from['name']);

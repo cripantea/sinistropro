@@ -23,7 +23,7 @@ class Tenant extends Model
         'clienti'              => ['label' => 'Gestione Clienti',                   'default' => false],
         'lista_personalizzate' => ['label' => 'Liste con valori personalizzati',   'default' => false],
         'import_clienti'       => ['label' => 'Import clienti (Excel/CSV/JSON/XML)', 'default' => false],
-        'veicoli'              => ['label' => 'Veicoli: scelta obbligatoria nel nuovo sinistro', 'default' => false],
+        'veicoli'              => ['label' => 'Veicoli: sezione veicolo sempre visibile nel nuovo sinistro', 'default' => false],
     ];
 
     protected $casts = [

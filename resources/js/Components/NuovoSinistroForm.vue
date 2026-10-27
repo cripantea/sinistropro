@@ -73,8 +73,7 @@
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-semibold text-gray-800">
           <span class="text-indigo-600">2.</span> Veicolo
-          <span v-if="chiediVeicolo" class="text-red-500">*</span>
-          <span v-else class="text-gray-400 font-normal">(opzionale)</span>
+          <span class="text-gray-400 font-normal">(opzionale)</span>
         </h3>
         <button v-if="!nuovoVeicoloAperto" type="button" @click="nuovoVeicoloAperto = true" class="text-xs font-medium text-green-700 hover:underline">+ Aggiungi veicolo</button>
       </div>
@@ -88,6 +87,11 @@
       />
 
       <div v-if="scheda.veicoli.length" class="space-y-1.5 max-h-80 overflow-y-auto">
+        <!-- Non tutti i sinistri riguardano un veicolo (casa, infortuni, RC…). -->
+        <label :class="['flex items-center gap-3 border rounded-lg px-3 py-2 cursor-pointer transition', form.veicolo_id === null ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:bg-gray-50']">
+          <input type="radio" :value="null" v-model="form.veicolo_id" class="text-indigo-600 focus:ring-indigo-500" />
+          <span class="text-sm text-gray-700">Nessun veicolo</span>
+        </label>
         <label
           v-for="v in veicoliFiltrati" :key="v.id"
           :class="['flex items-center gap-3 border rounded-lg px-3 py-2 cursor-pointer transition', form.veicolo_id === v.id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:bg-gray-50']"
@@ -100,7 +104,7 @@
         </label>
         <p v-if="!veicoliFiltrati.length" class="text-xs text-gray-500">Nessun veicolo corrisponde al filtro.</p>
       </div>
-      <p v-else-if="!nuovoVeicoloAperto" class="text-sm text-gray-500">Questo cliente non ha ancora veicoli: aggiungine uno.</p>
+      <p v-else-if="!nuovoVeicoloAperto" class="text-sm text-gray-500">Questo cliente non ha veicoli. Se il sinistro riguarda un veicolo, aggiungilo; altrimenti prosegui.</p>
 
       <div v-if="nuovoVeicoloAperto" class="border border-dashed border-gray-300 rounded-lg p-3 space-y-2">
         <div class="grid grid-cols-2 gap-2">
@@ -193,7 +197,7 @@
     <div class="flex items-center gap-4">
       <button
         type="submit"
-        :disabled="form.processing || !scheda || (chiediVeicolo && !form.veicolo_id)"
+        :disabled="form.processing || !scheda"
         class="inline-flex items-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-6 py-2.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-60"
       >
         <svg v-if="form.processing" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -289,7 +293,7 @@ const nuovoVeicolo = reactive({ targa: '', telaio: '', marca: '', modello: '' })
 const erroreVeicolo = ref('')
 const savingVeicolo = ref(false)
 
-// Malacrida (funzione "veicoli"): il veicolo si chiede sempre. Per gli altri solo se il cliente ne ha.
+// Malacrida (funzione "veicoli"): la sezione veicolo si mostra sempre, ma è facoltativa. Per gli altri solo se il cliente ne ha.
 const mostraVeicolo = computed(() => props.chiediVeicolo || (scheda.value?.veicoli.length ?? 0) > 0)
 const veicoliFiltrati = computed(() => {
   const f = filtroVeicoli.value.trim().toLowerCase().replace(/\s+/g, '')
@@ -313,7 +317,7 @@ async function caricaScheda(clienteId: number, veicoloId: number | null = null) 
     form.cliente_id = data.cliente.id
     // Un solo veicolo, o il veicolo trovato cercando la targa: già selezionato.
     form.veicolo_id = veicoloId ?? (data.veicoli.length === 1 ? data.veicoli[0].id : null)
-    nuovoVeicoloAperto.value = props.chiediVeicolo && data.veicoli.length === 0
+    nuovoVeicoloAperto.value = false
   } finally {
     loadingScheda.value = false
   }

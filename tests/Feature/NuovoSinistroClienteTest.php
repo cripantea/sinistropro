@@ -51,17 +51,20 @@ test('dalla scheda si completano i dati mancanti del cliente e si aggiunge un ve
     expect($this->rossi->veicoli()->count())->toBe(2);
 });
 
-test('con la funzione veicoli il sinistro richiede un veicolo del cliente scelto', function () {
+test('con la funzione veicoli il veicolo è facoltativo, ma se c\'è deve essere del cliente scelto', function () {
     abilitaVeicoli($this->tenant);
     $bianchi = Cliente::where('nome', 'BIANCHI ANNA')->first();
     $this->actingAs($this->user);
 
-    $this->post('/pratiche', ['cliente_id' => $this->rossi->id])->assertSessionHasErrors('veicolo_id');
+    // Sinistro non auto (casa, infortuni…): si apre senza veicolo.
+    $this->post('/pratiche', ['cliente_id' => $this->rossi->id])->assertRedirect();
+    expect(Pratica::first()->veicolo_id)->toBeNull();
+
     // Un veicolo di un altro cliente non va bene.
     $this->post('/pratiche', ['cliente_id' => $bianchi->id, 'veicolo_id' => $this->auto->id])->assertSessionHasErrors('veicolo_id');
 
     $this->post('/pratiche', ['cliente_id' => $this->rossi->id, 'veicolo_id' => $this->auto->id])->assertRedirect();
-    $pratica = Pratica::first();
+    $pratica = Pratica::latest('id')->first();
     expect($pratica->veicolo_id)->toBe($this->auto->id);
     $this->get("/pratiche/{$pratica->id}")->assertOk()->assertInertia(fn ($page) => $page->where('pratica.veicolo.targa', 'GT066RR'));
 });

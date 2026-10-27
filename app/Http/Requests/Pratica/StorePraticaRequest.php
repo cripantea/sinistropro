@@ -28,9 +28,9 @@ class StorePraticaRequest extends FormRequest
                 'integer',
                 Rule::exists('contatti', 'id')->where(fn ($q) => $q->where('tenant_id', $tenantId)->whereJsonContains('tags', 'perito')),
             ],
-            // Il veicolo deve essere del cliente scelto; obbligatorio per i tenant con la funzione "veicoli" (es. Malacrida).
+            // Facoltativo: non tutti i sinistri riguardano un veicolo. Se c'è, deve essere del cliente scelto.
             'veicolo_id' => [
-                TenantContext::tenant()?->hasFeature('veicoli') ? 'required' : 'nullable',
+                'nullable',
                 'integer',
                 Rule::exists('veicoli', 'id')->where('tenant_id', $tenantId)->where('cliente_id', (int) $this->input('cliente_id')),
             ],
@@ -46,7 +46,6 @@ class StorePraticaRequest extends FormRequest
             'cliente_id.required' => 'Seleziona il cliente.',
             'cliente_id.exists' => 'Cliente non valido per questo tenant.',
             'perito_contatto_id.exists' => 'Perito non valido per questo tenant.',
-            'veicolo_id.required' => 'Seleziona il veicolo (o aggiungine uno nuovo).',
             'veicolo_id.exists' => 'Il veicolo non appartiene al cliente scelto.',
         ];
     }

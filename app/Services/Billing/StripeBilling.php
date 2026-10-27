@@ -20,6 +20,14 @@ class StripeBilling
 {
     public function __construct(private StripeClient $stripe) {}
 
+    /** Id Stripe in cache separati per modalità test e live: passando da una chiave all'altra non si usano id dell'altra modalità. */
+    private function cacheKey(string $key): string
+    {
+        $mode = str_starts_with((string) config('services.stripe.secret'), 'sk_live') || str_starts_with((string) config('services.stripe.secret'), 'rk_live') ? 'live' : 'test';
+
+        return "stripe_{$mode}_{$key}";
+    }
+
     public static function configured(): bool
     {
         return filled(config('services.stripe.secret'));
@@ -208,7 +216,7 @@ class StripeBilling
     {
         $lookupKey = config('billing.stripe_app') . "_{$interval}_{$cents}";
 
-        return Cache::rememberForever("stripe_price_{$lookupKey}", function () use ($lookupKey, $cents, $interval) {
+        return Cache::rememberForever($this->cacheKey("price_{$lookupKey}"), function () use ($lookupKey, $cents, $interval) {
             $existing = $this->stripe->prices->all(['lookup_keys' => [$lookupKey], 'active' => true, 'limit' => 1])->data[0] ?? null;
 
             return $existing?->id ?? $this->stripe->prices->create([
@@ -228,7 +236,7 @@ class StripeBilling
     {
         $app = config('billing.stripe_app');
 
-        return Cache::rememberForever("stripe_product_{$app}", function () use ($app) {
+        return Cache::rememberForever($this->cacheKey("product_{$app}"), function () use ($app) {
             foreach ($this->stripe->products->all(['active' => true, 'limit' => 100])->autoPagingIterator() as $product) {
                 if (($product->metadata->app ?? null) === $app) {
                     return $product->id;
@@ -246,7 +254,7 @@ class StripeBilling
     {
         $app = config('billing.stripe_app');
 
-        return Cache::rememberForever("stripe_portal_configuration_{$app}", function () use ($app) {
+        return Cache::rememberForever($this->cacheKey("portal_configuration_{$app}"), function () use ($app) {
             foreach ($this->stripe->billingPortal->configurations->all(['active' => true, 'limit' => 100])->autoPagingIterator() as $configuration) {
                 if (($configuration->metadata->app ?? null) === $app) {
                     return $configuration->id;
