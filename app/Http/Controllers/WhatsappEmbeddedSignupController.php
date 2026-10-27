@@ -5,39 +5,63 @@ namespace App\Http\Controllers;
 use App\Jobs\TriggerWhatsappHistorySyncJob;
 use App\Models\WhatsappHistorySync;
 use App\Models\WhatsappSession;
+use App\Services\FusionWaConnectionClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 
 class WhatsappEmbeddedSignupController extends Controller
 {
+    public function __construct(private readonly FusionWaConnectionClient $fusionWa) {}
+
     /**
-     * Persiste una connessione già stabilita tramite il widget Embedded Signup
-     * di FusionWA. Gli identificativi (waba/phone number id) NON si prendono dal
-     * browser: si rileggono qui da FusionWA per il tenant dell'utente, perché il
-     * webhook assegna i messaggi al tenant proprio in base a questi id.
-     * Nessuno scambio OAuth in questo controller: il token WABA resta custodito
-     * da FusionWA, mai qui.
+     * Persiste una connessione stabilita tramite il widget Embedded Signup di
+     * FusionWA. waba_id/phone_number_id/phone_number arrivano dal browser (il
+     * frontend li legge dal polling di FusionWA) ma non ci si può fidare:
+     * qualunque tenant-admin autenticato potrebbe mandare qui i dati di un
+     * altro cliente. Prima di salvare si verifica server-to-server con
+     * FusionWA (stesso principio già applicato in fusion-crm) che quella
+     * connessione esista davvero, sia operativa, e corrisponda esattamente a
+     * quanto dichiarato — i valori salvati sono quelli verificati da FusionWA,
+     * non quelli ricevuti dal client. Nessuno scambio OAuth in questo
+     * controller: il token WABA resta custodito da FusionWA, mai qui.
      */
     public function sync(Request $request): JsonResponse
     {
         $authed = auth()->user();
         abort_unless($authed->isTenantAdmin(), 403, 'Solo il tenant-admin può collegare un numero WhatsApp.');
 
-        $data = $this->connectionFromFusionWa($authed->tenant_id);
-        abort_unless($data, 422, 'Il collegamento WhatsApp non risulta completato su FusionWA. Riprova tra qualche secondo.');
+        $data = $request->validate([
+            'waba_id' => ['required', 'string'],
+            'phone_number_id' => ['required', 'string'],
+            'phone_number' => ['required', 'string'],
+        ]);
+
+        $status = $this->fusionWa->status($authed->tenant_id);
+        if ($status === null) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Verifica della connessione non disponibile al momento. Riprova tra poco; il collegamento non è stato salvato.',
+            ], 503);
+        }
+        if (! $this->fusionWa->matches($status, $data)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'La connessione dichiarata non corrisponde a quella attiva su FusionWA per questo account.',
+            ], 422);
+        }
+        $connection = $status['connection'];
 
         $giaUsato = WhatsappSession::acrossAllTenants()->where('tenant_id', '!=', $authed->tenant_id)
-            ->where(fn ($q) => $q->where('phone_number_id', $data['phone_number_id'])->orWhere('waba_id', $data['waba_id']))
+            ->where(fn ($q) => $q->where('phone_number_id', $connection['phoneNumberId'])->orWhere('waba_id', $connection['wabaId']))
             ->exists();
         abort_if($giaUsato, 409, 'Questo numero WhatsApp è già collegato a un altro account.');
 
         $session = WhatsappSession::updateOrCreate(
             ['tenant_id' => $authed->tenant_id],
             [
-                'phone_number_id' => $data['phone_number_id'],
-                'display_phone_number' => $data['phone_number'],
-                'waba_id' => $data['waba_id'],
+                'phone_number_id' => $connection['phoneNumberId'],
+                'display_phone_number' => $connection['phoneNumber'],
+                'waba_id' => $connection['wabaId'],
                 'access_token' => null,
                 'is_on_biz_app' => true,
                 'platform_type' => 'CLOUD_API',
@@ -74,38 +98,5 @@ class WhatsappEmbeddedSignupController extends Controller
                 'phoneNumber' => $session->display_phone_number,
             ],
         ]);
-    }
-
-    /**
-     * Stato del collegamento letto da FusionWA (stesso endpoint che interroga il widget),
-     * per il solo tenant corrente. Null se non è CONNECTED o mancano gli id.
-     *
-     * @return array{waba_id: string, phone_number_id: string, phone_number: string}|null
-     */
-    private function connectionFromFusionWa(int $tenantId): ?array
-    {
-        $baseUrl = rtrim((string) config('services.fusionwa.base_url'), '/');
-
-        $response = Http::withHeaders([
-            'x-fusionwa-api-key' => config('services.fusionwa.api_key'),
-            'x-fusionwa-api-secret' => config('services.fusionwa.api_secret'),
-        ])
-            ->timeout(15)
-            ->get("{$baseUrl}/api/v1/widget/status", ['customerId' => (string) $tenantId]);
-
-        $status = $response->successful() ? ($response->json() ?? []) : [];
-
-        if (($status['status'] ?? null) !== 'CONNECTED'
-            || blank($status['wabaId'] ?? null)
-            || blank($status['phoneNumberId'] ?? null)
-            || blank($status['phoneNumber'] ?? null)) {
-            return null;
-        }
-
-        return [
-            'waba_id' => (string) $status['wabaId'],
-            'phone_number_id' => (string) $status['phoneNumberId'],
-            'phone_number' => (string) $status['phoneNumber'],
-        ];
     }
 }

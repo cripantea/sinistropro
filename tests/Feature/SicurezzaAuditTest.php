@@ -113,45 +113,22 @@ test('la verifica del webhook restituisce la challenge come testo semplice', fun
         ->and($res->headers->get('Content-Type'))->toStartWith('text/plain');
 });
 
-test('il collegamento WhatsApp usa gli id letti da FusionWA, non quelli inviati dal browser', function () {
-    Http::fake([
-        '*/api/v1/widget/status*' => Http::response([
-            'status' => 'CONNECTED', 'wabaId' => 'WABA-A', 'phoneNumberId' => 'PNID-A', 'phoneNumber' => '+39 000',
-        ]),
-        '*' => Http::response([]),
-    ]);
-
-    $this->actingAs($this->adminA)->postJson('/whatsapp/embedded-signup', [
-        'waba_id' => 'WABA-ALTRUI', 'phone_number_id' => 'PNID-ALTRUI', 'phone_number' => '+39 999',
-    ])->assertOk();
-
-    $session = WhatsappSession::acrossAllTenants()->where('tenant_id', $this->tenantA->id)->first();
-    expect($session->phone_number_id)->toBe('PNID-A')->and($session->waba_id)->toBe('WABA-A');
-
-    Http::assertSent(fn ($request) => str_contains($request->url(), 'widget/status')
-        && str_contains($request->url(), 'customerId='.$this->tenantA->id));
-});
-
+// Verifica con FusionWA (dati del browser confrontati con la connessione reale): WhatsappEmbeddedSignupSyncTest.
 test('il collegamento WhatsApp rifiuta un numero già collegato a un altro tenant', function () {
     WhatsappSession::create([
         'tenant_id' => $this->tenantB->id, 'phone_number_id' => 'PNID-B', 'waba_id' => 'WABA-B',
         'display_phone_number' => '+39 111', 'status' => 'active',
     ]);
     Http::fake([
-        '*/api/v1/widget/status*' => Http::response([
-            'status' => 'CONNECTED', 'wabaId' => 'WABA-B', 'phoneNumberId' => 'PNID-B', 'phoneNumber' => '+39 111',
+        '*/api/v1/connections/status*' => Http::response([
+            'status' => 'success', 'customerStatus' => 'ACTIVE',
+            'connection' => ['wabaId' => 'WABA-B', 'phoneNumberId' => 'PNID-B', 'phoneNumber' => '+39 111', 'status' => 'CONNECTED', 'operational' => true],
         ]),
     ]);
 
-    $this->actingAs($this->adminA)->postJson('/whatsapp/embedded-signup', [])->assertStatus(409);
+    $this->actingAs($this->adminA)->postJson('/whatsapp/embedded-signup', [
+        'waba_id' => 'WABA-B', 'phone_number_id' => 'PNID-B', 'phone_number' => '+39 111',
+    ])->assertStatus(409);
 
     expect(WhatsappSession::acrossAllTenants()->where('tenant_id', $this->tenantA->id)->exists())->toBeFalse();
-});
-
-test('il collegamento WhatsApp non procede se FusionWA non risulta connesso', function () {
-    Http::fake(['*/api/v1/widget/status*' => Http::response(['status' => 'PENDING'])]);
-
-    $this->actingAs($this->adminA)->postJson('/whatsapp/embedded-signup', [
-        'waba_id' => 'X', 'phone_number_id' => 'Y', 'phone_number' => 'Z',
-    ])->assertStatus(422);
 });

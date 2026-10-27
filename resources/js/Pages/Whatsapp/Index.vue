@@ -65,7 +65,7 @@
           </p>
           <div class="flex justify-center">
             <EmbeddedSignupButton
-              :api-key="fusionwaApiKey"
+              :token="fusionwaToken"
               :fusionwa-base-url="fusionwaBaseUrl"
               :tenant-id="tenantId ?? ''"
               @connected="onConnected"
@@ -102,7 +102,7 @@ interface SessionProps {
 
 const props = defineProps<{
   session: SessionProps
-  fusionwaApiKey: string
+  fusionwaToken: string | null
   fusionwaBaseUrl: string
 }>()
 const page  = usePage<PageProps>()

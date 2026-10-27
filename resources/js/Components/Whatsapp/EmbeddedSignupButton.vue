@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div v-if="!apiKey" class="text-xs text-gray-400">
+    <div v-if="!token" class="text-xs text-gray-400">
       Collegamento non ancora configurato lato piattaforma.
     </div>
     <template v-else>
@@ -17,7 +17,7 @@ import axios from 'axios'
 declare global {
   interface Window {
     FusionWA?: {
-      init: (params: { apiKey: string; customerId: string; containerId: string }) => void
+      init: (params: { token: string; containerId: string }) => void
     }
   }
 }
@@ -30,7 +30,7 @@ interface FusionWaStatus {
 }
 
 const props = defineProps<{
-  apiKey: string
+  token: string | null
   fusionwaBaseUrl: string
   tenantId: number | string
 }>()
@@ -77,10 +77,7 @@ async function checkStatus() {
   try {
     const { data } = await axios.get<FusionWaStatus>(
       `${props.fusionwaBaseUrl}/api/v1/widget/status`,
-      {
-        params: { customerId: String(props.tenantId) },
-        headers: { 'x-fusionwa-api-key': props.apiKey },
-      }
+      { params: { token: props.token } }
     )
 
     if (data.status !== 'CONNECTED' || !data.wabaId || !data.phoneNumberId || !data.phoneNumber) {
@@ -111,11 +108,11 @@ function startPolling() {
 }
 
 onMounted(async () => {
+  if (!props.token) return
   try {
     await loadFusionWaSdk()
     window.FusionWA?.init({
-      apiKey: props.apiKey,
-      customerId: String(props.tenantId),
+      token: props.token,
       containerId,
     })
     startPolling()
