@@ -62,6 +62,7 @@ return [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
+            'permission' => 0666,
             'replace_placeholders' => true,
         ],
 
@@ -70,6 +71,9 @@ return [
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 14),
+            // Il sito (www-data) e il worker/cron (cristi) scrivono lo stesso file: chi lo crea
+            // per primo non deve bloccare l'altro (un log non scrivibile manda la pagina in 500).
+            'permission' => 0666,
             'replace_placeholders' => true,
         ],
 
