@@ -78,6 +78,39 @@
       </FormSection>
     </template>
 
+    <FormSection v-if="billing.stripe_customer_url" title="Gestione abbonamento">
+      <p v-if="erroreAzione" class="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{{ erroreAzione }}</p>
+      <div class="flex flex-wrap gap-2">
+        <template v-if="billing.has_subscription">
+          <button v-if="!billing.cancel_at_period_end" type="button" :disabled="inCorso" @click="azione('disdici', 'Disdire l\'abbonamento? Resta attivo fino alla fine del periodo già pagato, poi non si rinnova.')" class="btn-sec">Disdici a fine periodo</button>
+          <button v-else type="button" :disabled="inCorso" @click="azione('riprendi', 'Annullare la disdetta? L\'abbonamento tornerà a rinnovarsi.')" class="btn-sec">Annulla la disdetta</button>
+          <button type="button" :disabled="inCorso" @click="azione('annulla', 'Annullare SUBITO l\'abbonamento, senza rimborso? L\'agenzia passa in sola lettura.')" class="btn-sec text-red-700">Annulla subito</button>
+        </template>
+        <button type="button" :disabled="inCorso" @click="azione('rimborsa', 'Rimborsare per intero l\'ultimo pagamento e annullare subito l\'abbonamento? (garanzia 30 giorni)')" class="btn-sec text-red-700">Rimborsa ultimo pagamento e annulla</button>
+      </div>
+
+      <div class="mt-5">
+        <p class="text-sm font-medium text-slate-700 mb-2">Fatture</p>
+        <p v-if="fatture === null" class="text-sm text-slate-400">Caricamento…</p>
+        <p v-else-if="erroreFatture" class="text-sm text-amber-700">{{ erroreFatture }}</p>
+        <p v-else-if="!fatture.length" class="text-sm text-slate-500">Nessuna fattura.</p>
+        <table v-else class="w-full text-sm">
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="f in fatture" :key="(f.numero ?? '') + f.data">
+              <td class="py-1.5 text-slate-600">{{ data(f.data) }}</td>
+              <td class="py-1.5 font-mono text-xs text-slate-500">{{ f.numero ?? '—' }}</td>
+              <td class="py-1.5 text-right text-slate-800">{{ euro(f.importo_cents) }}</td>
+              <td class="py-1.5 pl-3 text-slate-500">{{ STATI_FATTURA[f.stato] ?? f.stato }}</td>
+              <td class="py-1.5 pl-3 text-right whitespace-nowrap">
+                <a v-if="f.url" :href="f.url" target="_blank" rel="noopener" class="text-indigo-600 hover:underline">Apri</a>
+                <a v-if="f.pdf" :href="f.pdf" target="_blank" rel="noopener" class="ml-3 text-indigo-600 hover:underline">PDF</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </FormSection>
+
     <FormSection v-if="billing.billing_details" title="Dati per la fattura (dal pagamento)">
       <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
         <template v-for="(label, key) in DETTAGLI" :key="key">
@@ -99,8 +132,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useForm } from '@inertiajs/vue3'
+import { computed, onMounted, ref } from 'vue'
+import { router, useForm } from '@inertiajs/vue3'
+import axios from 'axios'
 import FormSection from '@/Components/Superadmin/FormSection.vue'
 import FieldError from '@/Components/Superadmin/FieldError.vue'
 import type { BillingSummary } from '@/types'
@@ -157,6 +191,39 @@ async function copia() {
   setTimeout(() => (copiato.value = false), 2000)
 }
 
+interface Fattura { numero: string | null; data: string; importo_cents: number; stato: string; url: string | null; pdf: string | null }
+const STATI_FATTURA: Record<string, string> = { paid: 'Pagata', open: 'Da pagare', void: 'Annullata', uncollectible: 'Non riscossa', draft: 'Bozza' }
+
+const fatture = ref<Fattura[] | null>(null)
+const erroreFatture = ref('')
+onMounted(async () => {
+  if (!props.billing.stripe_customer_url) return
+  try {
+    const { data } = await axios.get(route('superadmin.tenants.billing.fatture', props.tenantId))
+    fatture.value = data.fatture
+  } catch (e: any) {
+    fatture.value = []
+    erroreFatture.value = e.response?.data?.errore ?? 'Fatture non disponibili.'
+  }
+})
+
+const inCorso = ref(false)
+const erroreAzione = ref('')
+function azione(tipo: 'disdici' | 'riprendi' | 'annulla' | 'rimborsa', domanda: string) {
+  if (!window.confirm(domanda)) return
+  erroreAzione.value = ''
+  router.post(route('superadmin.tenants.billing.azione', props.tenantId), { azione: tipo }, {
+    preserveScroll: true,
+    onStart: () => (inCorso.value = true),
+    onFinish: () => (inCorso.value = false),
+    onSuccess: (page) => (erroreAzione.value = ((page.props as any).flash?.error as string) ?? ''),
+  })
+}
+
+function euro(cents: number): string {
+  return (cents / 100).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })
+}
+
 function data(iso: string): string {
   return new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })
 }
@@ -169,4 +236,5 @@ function data(iso: string): string {
          focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none
          bg-white placeholder-slate-400 disabled:bg-slate-50;
 }
+.btn-sec { @apply bg-white border border-slate-300 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-slate-50 disabled:opacity-50; }
 </style>

@@ -199,3 +199,62 @@ test('il superadmin vede stato e link di pagamento nella scheda e nell\'elenco a
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('tenants.data', fn ($rows) => collect($rows)->pluck('billing_state')->contains('non_attivo')));
 });
+
+/** StripeClient finto: registra le chiamate e risponde come Stripe (solo i servizi usati qui). */
+function stripeFinto(array &$chiamate): \Stripe\StripeClient
+{
+    $sub = fn (array $extra = []) => \Stripe\Util\Util::convertToStripeObject(array_merge([
+        'id' => 'sub_1', 'object' => 'subscription', 'customer' => 'cus_1', 'status' => 'active', 'cancel_at_period_end' => false,
+        'items' => ['object' => 'list', 'data' => [['current_period_end' => now()->addMonth()->timestamp, 'price' => ['recurring' => ['interval' => 'month']]]]],
+    ], $extra), []);
+
+    $servizio = fn (array $metodi) => new class($metodi) {
+        public function __construct(private array $metodi) {}
+        public function __call($nome, $args) { return ($this->metodi[$nome])(...$args); }
+    };
+
+    $servizi = [
+        'subscriptions' => $servizio([
+            'update' => function ($id, $p) use (&$chiamate, $sub) { $chiamate[] = ['update', $id, $p]; return $sub(['cancel_at_period_end' => $p['cancel_at_period_end']]); },
+            'cancel' => function ($id) use (&$chiamate, $sub) { $chiamate[] = ['cancel', $id]; return $sub(['status' => 'canceled']); },
+        ]),
+        'charges' => $servizio(['all' => fn () => \Stripe\Util\Util::convertToStripeObject(['object' => 'list', 'data' => [
+            ['id' => 'ch_1', 'object' => 'charge', 'status' => 'succeeded', 'refunded' => false, 'amount_refunded' => 0, 'amount' => 7900],
+        ]], [])]),
+        'refunds' => $servizio(['create' => function ($p) use (&$chiamate) { $chiamate[] = ['refund', $p['charge']]; return (object) []; }]),
+        'invoices' => $servizio(['all' => fn () => \Stripe\Util\Util::convertToStripeObject(['object' => 'list', 'data' => [
+            ['id' => 'in_1', 'object' => 'invoice', 'number' => 'ABC-0001', 'created' => now()->timestamp, 'total' => 7900, 'status' => 'paid', 'hosted_invoice_url' => 'https://pay.stripe.com/x', 'invoice_pdf' => 'https://pay.stripe.com/x.pdf'],
+        ]], [])]),
+    ];
+
+    return new class($servizi) extends \Stripe\StripeClient {
+        public function __construct(private array $servizi) { parent::__construct(['api_key' => 'sk_test_x']); }
+        public function __get($nome) { return $this->servizi[$nome]; }
+    };
+}
+
+test('il superadmin vede le fatture, disdice, annulla e rimborsa', function () {
+    config(['services.stripe.secret' => 'sk_test_x']);
+    $chiamate = [];
+    app()->instance(\Stripe\StripeClient::class, stripeFinto($chiamate));
+    $this->tenant->forceFill(['stripe_customer_id' => 'cus_1', 'stripe_subscription_id' => 'sub_1', 'subscription_status' => 'active'])->save();
+    $this->actingAs($this->superadmin);
+    $url = "/superadmin/tenants/{$this->tenant->id}/billing";
+
+    $this->getJson("{$url}/fatture")->assertOk()->assertJsonPath('fatture.0.numero', 'ABC-0001')->assertJsonPath('fatture.0.importo_cents', 7900);
+
+    $this->post("{$url}/azione", ['azione' => 'disdici'])->assertSessionHas('success');
+    expect($this->tenant->fresh()->subscription_cancel_at_period_end)->toBeTrue()->and($this->tenant->fresh()->hasAccess())->toBeTrue();
+
+    $this->post("{$url}/azione", ['azione' => 'riprendi'])->assertSessionHas('success');
+    expect($this->tenant->fresh()->subscription_cancel_at_period_end)->toBeFalse();
+
+    $this->post("{$url}/azione", ['azione' => 'rimborsa'])->assertSessionHas('success', fn ($m) => str_contains($m, '79,00'));
+    expect($this->tenant->fresh()->subscription_status)->toBe('canceled')->and($this->tenant->fresh()->hasAccess())->toBeFalse()
+        ->and(collect($chiamate)->pluck(0)->all())->toBe(['update', 'update', 'refund', 'cancel']);
+
+    // Abbonamento già annullato: niente disdetta. Solo il superadmin può farlo.
+    $this->post("{$url}/azione", ['azione' => 'disdici'])->assertStatus(422);
+    $this->actingAs($this->admin)->post("{$url}/azione", ['azione' => 'annulla'])->assertRedirect();
+    expect($chiamate)->toHaveCount(4);
+});

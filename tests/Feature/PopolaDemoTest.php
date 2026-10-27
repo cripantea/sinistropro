@@ -69,3 +69,33 @@ test('dall\'account demo non parte nessuna email', function () {
 
     expect(EmailLog::acrossAllTenants()->where('tenant_id', $this->demo->id)->value('status'))->toBe('skipped');
 });
+
+test('le automazioni demo chiedono conferma al cambio stato e non mandano email vere', function () {
+    $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo'])->assertSuccessful();
+    expect(\App\Models\Automation::where('tenant_id', $this->demo->id)->where('requires_confirmation', true)->count())->toBe(4);
+
+    $perizia = TenantStatus::where('tenant_id', $this->demo->id)->where('name', 'In perizia')->first();
+    $pratica = Pratica::forTenant($this->demo->id)->whereHas('currentStatus', fn ($q) => $q->where('name', 'Aperto'))->first();
+
+    $res = $this->actingAs($this->admin)->postJson("/pratiche/{$pratica->id}/automations/preview", ['tenant_status_id' => $perizia->id])->assertOk();
+    expect($res->json('automations.0.name'))->toBe('Avviso perizia a cliente e perito')
+        ->and($res->json('automations.0.message'))->toContain((string) $pratica->id);
+
+    $this->patchJson("/pratiche/{$pratica->id}/status", ['current_status_id' => $perizia->id])->assertOk();
+    expect(EmailLog::acrossAllTenants()->where('tenant_id', $this->demo->id)->where('status', 'sent')->count())->toBe(0);
+});
+
+test('--automazioni le aggiunge a un demo già popolato, mai a un tenant vero', function () {
+    $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo'])->assertSuccessful();
+    \App\Models\Automation::where('tenant_id', $this->demo->id)->delete();
+
+    $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo', '--automazioni' => true])->assertSuccessful();
+    expect(\App\Models\Automation::where('tenant_id', $this->demo->id)->count())->toBe(4);
+    // Seconda volta: ci sono già.
+    $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo', '--automazioni' => true])->assertFailed();
+
+    TenantStatus::create(['tenant_id' => $this->altro->id, 'name' => 'Due', 'color' => '#000', 'order' => 1]);
+    TenantStatus::create(['tenant_id' => $this->altro->id, 'name' => 'Chiusa', 'color' => '#000', 'order' => 2, 'is_closed' => true]);
+    $this->artisan('demo:popola', ['tenant' => $this->altro->id, '--nome' => 'Malacrida', '--automazioni' => true])->assertFailed();
+    expect(\App\Models\Automation::where('tenant_id', $this->altro->id)->count())->toBe(0);
+});

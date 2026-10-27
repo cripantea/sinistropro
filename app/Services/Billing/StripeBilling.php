@@ -201,6 +201,64 @@ class StripeBilling
         $this->syncSubscription($tenant, $updated);
     }
 
+    /**
+     * Fatture del cliente per la scheda superadmin (le più recenti prima).
+     *
+     * @return array<int, array{numero: ?string, data: string, importo_cents: int, stato: string, url: ?string, pdf: ?string}>
+     */
+    public function invoices(Tenant $tenant): array
+    {
+        if (! $tenant->stripe_customer_id) {
+            return [];
+        }
+
+        return collect($this->stripe->invoices->all(['customer' => $tenant->stripe_customer_id, 'limit' => 24])->data)
+            ->map(fn ($i) => [
+                'numero'        => $i->number,
+                'data'          => Carbon::createFromTimestamp($i->created)->toDateString(),
+                'importo_cents' => (int) $i->total,
+                'stato'         => (string) $i->status,
+                'url'           => $i->hosted_invoice_url,
+                'pdf'           => $i->invoice_pdf,
+            ])->all();
+    }
+
+    /** Disdetta a fine periodo (true) o ripresa di un abbonamento disdetto (false). */
+    public function cancelAtPeriodEnd(Tenant $tenant, bool $cancel): void
+    {
+        $this->syncSubscription($tenant, $this->stripe->subscriptions->update($tenant->stripe_subscription_id, ['cancel_at_period_end' => $cancel]));
+    }
+
+    /** Annulla subito: l'agenzia passa in sola lettura. */
+    public function cancelNow(Tenant $tenant): void
+    {
+        $this->syncSubscription($tenant, $this->stripe->subscriptions->cancel($tenant->stripe_subscription_id));
+    }
+
+    /**
+     * Garanzia "soddisfatti o rimborsati": rimborsa per intero l'ultimo pagamento riuscito e annulla subito.
+     * Ritorna l'importo rimborsato in centesimi (0 se non c'era niente da rimborsare).
+     */
+    public function refundLastAndCancel(Tenant $tenant): int
+    {
+        $charge = collect($this->stripe->charges->all(['customer' => $tenant->stripe_customer_id, 'limit' => 10])->data)
+            ->first(fn ($c) => $c->status === 'succeeded' && ! $c->refunded && $c->amount_refunded === 0);
+
+        $rimborsati = 0;
+        if ($charge) {
+            $this->stripe->refunds->create(['charge' => $charge->id, 'metadata' => ['app' => config('billing.stripe_app'), 'tenant_id' => $tenant->id]]);
+            $rimborsati = (int) $charge->amount;
+        }
+
+        if ($tenant->hasSubscription()) {
+            $this->cancelNow($tenant);
+        }
+
+        Log::info('Stripe: rimborso e annullamento dal superadmin', ['tenant' => $tenant->id, 'cents' => $rimborsati]);
+
+        return $rimborsati;
+    }
+
     /** Portale Stripe: carta, fatture, dati di fatturazione e disdetta a fine periodo. */
     public function portalUrl(Tenant $tenant, string $returnUrl): string
     {

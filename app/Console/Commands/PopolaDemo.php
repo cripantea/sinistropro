@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Automation;
 use App\Models\Cliente;
 use App\Models\Contatto;
 use App\Models\Ispezione;
@@ -27,7 +28,8 @@ use Illuminate\Support\Facades\DB;
  */
 class PopolaDemo extends Command
 {
-    protected $signature = 'demo:popola {tenant : Id del tenant demo} {--nome= : Nome esatto del tenant, per conferma}';
+    protected $signature = 'demo:popola {tenant : Id del tenant demo} {--nome= : Nome esatto del tenant, per conferma}
+                            {--automazioni : Aggiunge solo le automazioni sui cambi di stato a un tenant demo già popolato}';
 
     protected $description = 'Crea dati finti (clienti, veicoli, sinistri, note) in un account demo vuoto';
 
@@ -104,6 +106,10 @@ class PopolaDemo extends Command
             return self::FAILURE;
         }
 
+        if ($this->option('automazioni')) {
+            return $this->soloAutomazioni($tenant);
+        }
+
         $clienti = Cliente::forTenant($tenant->id)->count();
         $sinistri = Pratica::forTenant($tenant->id)->count();
         if ($clienti > 0 || $sinistri > 0) {
@@ -176,6 +182,8 @@ class PopolaDemo extends Command
                 }
             }
 
+            $this->automazioni($tenant, $stati);
+
             foreach (self::SINISTRI as $n => [$c, $v, $compagnia, $stato, $avviso, $giorniFa, $note]) {
                 $apertura = now()->subDays($giorniFa)->setTime(9 + ($n % 8), 15);
                 $pratica = Pratica::create([
@@ -217,6 +225,67 @@ class PopolaDemo extends Command
             $tenant->id, $tenant->name, count(self::CLIENTI), count(self::SINISTRI)));
 
         return self::SUCCESS;
+    }
+
+    /** Solo su un tenant già marcato demo (quindi senza email vere) e che non ha ancora automazioni. */
+    private function soloAutomazioni(Tenant $tenant): int
+    {
+        if (! $tenant->getSetting('demo')) {
+            $this->error("Il tenant #{$tenant->id} non è un account demo: niente automazioni (manderebbero messaggi veri).");
+
+            return self::FAILURE;
+        }
+
+        if (Automation::where('tenant_id', $tenant->id)->exists()) {
+            $this->error("Il tenant #{$tenant->id} ha già delle automazioni: non tocco niente.");
+
+            return self::FAILURE;
+        }
+
+        $stati = TenantStatus::where('tenant_id', $tenant->id)->orderBy('order')->get();
+        $aperti = $stati->where('is_closed', false)->values();
+        if ($aperti->count() < 2 || ! $stati->contains('is_closed', true)) {
+            $this->error('Servono almeno due stati aperti e uno chiuso.');
+
+            return self::FAILURE;
+        }
+
+        $creati = $this->automazioni($tenant, [
+            $aperti[0], $aperti[1], $aperti[min(2, $aperti->count() - 1)], $aperti[$aperti->count() - 1], $stati->firstWhere('is_closed', true),
+        ]);
+        $this->info("Tenant #{$tenant->id} \"{$tenant->name}\": {$creati} automazioni sui cambi di stato (chiedono conferma; email non inviate, account demo).");
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Un messaggio al cliente (e al perito quando entra in perizia) a ogni cambio di stato: spostando
+     * una scheda sulla Board compare la conferma con testo e destinatari modificabili.
+     *
+     * @param  TenantStatus[]  $stati  [aperto, perizia, attesa documenti, liquidazione, chiuso]
+     */
+    private function automazioni(Tenant $tenant, array $stati): int
+    {
+        $regole = [
+            [1, 'Avviso perizia a cliente e perito', [['type' => 'cliente'], ['type' => 'perito']],
+                "Gentile {nome_cliente}, per il sinistro n. {numero_pratica} abbiamo incaricato il perito, che la contatterà a breve per fissare il sopralluogo.\n\n{nome_tenant}"],
+            [2, 'Richiesta documenti al cliente', [['type' => 'cliente']],
+                "Gentile {nome_cliente}, per proseguire con il sinistro n. {numero_pratica} ci servono alcuni documenti (patente, libretto, eventuale verbale). Può inviarceli rispondendo a questa email o passando in agenzia.\n\n{nome_tenant}"],
+            [3, 'Sinistro in liquidazione', [['type' => 'cliente']],
+                "Gentile {nome_cliente}, buone notizie: il sinistro n. {numero_pratica} è in liquidazione. Le scriviamo appena la compagnia conferma il pagamento.\n\n{nome_tenant}"],
+            [4, 'Sinistro chiuso', [['type' => 'cliente']],
+                "Gentile {nome_cliente}, il sinistro n. {numero_pratica} è chiuso. Grazie per la fiducia: per qualsiasi cosa siamo a disposizione.\n\n{nome_tenant}"],
+        ];
+
+        foreach ($regole as [$indice, $nome, $destinatari, $testo]) {
+            Automation::create([
+                'tenant_id' => $tenant->id, 'name' => $nome, 'trigger_type' => 'status', 'tenant_status_id' => $stati[$indice]->id,
+                'channel' => 'email', 'recipients_to' => $destinatari, 'message_template' => $testo,
+                'is_active' => true, 'requires_confirmation' => true,
+            ]);
+        }
+
+        return count($regole);
     }
 
     /** Usa gli stati già configurati del tenant se ci sono, altrimenti crea quelli standard. */

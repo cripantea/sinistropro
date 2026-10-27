@@ -206,6 +206,8 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
 
     // Abbonamento del tenant: modalità, prezzi personalizzati, link di pagamento
     Route::post('/tenants/{tenant}/billing', [TenantBillingController::class, 'update'])->name('tenants.billing.update');
+    Route::get('/tenants/{tenant}/billing/fatture', [TenantBillingController::class, 'fatture'])->name('tenants.billing.fatture');
+    Route::post('/tenants/{tenant}/billing/azione', [TenantBillingController::class, 'azione'])->name('tenants.billing.azione');
 
     // Configurazione email per tenant
     Route::post('/tenants/{tenant}/mail-settings', [TenantMailSettingsController::class, 'update'])->name('tenants.mail-settings.update');
