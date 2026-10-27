@@ -1,4 +1,10 @@
-@component('mail::message')
+{{-- Il cliente riceve il messaggio dalla sua agenzia: in testa e in fondo il nome dell'agenzia, non quello della piattaforma. --}}
+@component('mail::layout')
+@slot('header')
+@component('mail::header', ['url' => ''])
+{{ $tenantName }}
+@endcomponent
+@endslot
 
 {!! nl2br(e($compiledBody)) !!}
 
@@ -35,4 +41,9 @@
 ---
 *Messaggio inviato automaticamente da **{{ $tenantName }}**.*
 
+@slot('footer')
+@component('mail::footer')
+© {{ date('Y') }} {{ $tenantName }}
+@endcomponent
+@endslot
 @endcomponent

@@ -2,9 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Allegato;
 use App\Models\Automation;
 use App\Models\Cliente;
 use App\Models\Contatto;
+use App\Models\DocumentCategory;
 use App\Models\Ispezione;
 use App\Models\ListaValori;
 use App\Models\ModuleTemplate;
@@ -14,11 +16,13 @@ use App\Models\Tenant;
 use App\Models\TenantStatus;
 use App\Models\User;
 use App\Models\Veicolo;
+use App\Support\AllegatiDemo;
 use App\Support\ModuliDemo;
 use App\Support\TenantContext;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * Riempie un account dimostrativo con clienti, veicoli, periti e sinistri finti da mostrare nelle demo.
@@ -33,7 +37,8 @@ class PopolaDemo extends Command
 {
     protected $signature = 'demo:popola {tenant : Id del tenant demo} {--nome= : Nome esatto del tenant, per conferma}
                             {--automazioni : Aggiunge solo le automazioni sui cambi di stato a un tenant demo già popolato}
-                            {--moduli : Aggiunge solo i moduli PDF dimostrativi (denuncia, cessione, noleggio, scoperti)}';
+                            {--moduli : Aggiunge solo i moduli PDF dimostrativi (denuncia, cessione, noleggio, scoperti)}
+                            {--allegati : Aggiunge file di esempio (documenti e foto) ai sinistri demo che non ne hanno}';
 
     protected $description = 'Crea dati finti (clienti, veicoli, sinistri, note) in un account demo vuoto';
 
@@ -116,6 +121,10 @@ class PopolaDemo extends Command
 
         if ($this->option('moduli')) {
             return $this->soloModuli($tenant);
+        }
+
+        if ($this->option('allegati')) {
+            return $this->soloAllegati($tenant);
         }
 
         $clienti = Cliente::forTenant($tenant->id)->count();
@@ -231,6 +240,41 @@ class PopolaDemo extends Command
 
         $this->info(sprintf('Tenant #%d "%s": %d clienti, %d sinistri, periti e note creati. Email disattivate (account demo).',
             $tenant->id, $tenant->name, count(self::CLIENTI), count(self::SINISTRI)));
+
+        return self::SUCCESS;
+    }
+
+    /** Documenti e foto di esempio su ogni sinistro demo senza allegati (più avanti è il sinistro, più documenti). */
+    private function soloAllegati(Tenant $tenant): int
+    {
+        if (! $tenant->getSetting('demo')) {
+            $this->error("Il tenant #{$tenant->id} non è un account demo: niente allegati di esempio.");
+
+            return self::FAILURE;
+        }
+
+        $stati = TenantStatus::where('tenant_id', $tenant->id)->orderBy('order')->get();
+        $aperti = $stati->where('is_closed', false)->pluck('id')->values();
+        $fase = fn (Pratica $p) => $p->currentStatus?->is_closed ? 4 : min(3, max(0, (int) $aperti->search($p->current_status_id)));
+        $categorie = DocumentCategory::pluck('id', 'name');
+
+        $pratiche = Pratica::forTenant($tenant->id)->with(['cliente', 'veicolo', 'currentStatus'])->whereDoesntHave('allegati')->get();
+        $totale = 0;
+        foreach ($pratiche as $pratica) {
+            foreach (AllegatiDemo::per($pratica, $fase($pratica)) as $file) {
+                $key = sprintf('tenant_%d/pratica_%d/%s.%s', $tenant->id, $pratica->id, Str::uuid(), $file['estensione']);
+                Storage::disk('s3')->put($key, $file['contenuto'], 'private');
+                $allegato = Allegato::create([
+                    'pratica_id' => $pratica->id, 'tenant_id' => $tenant->id,
+                    'nome_file' => "{$file['nome']}.{$file['estensione']}", 's3_key' => $key,
+                    'document_category_id' => $categorie[$file['categoria']] ?? null, 'source' => 'caricato',
+                ]);
+                $allegato->forceFill(['created_at' => $pratica->created_at, 'updated_at' => $pratica->created_at])->saveQuietly();
+                $totale++;
+            }
+        }
+
+        $this->info("Tenant #{$tenant->id} \"{$tenant->name}\": {$totale} allegati di esempio su {$pratiche->count()} sinistri.");
 
         return self::SUCCESS;
     }

@@ -130,3 +130,26 @@ test('--moduli carica i moduli PDF di esempio e si compilano dal sinistro', func
     $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo', '--moduli' => true])->assertFailed();
     $this->artisan('demo:popola', ['tenant' => $this->altro->id, '--nome' => 'Malacrida', '--moduli' => true])->assertFailed();
 });
+
+test('--allegati mette documenti e foto di esempio in ogni sinistro demo', function () {
+    \Illuminate\Support\Facades\Storage::fake('s3');
+    $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo'])->assertSuccessful();
+    $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo', '--allegati' => true])->assertSuccessful();
+
+    Pratica::forTenant($this->demo->id)->with(['allegati', 'currentStatus'])->get()->each(function ($p) {
+        expect($p->allegati->count())->toBeGreaterThanOrEqual(3);
+        $p->allegati->each(fn ($a) => \Illuminate\Support\Facades\Storage::disk('s3')->assertExists($a->s3_key));
+        if ($p->currentStatus->is_closed) {
+            expect($p->allegati->pluck('nome_file'))->toContain('Quietanza di liquidazione.pdf');
+        }
+    });
+
+    // Stessa forma dei file caricati a mano (cartella del tenant e della pratica).
+    expect(\App\Models\Allegato::where('tenant_id', $this->demo->id)->first()->s3_key)->toStartWith("tenant_{$this->demo->id}/pratica_");
+
+    // Seconda volta: nessun doppione. Mai su un tenant vero.
+    $prima = \App\Models\Allegato::where('tenant_id', $this->demo->id)->count();
+    $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo', '--allegati' => true])->assertSuccessful();
+    expect(\App\Models\Allegato::where('tenant_id', $this->demo->id)->count())->toBe($prima);
+    $this->artisan('demo:popola', ['tenant' => $this->altro->id, '--nome' => 'Malacrida', '--allegati' => true])->assertFailed();
+});
