@@ -54,13 +54,24 @@ class TenantController extends Controller
         $nome = $request->input('admin_name') ?: $request->input('name');
         $user = NuovaAgenzia::crea($request->input('name'), $nome, $request->input('admin_email'), $request->input('admin_password'), passwordDaCambiare: true);
 
+        $cents = fn (string $campo) => $request->filled($campo) ? (int) round(((float) $request->input($campo)) * 100) : null;
+        $user->tenant->forceFill([
+            'price_monthly_cents' => $cents('price_monthly'),
+            'price_yearly_cents'  => $cents('price_yearly'),
+        ])->save();
+
         // Testo pronto da mandare al cliente (WhatsApp o email): la password si vede solo qui, una volta.
         $credenziali = implode("\n", [
-            "Ciao {$nome}, ecco il tuo accesso a SinistroPro:",
+            "Ciao {$nome}, ecco il tuo accesso a SinistroPro.",
+            '',
+            'Per attivare l\'abbonamento paga da qui:',
+            URL::signedRoute('paga', $user->tenant),
+            '',
+            'Per entrare:',
             route('login'),
             "Email: {$user->email}",
             'Password provvisoria: ' . $request->input('admin_password'),
-            'Al primo accesso scegli una password tua, poi attiva l\'abbonamento dalla pagina che si apre.',
+            '(al primo accesso ne scegli una tua)',
         ]);
 
         return redirect()

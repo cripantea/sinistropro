@@ -19,6 +19,9 @@ class StoreTenantRequest extends FormRequest
             'admin_name'     => ['nullable', 'string', 'max:255'],
             'admin_email'    => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
             'admin_password' => ['required', 'string', 'min:8', 'max:100'],
+            // Prezzi personalizzati in euro IVA inclusa; vuoto = standard (come la scheda Abbonamento).
+            'price_monthly'  => ['nullable', 'numeric', 'min:1', 'max:100000'],
+            'price_yearly'   => ['nullable', 'numeric', 'min:1', 'max:1000000'],
         ];
     }
 

@@ -57,11 +57,14 @@ test('i tenant già esistenti sono "fatturati a parte" e hanno sempre accesso pi
 test('il superadmin crea agenzie nuove che pagano con Stripe', function () {
     $this->actingAs($this->superadmin)->post('/superadmin/tenants', [
         'name' => 'Agenzia Nuova', 'admin_name' => 'Mario Rossi', 'admin_email' => 'mario@nuova.it', 'admin_password' => 'Provvisoria23',
-    ])->assertRedirect()->assertSessionHas('credenziali', fn ($testo) => str_contains($testo, 'mario@nuova.it') && str_contains($testo, 'Provvisoria23'));
+        'price_monthly' => '79',
+    ])->assertRedirect()->assertSessionHas('credenziali', fn ($testo) => str_contains($testo, 'mario@nuova.it') && str_contains($testo, 'Provvisoria23') && str_contains($testo, '/paga/'));
 
     $nuova = Tenant::where('name', 'Agenzia Nuova')->first();
     expect($nuova->billing_mode)->toBe('stripe')->and($nuova->hasAccess())->toBeFalse()
-        ->and($nuova->initialStatus())->not->toBeNull();
+        ->and($nuova->initialStatus())->not->toBeNull()
+        ->and($nuova->priceCents('month'))->toBe(7900)
+        ->and($nuova->priceCents('year'))->toBe(79000);
 
     $admin = User::where('email', 'mario@nuova.it')->first();
     expect($admin->tenant_id)->toBe($nuova->id)->and($admin->role)->toBe('tenant-admin')->and($admin->must_change_password)->toBeTrue();

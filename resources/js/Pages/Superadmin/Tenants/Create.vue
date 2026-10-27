@@ -34,6 +34,22 @@
         </div>
       </FormSection>
 
+      <FormSection title="Prezzo (IVA inclusa)">
+        <p class="text-sm text-slate-500 mb-4">Vuoto = prezzo standard: 99 €/mese o 990 €/anno. Se metti solo il mensile, l'annuale vale 10 mesi.</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="field-label">Mensile €</label>
+            <input v-model="form.price_monthly" type="number" min="1" step="0.01" class="field-input" placeholder="99" />
+            <FieldError :message="form.errors.price_monthly" />
+          </div>
+          <div>
+            <label class="field-label">Annuale €</label>
+            <input v-model="form.price_yearly" type="number" min="1" step="0.01" class="field-input" :placeholder="form.price_monthly ? String(Number(form.price_monthly) * 10) : '990'" />
+            <FieldError :message="form.errors.price_yearly" />
+          </div>
+        </div>
+      </FormSection>
+
       <div class="flex items-center gap-4">
         <button type="submit" :disabled="form.processing" class="inline-flex items-center bg-indigo-600 text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-indigo-700 disabled:opacity-60">
           {{ form.processing ? 'Creazione…' : 'Crea agenzia' }}
@@ -62,6 +78,8 @@ const form = useForm({
   admin_name: '',
   admin_email: '',
   admin_password: generaPassword(),
+  price_monthly: '' as string | number,
+  price_yearly: '' as string | number,
 })
 
 const submit = () => form.post(route('superadmin.tenants.store'))
