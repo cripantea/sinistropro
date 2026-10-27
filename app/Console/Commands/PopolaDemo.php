@@ -7,15 +7,18 @@ use App\Models\Cliente;
 use App\Models\Contatto;
 use App\Models\Ispezione;
 use App\Models\ListaValori;
+use App\Models\ModuleTemplate;
 use App\Models\Pratica;
 use App\Models\PraticaNota;
 use App\Models\Tenant;
 use App\Models\TenantStatus;
 use App\Models\User;
 use App\Models\Veicolo;
+use App\Support\ModuliDemo;
 use App\Support\TenantContext;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Riempie un account dimostrativo con clienti, veicoli, periti e sinistri finti da mostrare nelle demo.
@@ -29,7 +32,8 @@ use Illuminate\Support\Facades\DB;
 class PopolaDemo extends Command
 {
     protected $signature = 'demo:popola {tenant : Id del tenant demo} {--nome= : Nome esatto del tenant, per conferma}
-                            {--automazioni : Aggiunge solo le automazioni sui cambi di stato a un tenant demo già popolato}';
+                            {--automazioni : Aggiunge solo le automazioni sui cambi di stato a un tenant demo già popolato}
+                            {--moduli : Aggiunge solo i moduli PDF dimostrativi (denuncia, cessione, noleggio, scoperti)}';
 
     protected $description = 'Crea dati finti (clienti, veicoli, sinistri, note) in un account demo vuoto';
 
@@ -108,6 +112,10 @@ class PopolaDemo extends Command
 
         if ($this->option('automazioni')) {
             return $this->soloAutomazioni($tenant);
+        }
+
+        if ($this->option('moduli')) {
+            return $this->soloModuli($tenant);
         }
 
         $clienti = Cliente::forTenant($tenant->id)->count();
@@ -223,6 +231,36 @@ class PopolaDemo extends Command
 
         $this->info(sprintf('Tenant #%d "%s": %d clienti, %d sinistri, periti e note creati. Email disattivate (account demo).',
             $tenant->id, $tenant->name, count(self::CLIENTI), count(self::SINISTRI)));
+
+        return self::SUCCESS;
+    }
+
+    /** Moduli PDF di esempio (studio e carrozzeria di fantasia), solo su un demo che non ne ha ancora. */
+    private function soloModuli(Tenant $tenant): int
+    {
+        if (! $tenant->getSetting('demo')) {
+            $this->error("Il tenant #{$tenant->id} non è un account demo: niente moduli di esempio.");
+
+            return self::FAILURE;
+        }
+
+        if (ModuleTemplate::where('tenant_id', $tenant->id)->exists()) {
+            $this->error("Il tenant #{$tenant->id} ha già dei moduli: non tocco niente.");
+
+            return self::FAILURE;
+        }
+
+        foreach (ModuliDemo::tutti() as $modulo) {
+            $key = "pdf_templates/demo/{$tenant->id}/{$modulo['file']}";
+            Storage::disk('s3')->put($key, $modulo['pdf'], 'private');
+            ModuleTemplate::create([
+                'tenant_id' => $tenant->id, 'name' => $modulo['nome'], 'pdf_template_s3_key' => $key,
+                'fields_schema' => $modulo['schema'], 'font_size' => 10,
+            ]);
+            $this->line("  {$modulo['nome']}: " . count($modulo['schema']) . ' campi');
+        }
+
+        $this->info("Tenant #{$tenant->id} \"{$tenant->name}\": moduli PDF di esempio caricati.");
 
         return self::SUCCESS;
     }

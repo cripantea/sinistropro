@@ -99,3 +99,34 @@ test('--automazioni le aggiunge a un demo già popolato, mai a un tenant vero', 
     $this->artisan('demo:popola', ['tenant' => $this->altro->id, '--nome' => 'Malacrida', '--automazioni' => true])->assertFailed();
     expect(\App\Models\Automation::where('tenant_id', $this->altro->id)->count())->toBe(0);
 });
+
+test('--moduli carica i moduli PDF di esempio e si compilano dal sinistro', function () {
+    \Illuminate\Support\Facades\Storage::fake('s3');
+    $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo'])->assertSuccessful();
+    $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo', '--moduli' => true])->assertSuccessful();
+
+    $moduli = \App\Models\ModuleTemplate::where('tenant_id', $this->demo->id)->get();
+    expect($moduli->pluck('name')->all())->toBe(['Modulo denuncia sinistro', 'Cessione del credito', 'Giustificativo noleggio', 'Dichiarazione scoperti assicurativi']);
+    $moduli->each(fn ($m) => \Illuminate\Support\Facades\Storage::disk('s3')->assertExists($m->pdf_template_s3_key));
+    // Nessun nome di cliente vero nei PDF.
+    $moduli->each(fn ($m) => expect(\Illuminate\Support\Facades\Storage::disk('s3')->get($m->pdf_template_s3_key))->not->toContain('MALACRIDA'));
+
+    $pratica = Pratica::forTenant($this->demo->id)->first();
+    $this->actingAs($this->admin)->postJson("/pratiche/{$pratica->id}/modules", [
+        'module_template_id' => $moduli[0]->id,
+        'values' => ['cognome_nome' => 'ROSSI MARIO', 'targa_veicolo' => 'GA100AB', 'tipologia_sinistro' => 'Kasko', 'data_sinistro' => '2026-10-20',
+            'descrizione_accaduto' => 'Tamponamento in coda al semaforo.'],
+    ])->assertCreated();
+
+    $pdf = \Illuminate\Support\Facades\Storage::disk('s3')->get(\App\Models\Allegato::where('tenant_id', $this->demo->id)->latest('id')->value('s3_key'));
+    if ($dove = env('SALVA_PDF_DEMO')) {
+        file_put_contents($dove, $pdf);
+    }
+    preg_match_all('/stream\r?\n(.*?)\r?\nendstream/s', $pdf, $flussi);
+    $testo = implode("\n", array_map(fn ($f) => @gzuncompress($f) ?: $f, $flussi[1]));
+    expect($testo)->toContain('(ROSSI MARIO)')->toContain('(20/10/2026)');
+
+    // Una seconda volta no; e mai su un tenant vero.
+    $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo', '--moduli' => true])->assertFailed();
+    $this->artisan('demo:popola', ['tenant' => $this->altro->id, '--nome' => 'Malacrida', '--moduli' => true])->assertFailed();
+});
