@@ -36,7 +36,7 @@ use Illuminate\Support\Str;
 class PopolaDemo extends Command
 {
     protected $signature = 'demo:popola {tenant : Id del tenant demo} {--nome= : Nome esatto del tenant, per conferma}
-                            {--automazioni : Aggiunge solo le automazioni sui cambi di stato a un tenant demo già popolato}
+                            {--automazioni : Aggiunge a un tenant demo già popolato le automazioni che mancano (cambi di stato, data appuntamento perizia, scadenza polizza del cliente)}
                             {--moduli : Aggiunge solo i moduli PDF dimostrativi (denuncia, cessione, noleggio, scoperti)}
                             {--allegati : Aggiunge file di esempio (documenti e foto) ai sinistri demo che non ne hanno}';
 
@@ -309,17 +309,11 @@ class PopolaDemo extends Command
         return self::SUCCESS;
     }
 
-    /** Solo su un tenant già marcato demo (quindi senza email vere) e che non ha ancora automazioni. */
+    /** Solo su un tenant già marcato demo (quindi senza email vere): aggiunge le automazioni che mancano, per nome. */
     private function soloAutomazioni(Tenant $tenant): int
     {
         if (! $tenant->getSetting('demo')) {
             $this->error("Il tenant #{$tenant->id} non è un account demo: niente automazioni (manderebbero messaggi veri).");
-
-            return self::FAILURE;
-        }
-
-        if (Automation::where('tenant_id', $tenant->id)->exists()) {
-            $this->error("Il tenant #{$tenant->id} ha già delle automazioni: non tocco niente.");
 
             return self::FAILURE;
         }
@@ -335,7 +329,7 @@ class PopolaDemo extends Command
         $creati = $this->automazioni($tenant, [
             $aperti[0], $aperti[1], $aperti[min(2, $aperti->count() - 1)], $aperti[$aperti->count() - 1], $stati->firstWhere('is_closed', true),
         ]);
-        $this->info("Tenant #{$tenant->id} \"{$tenant->name}\": {$creati} automazioni sui cambi di stato (chiedono conferma; email non inviate, account demo).");
+        $this->info("Tenant #{$tenant->id} \"{$tenant->name}\": {$creati} automazioni aggiunte (chiedono conferma; email non inviate, account demo).");
 
         return self::SUCCESS;
     }
@@ -359,15 +353,100 @@ class PopolaDemo extends Command
                 "Gentile {nome_cliente}, il sinistro n. {numero_pratica} è chiuso. Grazie per la fiducia: per qualsiasi cosa siamo a disposizione.\n\n{nome_tenant}"],
         ];
 
+        $esistenti = Automation::where('tenant_id', $tenant->id)->pluck('name')->all();
+        $creati = 0;
+
         foreach ($regole as [$indice, $nome, $destinatari, $testo]) {
+            if (in_array($nome, $esistenti, true)) {
+                continue;
+            }
             Automation::create([
                 'tenant_id' => $tenant->id, 'name' => $nome, 'trigger_type' => 'status', 'tenant_status_id' => $stati[$indice]->id,
                 'channel' => 'email', 'recipients_to' => $destinatari, 'message_template' => $testo,
                 'is_active' => true, 'requires_confirmation' => true,
             ]);
+            $creati++;
         }
 
-        return count($regole);
+        // Inserendo la data dell'appuntamento di perizia compare la conferma: email a perito e cliente con denuncia e foto.
+        $nome = 'Appuntamento perizia: email a perito e cliente';
+        if (! in_array($nome, $esistenti, true)) {
+            $automazione = Automation::create([
+                'tenant_id' => $tenant->id, 'name' => $nome, 'trigger_type' => 'date_field', 'watched_field' => 'data_appuntamento',
+                'channel' => 'email', 'recipients_to' => [['type' => 'perito'], ['type' => 'cliente']],
+                'message_template' => "Gentile {nome_cliente}, per il sinistro n. {numero_pratica} è stato fissato l'appuntamento di perizia. In allegato trova la denuncia e le foto del danno.\n\n{nome_tenant}",
+                'is_active' => true, 'requires_confirmation' => true,
+            ]);
+            $automazione->documentCategories()->sync(
+                DocumentCategory::whereIn('name', ['Denuncia e Sinistro', 'Foto e Media'])->pluck('id')
+            );
+            $creati++;
+        }
+
+        // Campo data sulla scheda del sinistro: inserendo la visita medico-legale compare la conferma dell'email al cliente.
+        $nome = 'Visita medico-legale: conferma al cliente';
+        if (! in_array($nome, $esistenti, true)) {
+            $this->campoVisitaMedica($tenant);
+            Automation::create([
+                'tenant_id' => $tenant->id, 'name' => $nome, 'trigger_type' => 'date_field', 'watched_field' => 'data_visita_medica',
+                'channel' => 'email', 'recipients_to' => [['type' => 'cliente']],
+                'message_template' => "Gentile {nome_cliente}, per il sinistro n. {numero_pratica} la visita medico-legale è fissata il {campi_custom.data_visita_medica}. Porti con sé un documento e i certificati medici.\n\n{nome_tenant}",
+                'is_active' => true, 'requires_confirmation' => true,
+            ]);
+            $creati++;
+        }
+
+        // Scadenza polizza sui clienti: ogni mattina avviso 30 giorni prima (il cron non invia nulla, account demo).
+        $nome = 'Scadenza polizza: avviso al cliente 30 giorni prima';
+        if (! in_array($nome, $esistenti, true)) {
+            $this->campoScadenzaPolizza($tenant);
+            Automation::create([
+                'tenant_id' => $tenant->id, 'name' => $nome, 'trigger_type' => 'cliente_date_field', 'watched_field' => 'scadenza_polizza',
+                'days_before' => 30, 'channel' => 'email', 'recipient' => 'cliente',
+                'message_template' => "Gentile {nome_cliente}, le ricordiamo che la sua polizza scade tra 30 giorni. Ci contatti per il rinnovo.\n\n{nome_tenant}",
+                'is_active' => true, 'requires_confirmation' => false,
+            ]);
+            $creati++;
+        }
+
+        return $creati;
+    }
+
+    /** Campo data "Visita medico-legale" nella scheda dei sinistri demo. */
+    private function campoVisitaMedica(Tenant $tenant): void
+    {
+        $schema = $tenant->getCustomFieldsSchema();
+        if (collect($schema)->contains('name', 'data_visita_medica')) {
+            return;
+        }
+        $schema[] = ['name' => 'data_visita_medica', 'label' => 'Visita medico-legale', 'type' => 'date', 'required' => false];
+        $settings = $tenant->settings ?? [];
+        $settings['custom_fields_schema'] = $schema;
+        $tenant->settings = $settings;
+        $tenant->save();
+    }
+
+    /** Campo data "Scadenza polizza" sui clienti demo, con scadenze sparse nei prossimi due mesi. */
+    private function campoScadenzaPolizza(Tenant $tenant): void
+    {
+        $schema = $tenant->getClienteCustomFieldsSchema();
+        if (! collect($schema)->contains('name', 'scadenza_polizza')) {
+            $schema[] = ['name' => 'scadenza_polizza', 'label' => 'Scadenza polizza', 'type' => 'date', 'required' => false];
+            $settings = $tenant->settings ?? [];
+            $settings['cliente_custom_fields_schema'] = $schema;
+            $tenant->settings = $settings;
+            $tenant->save();
+        }
+
+        Cliente::forTenant($tenant->id)->orderBy('id')->get()->each(function (Cliente $cliente, int $i) {
+            if ($cliente->getCustomField('scadenza_polizza')) {
+                return;
+            }
+            $cliente->custom_fields = array_merge($cliente->custom_fields ?? [], [
+                'scadenza_polizza' => today()->addDays(10 + ($i * 7) % 60)->toDateString(),
+            ]);
+            $cliente->save();
+        });
     }
 
     /** Usa gli stati già configurati del tenant se ci sono, altrimenti crea quelli standard. */

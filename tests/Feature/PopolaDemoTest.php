@@ -72,7 +72,7 @@ test('dall\'account demo non parte nessuna email', function () {
 
 test('le automazioni demo chiedono conferma al cambio stato e non mandano email vere', function () {
     $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo'])->assertSuccessful();
-    expect(\App\Models\Automation::where('tenant_id', $this->demo->id)->where('requires_confirmation', true)->count())->toBe(4);
+    expect(\App\Models\Automation::where('tenant_id', $this->demo->id)->where('requires_confirmation', true)->count())->toBe(6);
 
     $perizia = TenantStatus::where('tenant_id', $this->demo->id)->where('name', 'In perizia')->first();
     $pratica = Pratica::forTenant($this->demo->id)->whereHas('currentStatus', fn ($q) => $q->where('name', 'Aperto'))->first();
@@ -90,9 +90,10 @@ test('--automazioni le aggiunge a un demo già popolato, mai a un tenant vero', 
     \App\Models\Automation::where('tenant_id', $this->demo->id)->delete();
 
     $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo', '--automazioni' => true])->assertSuccessful();
-    expect(\App\Models\Automation::where('tenant_id', $this->demo->id)->count())->toBe(4);
-    // Seconda volta: ci sono già.
-    $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo', '--automazioni' => true])->assertFailed();
+    expect(\App\Models\Automation::where('tenant_id', $this->demo->id)->count())->toBe(7);
+    // Seconda volta: ci sono già, non le duplica.
+    $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo', '--automazioni' => true])->assertSuccessful();
+    expect(\App\Models\Automation::where('tenant_id', $this->demo->id)->count())->toBe(7);
 
     TenantStatus::create(['tenant_id' => $this->altro->id, 'name' => 'Due', 'color' => '#000', 'order' => 1]);
     TenantStatus::create(['tenant_id' => $this->altro->id, 'name' => 'Chiusa', 'color' => '#000', 'order' => 2, 'is_closed' => true]);
@@ -152,4 +153,23 @@ test('--allegati mette documenti e foto di esempio in ogni sinistro demo', funct
     $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo', '--allegati' => true])->assertSuccessful();
     expect(\App\Models\Allegato::where('tenant_id', $this->demo->id)->count())->toBe($prima);
     $this->artisan('demo:popola', ['tenant' => $this->altro->id, '--nome' => 'Malacrida', '--allegati' => true])->assertFailed();
+});
+
+test('nel demo inserire una data nel sinistro mostra l\'automazione da confermare', function () {
+    $this->artisan('demo:popola', ['tenant' => $this->demo->id, '--nome' => 'demo'])->assertSuccessful();
+    $pratica = Pratica::forTenant($this->demo->id)->first();
+
+    $res = $this->actingAs($this->admin)->postJson("/pratiche/{$pratica->id}/automations/preview", [
+        'date_fields' => ['data_visita_medica' => today()->addWeek()->toDateString()],
+    ])->assertOk();
+    expect($res->json('automations.0.name'))->toBe('Visita medico-legale: conferma al cliente');
+
+    $res = $this->postJson("/pratiche/{$pratica->id}/automations/preview", [
+        'date_fields' => ['data_appuntamento' => today()->addDays(3)->toDateString()],
+    ])->assertOk();
+    expect($res->json('automations.0.name'))->toBe('Appuntamento perizia: email a perito e cliente');
+
+    $demo = $this->demo->fresh();
+    expect(collect($demo->getClienteCustomFieldsSchema())->pluck('name'))->toContain('scadenza_polizza')
+        ->and(\App\Models\Cliente::forTenant($demo->id)->first()->getCustomField('scadenza_polizza'))->not->toBeNull();
 });
