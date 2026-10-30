@@ -239,7 +239,7 @@ class PraticaController extends Controller
         $praticaModules = PraticaModule::where('pratica_id', $pratica->id)
             ->get(['id', 'module_template_id', 'values']);
 
-        $contatti    = Contatto::where('is_active', true)->orderBy('nome')->get(['id', 'tags', 'nome', 'telefono']);
+        $contatti    = Contatto::where('is_active', true)->orderBy('nome')->get(['id', 'tags', 'nome']);
         $periti      = $contatti->filter(fn ($c) => $c->hasTag(Contatto::TAG_PERITO))->values();
         $carrozzerie = $contatti->filter(fn ($c) => $c->hasTag(Contatto::TAG_CARROZZERIA))->values();
 

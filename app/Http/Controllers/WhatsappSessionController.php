@@ -27,7 +27,8 @@ class WhatsappSessionController extends Controller
             // l'apiKey pubblica, che da sola con un tenantId indovinato
             // permetteva di leggere/sostituire la connessione di un altro
             // cliente.
-            'fusionwaToken'   => $this->fusionWa->getWidgetToken($tenantId),
+            // Solo il tenant-admin collega il numero: agli altri ruoli niente token.
+            'fusionwaToken'   => auth()->user()->isTenantAdmin() ? $this->fusionWa->getWidgetToken($tenantId) : null,
             'fusionwaBaseUrl' => config('services.fusionwa.base_url'),
         ]);
     }

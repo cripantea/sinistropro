@@ -16,6 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
+            // Cambio o reset della password = le altre sessioni (e i cookie "ricordami") non valgono più.
+            \Illuminate\Session\Middleware\AuthenticateSession::class,
             \App\Http\Middleware\EnsureUserIsActive::class,
             \App\Http\Middleware\EnsurePasswordCambiata::class,
             \App\Http\Middleware\EnsureTenantHasAccess::class,

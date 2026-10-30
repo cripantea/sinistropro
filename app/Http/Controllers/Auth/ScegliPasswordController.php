@@ -23,6 +23,9 @@ class ScegliPasswordController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        // Senza la password attuale si cambia solo la password provvisoria, e mai impersonando.
+        abort_unless($request->user()->must_change_password && ! $request->session()->has('impersonator_id'), 403);
+
         $data = $request->validate(['password' => ['required', Password::min(8)]]);
 
         $user = $request->user();

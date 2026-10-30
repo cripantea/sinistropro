@@ -111,6 +111,14 @@ class StripeBilling
     /** Dati da un checkout completato (ritorno del browser o webhook: può arrivare due volte). */
     public function applyCheckout(Tenant $tenant, object $session): void
     {
+        // Un checkout vecchio (link di ritorno riaperto, webhook riconsegnato) non deve
+        // sostituire un abbonamento diverso ancora attivo.
+        if ($tenant->hasSubscription() && ($session->subscription ?? null) && $tenant->stripe_subscription_id !== $session->subscription) {
+            Log::info('Stripe: checkout ignorato, il tenant ha già un abbonamento attivo diverso', ['tenant' => $tenant->id]);
+
+            return;
+        }
+
         $tenant->forceFill([
             'stripe_customer_id'     => $session->customer ?? $tenant->stripe_customer_id,
             'stripe_subscription_id' => $session->subscription ?? $tenant->stripe_subscription_id,

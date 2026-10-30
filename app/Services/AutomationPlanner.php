@@ -97,7 +97,7 @@ class AutomationPlanner
 
         $userIds = collect($spec)->where('type', 'user')->pluck('user_id')->filter()->map(fn ($i) => (int) $i)->all();
         $users   = $userIds
-            ? User::where('tenant_id', $pratica->tenant_id)->whereIn('id', $userIds)->get(['id', 'name', 'email'])->keyBy('id')
+            ? User::where('tenant_id', $pratica->tenant_id)->where('is_active', true)->whereIn('id', $userIds)->get(['id', 'name', 'email'])->keyBy('id')
             : collect();
 
         $out = [];
@@ -128,7 +128,7 @@ class AutomationPlanner
             return [];
         }
 
-        return User::where('tenant_id', $automation->tenant_id)->whereIn('id', $ids)->get(['name', 'email'])
+        return User::where('tenant_id', $automation->tenant_id)->where('is_active', true)->whereIn('id', $ids)->get(['name', 'email'])
             ->filter(fn ($u) => $u->email)
             ->map(fn ($u) => ['name' => $u->name, 'email' => $u->email])
             ->unique('email')->values()->all();
@@ -323,7 +323,9 @@ class AutomationPlanner
 
     private function resolveGestore(Pratica $pratica): array
     {
+        // Gli utenti disattivati non ricevono più nulla (come negli avvisi giornalieri).
         $user = $pratica->utenteCreatore;
+        $user = $user?->is_active ? $user : null;
 
         return ['email' => $user?->email, 'phone' => null, 'name' => $user?->name];
     }
@@ -339,7 +341,7 @@ class AutomationPlanner
 
         $ispezione = $pratica->ispezioni->first(fn ($i) => $i->perito_contatto_id || $i->assegnato_a_user_id);
         $contatto  = $ispezione?->peritoContatto;
-        $user      = $ispezione?->assegnatoa;
+        $user      = $ispezione?->assegnatoa?->is_active ? $ispezione->assegnatoa : null;
 
         return [
             'email' => $contatto?->email ?: $user?->email,
@@ -359,7 +361,7 @@ class AutomationPlanner
 
         $ispezione = $pratica->ispezioni->first(fn ($i) => $i->carrozzeria_contatto_id || $i->carrozzeria_user_id);
         $contatto  = $ispezione?->carrozzeriaContatto;
-        $user      = $ispezione?->carrozzeria;
+        $user      = $ispezione?->carrozzeria?->is_active ? $ispezione->carrozzeria : null;
 
         return [
             'email' => $contatto?->email ?: $user?->email,
