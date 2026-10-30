@@ -242,11 +242,15 @@ class TenantController extends Controller
         DB::transaction(function () use ($request, $tenant): void {
             $tenant->update([
                 'name' => $request->name,
+                // Si aggiornano solo le chiavi del modulo: le altre (es. "demo", che blocca le email
+                // dell'account dimostrativo) restano com'erano.
                 'settings' => [
+                    ...($tenant->settings ?? []),
                     'default_notice_days'          => $request->integer('default_notice_days'),
                     'custom_fields_schema'          => $request->input('custom_fields_schema', []),
                     'cliente_custom_fields_schema'  => $request->input('cliente_custom_fields_schema', []),
                     'features'                      => $request->input('features', []),
+                    'prova'                         => $request->boolean('prova'),
                 ],
             ]);
 

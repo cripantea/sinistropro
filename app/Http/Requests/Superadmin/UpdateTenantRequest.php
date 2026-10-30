@@ -51,6 +51,7 @@ class UpdateTenantRequest extends FormRequest
             'cliente_custom_fields_schema.*.options.*' => ['string', 'max:255'],
             'features'                      => ['nullable', 'array'],
             'features.*'                    => ['boolean'],
+            'prova'                         => ['nullable', 'boolean'],
         ];
     }
 

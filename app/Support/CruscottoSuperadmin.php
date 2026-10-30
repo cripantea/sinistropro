@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
  * L'uso si misura dal registro attività (audit_logs): ogni sinistro aperto, visto o modificato.
  * Non contano i superadmin né le azioni fatte "Accedi come", così il nostro supporto non gonfia i numeri.
  * Gli account demo (settings.demo) stanno fuori da incassi e salute: servono solo a contare le demo.
+ * Gli account di prova (settings.prova) stanno fuori da tutto.
  */
 class CruscottoSuperadmin
 {
@@ -20,7 +21,7 @@ class CruscottoSuperadmin
 
     public static function dati(): array
     {
-        $tenants = Tenant::orderBy('name')->get();
+        $tenants = Tenant::orderBy('name')->get()->reject(fn (Tenant $t) => (bool) $t->getSetting('prova'));
         [$demo, $clienti] = $tenants->partition(fn (Tenant $t) => (bool) $t->getSetting('demo'));
 
         $attivita = self::attivitaPerTenant();

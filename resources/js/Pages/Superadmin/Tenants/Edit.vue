@@ -180,6 +180,17 @@
         </div>
       </FormSection>
 
+      <FormSection title="Account di prova">
+        <label class="flex items-start justify-between gap-4 cursor-pointer">
+          <div>
+            <span class="text-sm font-medium text-slate-800">Questa agenzia è un account di prova</span>
+            <p class="text-xs text-slate-500 mt-0.5">Non conta nella dashboard: incasso, salute e agenzie ferme. Non cancella nulla e si può togliere quando vuoi.</p>
+          </div>
+          <input v-model="form.prova" type="checkbox" class="mt-1 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+        </label>
+        <p v-if="tenant.settings?.demo" class="mt-3 text-xs text-indigo-700 bg-indigo-50 rounded-lg px-3 py-2">È l'account demo: le email non partono mai e conta solo nelle demo della dashboard.</p>
+      </FormSection>
+
       <FormSection title="Funzionalità abilitate">
         <p class="text-xs text-slate-500 mb-5">Controlla quali funzionalità sono visibili e accessibili a questo tenant. Le funzionalità nuove sono disabilitate di default.</p>
 
@@ -1488,6 +1499,8 @@ interface TenantFull {
     custom_fields_schema: Omit<CustomField, '_uid'>[]
     cliente_custom_fields_schema?: Omit<CustomField, '_uid'>[]
     features?: Record<string, boolean>
+    prova?: boolean
+    demo?: boolean
   } | null
   statuses: Omit<StatusRow, '_uid'>[]
 }
@@ -1593,6 +1606,7 @@ const form = useForm({
       props.tenant.settings?.features?.[f.key] ?? f.default,
     ])
   ) as Record<string, boolean>,
+  prova: props.tenant.settings?.prova ?? false,
 })
 
 const PALETTE = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#6B7280']

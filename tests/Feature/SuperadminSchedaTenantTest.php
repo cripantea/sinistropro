@@ -67,3 +67,22 @@ test('una categoria nuova creata dalla scheda del tenant è accesa solo lì e sp
             fn ($cats) => collect($cats)->firstWhere('name', 'Polizze')['is_enabled'] === false
         ));
 });
+
+test('salvare la scheda non toglie il segno demo e il segno prova toglie l agenzia dalla dashboard', function () {
+    $this->tenant->update(['settings' => ['demo' => true, 'default_notice_days' => 30]]);
+
+    $this->actingAs($this->superadmin)->from("/superadmin/tenants/{$this->tenant->id}/edit")
+        ->put("/superadmin/tenants/{$this->tenant->id}", [
+            'name' => 'Studio A', 'default_notice_days' => 15, 'prova' => false,
+            'statuses' => [['name' => 'Nuova', 'color' => '#000000', 'is_closed' => false, 'is_initial' => true]],
+        ]);
+    expect($this->tenant->fresh()->getSetting('demo'))->toBeTrue()
+        ->and($this->tenant->fresh()->getSetting('default_notice_days'))->toBe(15);
+
+    $this->from("/superadmin/tenants/{$this->altro->id}/edit")
+        ->put("/superadmin/tenants/{$this->altro->id}", [
+            'name' => 'Studio B', 'default_notice_days' => 30, 'prova' => true,
+            'statuses' => [['name' => 'Nuova', 'color' => '#000000', 'is_closed' => false, 'is_initial' => true]],
+        ]);
+    $this->get('/superadmin')->assertInertia(fn (Assert $page) => $page->where('agenzie_totali', 0));
+});

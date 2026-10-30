@@ -32,7 +32,11 @@
               <td colspan="8" class="px-5 py-10 text-center text-slate-400">Nessun tenant creato.</td>
             </tr>
             <tr v-for="tenant in tenants.data" :key="tenant.id" @click="apri(tenant)" class="hover:bg-slate-50 transition-colors group cursor-pointer">
-              <td class="px-5 py-3.5 font-semibold text-slate-800">{{ tenant.name }}</td>
+              <td class="px-5 py-3.5 font-semibold text-slate-800">
+                {{ tenant.name }}
+                <span v-if="tenant.settings?.demo" class="ml-1.5 text-[11px] font-semibold rounded-full px-2 py-0.5 bg-indigo-50 text-indigo-700">Demo</span>
+                <span v-else-if="tenant.settings?.prova" class="ml-1.5 text-[11px] font-semibold rounded-full px-2 py-0.5 bg-slate-100 text-slate-500">Prova</span>
+              </td>
               <td class="px-5 py-3.5 text-slate-600 tabular-nums">{{ tenant.users_count }}</td>
               <td class="px-5 py-3.5 text-slate-600 tabular-nums">{{ tenant.pratiche_count }}</td>
               <td class="px-5 py-3.5 text-slate-600 tabular-nums">{{ tenant.statuses_count }}</td>
@@ -86,7 +90,7 @@ import BillingBadge from '@/Components/Superadmin/BillingBadge.vue'
 
 interface TenantRow {
   id: number; name: string; users_count: number; pratiche_count: number
-  statuses_count: number; settings: { default_notice_days?: number } | null; created_at: string
+  statuses_count: number; settings: { default_notice_days?: number; demo?: boolean; prova?: boolean } | null; created_at: string
   billing_state: BillingState
 }
 interface PaginationLink { url: string | null; label: string; active: boolean }
