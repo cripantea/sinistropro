@@ -286,8 +286,11 @@ class TenantController extends Controller
         return back()->with('success', "Tenant \"{$tenant->name}\" aggiornato.");
     }
 
-    public function destroy(Tenant $tenant): RedirectResponse
+    public function destroy(Request $request, Tenant $tenant): RedirectResponse
     {
+        // Irreversibile (sinistri, clienti, allegati): serve aver scritto CONFERMA.
+        $request->validate(['conferma' => ['required', 'in:CONFERMA']], ['conferma.in' => 'Scrivi CONFERMA in maiuscolo per eliminare.', 'conferma.required' => 'Scrivi CONFERMA per eliminare.']);
+
         $name = $tenant->name;
 
         // La FK users.tenant_id è nullOnDelete: gli utenti resterebbero attivi senza tenant.

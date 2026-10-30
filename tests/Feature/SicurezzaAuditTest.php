@@ -25,7 +25,7 @@ beforeEach(function () {
 });
 
 test('eliminando un tenant i suoi utenti vengono disattivati e non vedono gli altri tenant', function () {
-    $this->actingAs($this->superadmin)->delete("/superadmin/tenants/{$this->tenantA->id}")->assertRedirect();
+    $this->actingAs($this->superadmin)->delete("/superadmin/tenants/{$this->tenantA->id}", ["conferma" => "CONFERMA"])->assertRedirect();
 
     $orfano = $this->userA->fresh();
     expect($orfano->tenant_id)->toBeNull()->and($orfano->is_active)->toBeFalse();

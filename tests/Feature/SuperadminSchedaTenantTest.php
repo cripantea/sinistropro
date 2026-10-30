@@ -86,3 +86,13 @@ test('salvare la scheda non toglie il segno demo e il segno prova toglie l agenz
         ]);
     $this->get('/superadmin')->assertInertia(fn (Assert $page) => $page->where('agenzie_totali', 0));
 });
+
+test('un tenant si elimina solo scrivendo CONFERMA', function () {
+    $this->actingAs($this->superadmin)->from('/superadmin/tenants')
+        ->delete("/superadmin/tenants/{$this->altro->id}", ['conferma' => 'conferma'])
+        ->assertSessionHasErrors('conferma');
+    expect(Tenant::find($this->altro->id))->not->toBeNull();
+
+    $this->delete("/superadmin/tenants/{$this->altro->id}", ['conferma' => 'CONFERMA'])->assertRedirect('/superadmin/tenants');
+    expect(Tenant::find($this->altro->id))->toBeNull();
+});
