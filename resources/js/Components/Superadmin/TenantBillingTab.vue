@@ -30,6 +30,15 @@
       <FieldError :message="form.errors.billing_mode" />
     </FormSection>
 
+    <FormSection v-if="form.billing_mode === 'esterno'" title="Canone (IVA inclusa)">
+      <p class="text-xs text-slate-500 -mt-2 mb-4">Quanto paga al mese fuori dall'app. Serve solo a contare l'incasso nella dashboard.</p>
+      <div class="max-w-xs">
+        <label class="field-label">Mensile (€)</label>
+        <input v-model="form.price_monthly" type="number" step="0.01" min="1" class="field-input" placeholder="Es. 99" />
+        <FieldError :message="form.errors.price_monthly" />
+      </div>
+    </FormSection>
+
     <template v-if="form.billing_mode === 'stripe'">
       <FormSection title="Prezzo (IVA inclusa)">
         <p class="text-xs text-slate-500 -mt-2 mb-4">
