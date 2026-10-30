@@ -1,5 +1,5 @@
 <template>
-  <SuperadminLayout :title="`Modifica Tenant: ${tenant.name}`">
+  <SuperadminLayout :title="tenant.name">
 
     <!-- ── Agenzia appena creata: messaggio da mandare al cliente ──────────── -->
     <div v-if="credenziali" class="mx-6 mt-5 max-w-3xl bg-emerald-50 border border-emerald-200 rounded-xl p-5">
@@ -11,48 +11,59 @@
       </button>
     </div>
 
-    <!-- ── Header con azioni rapide ────────────────────────────────────────── -->
-    <div class="px-6 pt-5 flex items-center justify-between max-w-4xl">
-      <p class="text-xs text-slate-500">ID: {{ tenant.id }}</p>
+    <!-- ── Riepilogo agenzia + azioni rapide ───────────────────────────────── -->
+    <div class="px-6 py-4 border-b border-slate-200 bg-white flex flex-wrap items-center gap-x-4 gap-y-2">
+      <Link :href="route('superadmin.tenants.index')" class="text-sm text-slate-500 hover:text-slate-800">← Tutti i tenant</Link>
+      <span class="text-slate-300">|</span>
+      <BillingBadge :state="billing.state" />
+      <span class="text-sm text-slate-600">{{ utenti.filter(u => u.is_active).length }} utenti attivi</span>
+      <span class="text-sm text-slate-600">{{ praticheCount }} sinistri</span>
+      <span class="text-xs text-slate-400">ID {{ tenant.id }}</span>
+      <Link
+        :href="route('superadmin.tenants.context.set', tenant.id)"
+        method="post"
+        as="button"
+        class="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 rounded-lg px-3 py-1.5 transition"
+        title="Naviga i dati del tenant restando superadmin"
+      >Sfoglia i dati dell'agenzia →</Link>
     </div>
 
-    <!-- ── Tab bar ──────────────────────────────────────────────────────────── -->
-    <div class="px-6 pt-4">
-      <nav class="flex gap-1 bg-slate-100 rounded-xl p-1 max-w-5xl overflow-x-auto">
+    <div class="flex items-start">
+
+    <!-- ── Menu sezioni (verticale, sempre visibile) ─────────────────────────── -->
+    <nav class="w-60 shrink-0 sticky top-0 self-start p-4 space-y-5">
+      <div v-for="gruppo in GRUPPI" :key="gruppo.titolo">
+        <p class="px-3 mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{{ gruppo.titolo }}</p>
         <button
-          v-for="tab in TABS"
-          :key="tab.id"
+          v-for="voce in gruppo.voci"
+          :key="voce.id"
           type="button"
-          @click="activeTab = tab.id"
+          @click="vaiA(voce.id)"
           :class="[
-            'flex-1 text-sm font-medium py-2 px-3 rounded-lg transition whitespace-nowrap',
-            activeTab === tab.id
-              ? 'bg-white text-slate-900 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/60'
+            'w-full flex items-center justify-between gap-2 text-left text-sm py-1.5 px-3 rounded-lg transition',
+            activeTab === voce.id ? 'bg-white text-slate-900 font-semibold shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
           ]"
         >
-          {{ tab.label }}
+          <span>{{ voce.label }}</span>
+          <span v-if="voce.stato" class="flex items-center gap-1.5 text-[11px] font-medium" :class="voce.stato.ok ? 'text-emerald-600' : 'text-slate-400'">
+            <span class="w-1.5 h-1.5 rounded-full" :class="voce.stato.ok ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+            {{ voce.stato.testo }}
+          </span>
+          <span v-else-if="voce.conta !== undefined" class="text-xs tabular-nums text-slate-400">{{ voce.conta }}</span>
         </button>
-      </nav>
+      </div>
+    </nav>
+
+    <!-- ── Contenuto della sezione scelta ───────────────────────────────────── -->
+    <div class="flex-1 min-w-0">
+
+    <!-- ── Utenti dell'agenzia ──────────────────────────────────────────────── -->
+    <div v-show="activeTab === 'utenti'" class="p-6">
+      <TenantUtenti :tenant="tenant" :utenti="utenti" />
     </div>
 
-    <!-- ── Tab 1: Configurazione ─────────────────────────────────────────────── -->
-    <form v-show="activeTab === 'config'" @submit.prevent="submit" class="p-6 max-w-3xl space-y-8">
-
-      <FormSection title="Informazioni generali">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <label class="field-label">Nome azienda / tenant *</label>
-            <input v-model="form.name" type="text" class="field-input" />
-            <FieldError :message="form.errors.name" />
-          </div>
-          <div>
-            <label class="field-label">Giorni preavviso default *</label>
-            <input v-model.number="form.default_notice_days" type="number" min="1" max="365" class="field-input" />
-            <FieldError :message="form.errors.default_notice_days" />
-          </div>
-        </div>
-      </FormSection>
+    <!-- ── Stati e campi dei sinistri ───────────────────────────────────────── -->
+    <form v-show="activeTab === 'sinistri'" @submit.prevent="submit" class="p-6 max-w-3xl space-y-8">
 
       <FormSection title="Campi personalizzati dei sinistri">
         <div class="space-y-3">
@@ -146,15 +157,29 @@
       <div class="flex items-center gap-4 pt-2">
         <button type="submit" :disabled="form.processing" class="inline-flex items-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-6 py-2.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-60">
           <svg v-if="form.processing" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
-          Salva modifiche
+          Salva stati e campi
         </button>
-        <Link :href="route('superadmin.tenants.index')" class="text-sm text-slate-500 hover:underline">Annulla</Link>
       </div>
 
     </form>
 
-    <!-- ── Tab 2: Funzionalità ──────────────────────────────────────────────────── -->
-    <div v-show="activeTab === 'features'" class="p-6 max-w-3xl">
+    <!-- ── Dati generali e funzionalità ──────────────────────────────────────── -->
+    <form v-show="activeTab === 'generale'" @submit.prevent="submit" class="p-6 max-w-3xl space-y-8">
+      <FormSection title="Informazioni generali">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label class="field-label">Nome azienda / tenant *</label>
+            <input v-model="form.name" type="text" class="field-input" />
+            <FieldError :message="form.errors.name" />
+          </div>
+          <div>
+            <label class="field-label">Giorni preavviso default *</label>
+            <input v-model.number="form.default_notice_days" type="number" min="1" max="365" class="field-input" />
+            <FieldError :message="form.errors.default_notice_days" />
+          </div>
+        </div>
+      </FormSection>
+
       <FormSection title="Funzionalità abilitate">
         <p class="text-xs text-slate-500 mb-5">Controlla quali funzionalità sono visibili e accessibili a questo tenant. Le funzionalità nuove sono disabilitate di default.</p>
 
@@ -189,18 +214,17 @@
         </div>
       </FormSection>
 
-      <div class="mt-6 flex items-center gap-3">
+      <div class="flex items-center gap-3">
         <button
-          type="button"
+          type="submit"
           :disabled="form.processing"
-          @click="submit"
           class="inline-flex items-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-6 py-2.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-60"
         >
           <svg v-if="form.processing" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
-          Salva funzionalità
+          Salva
         </button>
       </div>
-    </div>
+    </form>
 
     <!-- ── Tab: Campi Clienti ────────────────────────────────────────────────── -->
     <form v-show="activeTab === 'clienti'" @submit.prevent="submit" class="p-6 max-w-3xl space-y-6">
@@ -283,9 +307,13 @@
     </form>
 
     <!-- ── Tab 3: Categorie Documenti ─────────────────────────────────────────── -->
-    <form v-show="activeTab === 'categories'" @submit.prevent="submitCategories" class="p-6 max-w-3xl mt-4">
+    <form v-show="activeTab === 'categories'" @submit.prevent="submitCategories" class="p-6 max-w-3xl">
       <FormSection title="Categorie Documenti">
-        <p class="text-xs text-slate-500 mb-4">Abilita le categorie disponibili per questo tenant e imposta il limite di dimensione per ogni categoria.</p>
+        <p class="text-xs text-slate-500 mb-4">
+          Accendi le categorie che usa questa agenzia e il limite in MB di ognuna. L'elenco è comune a tutte le agenzie:
+          una categoria nuova creata qui è accesa solo per {{ tenant.name }} e parte spenta per le altre.
+          <Link :href="route('superadmin.document-categories.index')" class="text-indigo-600 hover:underline">Rinomina o elimina nell'elenco comune →</Link>
+        </p>
 
         <div class="space-y-2">
           <div
@@ -320,6 +348,27 @@
         >
           <svg v-if="catForm.processing" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
           Salva categorie
+        </button>
+      </FormSection>
+    </form>
+
+    <!-- Nuova categoria: nell'elenco comune, accesa solo per questo tenant -->
+    <form v-show="activeTab === 'categories'" @submit.prevent="creaCategoria" class="px-6 pb-6 max-w-3xl">
+      <FormSection title="Nuova categoria">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="field-label">Nome</label>
+            <input v-model="nuovaCat.name" type="text" class="field-input" placeholder="Es. Polizze e contratti" />
+            <FieldError :message="nuovaCat.errors.name" />
+          </div>
+          <div>
+            <label class="field-label">Descrizione (facoltativa)</label>
+            <input v-model="nuovaCat.description" type="text" class="field-input" />
+            <FieldError :message="nuovaCat.errors.description" />
+          </div>
+        </div>
+        <button type="submit" :disabled="nuovaCat.processing || !nuovaCat.name" class="mt-4 inline-flex items-center gap-2 border border-slate-300 bg-white text-slate-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-slate-50 transition disabled:opacity-50">
+          Aggiungi categoria
         </button>
       </FormSection>
     </form>
@@ -680,9 +729,10 @@
 
     </form>
 
-    <!-- ── Tab: WhatsApp (sola lettura, supporto) ──────────────────────────────── -->
+    <!-- ── Abbonamento ──────────────────────────────────────────────────────── -->
     <TenantBillingTab v-show="activeTab === 'billing'" :tenant-id="tenant.id" :billing="billing" />
 
+    <!-- ── WhatsApp (sola lettura, supporto) ──────────────────────────────────── -->
     <div v-show="activeTab === 'whatsapp'" class="p-6 max-w-3xl space-y-8">
       <FormSection title="Stato collegamento">
         <p class="text-xs text-slate-500 -mt-2 mb-4">
@@ -739,6 +789,9 @@
       </FormSection>
     </div>
 
+    </div>
+    </div>
+
     <!-- ── Automation Modal ──────────────────────────────────────────────────── -->
     <Teleport to="body">
       <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0" leave-active-class="transition duration-150" leave-to-class="opacity-0">
@@ -790,7 +843,7 @@
                     <option v-for="f in dateCustomFields" :key="f.name" :value="f.name">{{ f.label }}</option>
                   </select>
                   <p v-if="dateCustomFields.length === 0" class="text-xs text-amber-600 mt-1">
-                    Nessun campo di tipo "Data" nei sinistri (tab "Configurazione").
+                    Nessun campo di tipo "Data" nei sinistri (sezione "Stati e campi").
                   </p>
                   <FieldError :message="autoForm.errors.watched_field" />
                 </div>
@@ -804,7 +857,7 @@
                       <option v-for="f in clienteDateCustomFields" :key="f.name" :value="f.name">{{ f.label }}</option>
                     </select>
                     <p v-if="clienteDateCustomFields.length === 0" class="text-xs text-amber-600 mt-1">
-                      Nessun campo di tipo "Data" nei clienti. Aggiungine uno nel tab "Campi Clienti".
+                      Nessun campo di tipo "Data" nei clienti. Aggiungine uno nella sezione "Campi clienti".
                     </p>
                     <FieldError :message="autoForm.errors.watched_field" />
                   </div>
@@ -1006,7 +1059,7 @@
                     <option v-for="f in tenant.settings?.custom_fields_schema ?? []" :key="f.name" :value="f.name">{{ f.label }}</option>
                   </select>
                   <p v-if="!(tenant.settings?.custom_fields_schema ?? []).length" class="text-xs text-amber-600 mt-1">
-                    Questo tenant non ha campi personalizzati configurati (tab "Configurazione").
+                    Questo tenant non ha campi personalizzati configurati (sezione "Stati e campi").
                   </p>
                   <FieldError :message="dictForm.errors.source_field" />
                 </div>
@@ -1355,6 +1408,8 @@ import SuperadminLayout from '@/Layouts/SuperadminLayout.vue'
 import FormSection from '@/Components/Superadmin/FormSection.vue'
 import FieldError from '@/Components/Superadmin/FieldError.vue'
 import TenantBillingTab, { type TenantBilling } from '@/Components/Superadmin/TenantBillingTab.vue'
+import TenantUtenti, { type UtenteTenant } from '@/Components/Superadmin/TenantUtenti.vue'
+import BillingBadge from '@/Components/Superadmin/BillingBadge.vue'
 import FieldCoordEditor from '@/Components/Superadmin/FieldCoordEditor.vue'
 
 // ── Interfaces ───────────────────────────────────────────────────────────────
@@ -1449,6 +1504,8 @@ const props = defineProps<{
   moduleTemplates: ModuleTemplate[]
   fieldDictionary: DictEntry[]
   tenantUsers: TenantUser[]
+  utenti: UtenteTenant[]
+  praticheCount: number
   mailSettings: MailSettings | null
   whatsappSession: WhatsappSessionInfo | null
   availableFeatures: AvailableFeature[]
@@ -1462,27 +1519,52 @@ const uid = () => ++_uid
 
 // ── Tab navigation ───────────────────────────────────────────────────────────
 
-const TABS = [
-  { id: 'config',      label: 'Configurazione' },
-  { id: 'features',    label: 'Funzionalità' },
-  { id: 'clienti',     label: 'Campi Clienti' },
-  { id: 'categories',  label: 'Categorie Documenti' },
-  { id: 'automations', label: 'Automazioni Workflow' },
-  { id: 'dictionary',  label: 'Dizionario Campi' },
-  { id: 'modules',     label: 'Template Moduli PDF' },
-  { id: 'email',       label: 'Email' },
-  { id: 'whatsapp',    label: 'WhatsApp' },
-  { id: 'billing',     label: 'Abbonamento' },
-] as const
+// Sezioni raggruppate per argomento, nel menu verticale a sinistra. L'id è anche
+// il ?tab= dell'URL: così ricaricando o dopo un salvataggio si resta nella stessa sezione.
+type TabId =
+  | 'generale' | 'utenti' | 'billing'
+  | 'sinistri' | 'clienti' | 'categories'
+  | 'automations' | 'modules' | 'dictionary'
+  | 'email' | 'whatsapp'
 
-type TabId = typeof TABS[number]['id']
+interface Voce { id: TabId; label: string; conta?: number; stato?: { ok: boolean; testo: string } }
+
+const GRUPPI = computed<{ titolo: string; voci: Voce[] }[]>(() => [
+  { titolo: 'Agenzia', voci: [
+    { id: 'generale', label: 'Dati e funzionalità' },
+    { id: 'utenti',   label: 'Utenti', conta: props.utenti.filter(u => u.is_active).length },
+    { id: 'billing',  label: 'Abbonamento' },
+  ] },
+  { titolo: 'Sinistri e clienti', voci: [
+    { id: 'sinistri',   label: 'Stati e campi', conta: props.tenant.statuses?.length },
+    { id: 'clienti',    label: 'Campi clienti', conta: props.tenant.settings?.cliente_custom_fields_schema?.length ?? 0 },
+    { id: 'categories', label: 'Categorie documenti' },
+  ] },
+  { titolo: 'Automazioni e moduli', voci: [
+    { id: 'automations', label: 'Automazioni', conta: props.automations.length },
+    { id: 'modules',     label: 'Moduli PDF', conta: props.moduleTemplates.length },
+    { id: 'dictionary',  label: 'Dizionario campi', conta: props.fieldDictionary.length },
+  ] },
+  { titolo: 'Collegamenti', voci: [
+    { id: 'email',    label: 'Email', stato: props.mailSettings?.is_active ? { ok: true, testo: 'attiva' } : { ok: false, testo: 'da fare' } },
+    { id: 'whatsapp', label: 'WhatsApp', stato: props.whatsappSession?.status === 'active' ? { ok: true, testo: 'collegato' } : { ok: false, testo: 'no' } },
+  ] },
+])
+
+const TAB_IDS = GRUPPI.value.flatMap(g => g.voci.map(v => v.id))
+// Vecchi link (?tab=config / ?tab=features) portano alla sezione che li ha sostituiti.
+const ALIAS: Record<string, TabId> = { config: 'generale', features: 'generale' }
 
 function tabFromUrl(url: string): TabId {
   const search = url.includes('?') ? url.split('?')[1] : ''
-  const tab = new URLSearchParams(search).get('tab')
-  return (['config', 'features', 'clienti', 'categories', 'automations', 'dictionary', 'modules', 'email', 'whatsapp', 'billing'] as const).includes(tab as TabId)
-    ? (tab as TabId)
-    : 'config'
+  const tab = new URLSearchParams(search).get('tab') ?? ''
+  if (ALIAS[tab]) return ALIAS[tab]
+  return TAB_IDS.includes(tab as TabId) ? (tab as TabId) : 'generale'
+}
+
+function vaiA(id: TabId) {
+  router.replace({ url: route('superadmin.tenants.edit', { tenant: props.tenant.id, tab: id }), preserveState: true, preserveScroll: true })
+  document.querySelector('main')?.scrollTo({ top: 0 })
 }
 
 const page      = usePage()
@@ -1546,12 +1628,20 @@ function submit() {
       cliente_custom_fields_schema: data.cliente_custom_fields_schema.map(({ _uid: _u, ...f }: CustomField) => f),
       statuses:                     data.statuses.map(({ _uid: _u, ...s }: StatusRow) => s),
     }))
-    .put(route('superadmin.tenants.update', props.tenant.id))
+    .put(route('superadmin.tenants.update', props.tenant.id), { preserveScroll: true })
 }
 
 // ── Categorie ────────────────────────────────────────────────────────────────
 
 const catForm = useForm({ categories: props.categoriesConfig.map(c => ({ ...c })) })
+// Dopo "Nuova categoria" il server rimanda l'elenco aggiornato: la nuova compare subito.
+watch(() => props.categoriesConfig, (cats) => { catForm.categories = cats.map(c => ({ ...c })) })
+
+const nuovaCat = useForm({ name: '', description: '', tenant_id: props.tenant.id })
+
+function creaCategoria() {
+  nuovaCat.post(route('superadmin.document-categories.store'), { preserveScroll: true, onSuccess: () => nuovaCat.reset('name', 'description') })
+}
 
 function submitCategories() {
   catForm.post(route('superadmin.tenants.document-categories.sync', props.tenant.id))

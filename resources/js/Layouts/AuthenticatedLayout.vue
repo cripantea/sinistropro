@@ -7,6 +7,7 @@ import AvvisiFermiBanner from '@/Components/AvvisiFermiBanner.vue'
 import AbbonamentoBanner from '@/Components/AbbonamentoBanner.vue'
 import SuperadminOverlay from '@/Components/SuperadminOverlay.vue'
 import type { PageProps, AppNotification } from '@/types'
+import { ritornoSinistro } from '@/ritornoSinistro'
 
 const collapsed = ref(localStorage.getItem('kd-sidebar-collapsed') === 'true')
 const userMenuOpen = ref(false)
@@ -30,8 +31,12 @@ const currentPath = computed(() => {
   return typeof url === 'string' ? url : ''
 })
 const isOnDashboard = computed(() => currentPath.value === '/dashboard')
-const isOnPratiche  = computed(() => currentPath.value.startsWith('/pratiche') && currentPath.value !== '/pratiche/kanban')
-const isOnKanban    = computed(() => currentPath.value === '/pratiche/kanban')
+// Un sinistro aperto dalla Board resta evidenziato sotto "Board", non sotto "Sinistri".
+const isOnKanban    = computed(() =>
+  currentPath.value.startsWith('/pratiche/kanban')
+  || (/^\/pratiche\/\d+/.test(currentPath.value) && ritornoSinistro().daBoard)
+)
+const isOnPratiche  = computed(() => currentPath.value.startsWith('/pratiche') && !isOnKanban.value)
 const isOnClienti   = computed(() => currentPath.value.startsWith('/clienti'))
 const isOnListe     = computed(() => currentPath.value.startsWith('/liste'))
 const isOnRubrica = computed(() => currentPath.value.startsWith('/rubrica'))

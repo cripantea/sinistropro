@@ -3,7 +3,7 @@
     <template #header>
       <div class="flex items-center justify-between gap-4">
         <div class="flex items-center gap-3 min-w-0">
-          <TastoIndietro :href="route('pratiche.index')">Sinistri</TastoIndietro>
+          <TastoIndietro :href="ritorno.href">{{ ritorno.etichetta }}</TastoIndietro>
           <h2 class="text-xl font-semibold text-gray-800 leading-tight truncate">
             Sinistro <span class="font-mono text-indigo-600">#{{ pratica.id }}</span>
           </h2>
@@ -481,6 +481,7 @@ import { Link, useForm, router, usePage } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import TastoIndietro from '@/Components/TastoIndietro.vue'
+import { ritornoSinistro } from '@/ritornoSinistro'
 import ModuleFormModal from '@/Components/ModuleFormModal.vue'
 import AutomationConfirmModal, { type AutomationPlan } from '@/Components/AutomationConfirmModal.vue'
 import PraticaChatPanel from '@/Components/Whatsapp/PraticaChatPanel.vue'
@@ -502,7 +503,7 @@ interface PraticaModule {
   module_template_id: number
   values: Record<string, unknown>
 }
-interface ContattoInfo { id: number; nome: string; telefono: string | null }
+interface ContattoInfo { id: number; nome: string; telefono?: string | null }
 interface Ispezione {
   id: number
   perito_contatto_id: number | null
@@ -556,6 +557,9 @@ const props   = defineProps<{
   carrozzerie: ContattoInfo[]
   fieldDictionary: DictEntry[]
 }>()
+
+// Indietro: alla Board, alla tabella (con i filtri) o al cliente, a seconda di dove si era.
+const ritorno = ritornoSinistro()
 const page    = usePage<PageProps>()
 const flash   = computed(() => page.props.flash)
 const authUser = computed(() => page.props.auth.user)

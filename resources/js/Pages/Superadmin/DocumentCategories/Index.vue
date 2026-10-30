@@ -1,12 +1,15 @@
 <template>
-  <SuperadminLayout title="Categorie Documenti">
+  <SuperadminLayout title="Categorie documenti — elenco comune">
     <div class="p-6 max-w-5xl mx-auto">
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         <!-- ── Lista categorie ──────────────────────────── -->
         <div class="lg:col-span-2 space-y-3">
-          <p class="text-sm text-slate-500 mb-1">{{ categories.length }} categor{{ categories.length === 1 ? 'ia' : 'ie' }} globali</p>
+          <p class="text-sm text-slate-500 mb-1">
+            {{ categories.length }} categor{{ categories.length === 1 ? 'ia' : 'ie' }} in comune tra tutte le agenzie.
+            Le nuove partono spente per tutte: si accendono dalla scheda dell'agenzia (Categorie documenti).
+          </p>
 
           <div
             v-for="cat in categories"

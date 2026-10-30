@@ -4,9 +4,10 @@ namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
-use App\Models\Pratica;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\CruscottoSuperadmin;
+use App\Support\Impostazioni;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -18,20 +19,17 @@ class SuperadminController extends Controller
 {
     public function dashboard(): Response
     {
-        // withCount su Tenant per avere i totali per riga senza N+1.
-        $recentTenants = Tenant::withCount(['users', 'pratiche'])
-            ->latest()
-            ->take(6)
-            ->get();
+        return Inertia::render('Superadmin/Dashboard', CruscottoSuperadmin::dati());
+    }
 
-        return Inertia::render('Superadmin/Dashboard', [
-            'stats' => [
-                'tenants'  => Tenant::count(),
-                'users'    => User::count(),
-                'pratiche' => Pratica::acrossAllTenants()->count(),
-            ],
-            'recentTenants' => $recentTenants,
-        ]);
+    /** Obiettivo di incasso mensile (in euro, IVA inclusa) mostrato in dashboard. */
+    public function obiettivo(Request $request): RedirectResponse
+    {
+        $data = $request->validate(['euro' => ['required', 'numeric', 'min:0', 'max:10000000']]);
+
+        Impostazioni::set('obiettivo_mensile_cents', (string) (int) round($data['euro'] * 100));
+
+        return back()->with('success', 'Obiettivo aggiornato.');
     }
 
     public function auditLogs(Request $request): Response
@@ -108,8 +106,8 @@ class SuperadminController extends Controller
             'is_active'         => true,
         ]);
 
-        return redirect()->route('superadmin.users')
-            ->with('success', "L'utente {$request->name} è stato creato con successo.");
+        // back(): si torna alla lista utenti o alla sezione Utenti del tenant, da dove si è partiti.
+        return back()->with('success', "L'utente {$request->name} è stato creato con successo.");
     }
 
     public function update(Request $request, User $user): RedirectResponse
@@ -135,8 +133,7 @@ class SuperadminController extends Controller
 
         $user->update($data);
 
-        return redirect()->route('superadmin.users')
-            ->with('success', "L'utente {$user->name} è stato aggiornato con successo.");
+        return back()->with('success', "L'utente {$user->name} è stato aggiornato con successo.");
     }
 
     public function toggleActive(Request $request, User $user): RedirectResponse

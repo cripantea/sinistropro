@@ -85,7 +85,7 @@
               </td>
 
               <td class="px-5 py-3.5">
-                <span v-if="user.tenant" class="text-slate-700">{{ user.tenant.name }}</span>
+                <Link v-if="user.tenant" :href="route('superadmin.tenants.edit', { tenant: user.tenant.id, tab: 'utenti' })" class="text-slate-700 hover:text-indigo-600 hover:underline">{{ user.tenant.name }}</Link>
                 <span v-else class="text-slate-300 text-xs italic">Globale</span>
               </td>
 
@@ -184,175 +184,17 @@
 
     </div>
 
-    <!-- ── Modale Crea / Modifica Utente ─────────────────── -->
-    <Teleport to="body">
-      <Transition
-        enter-active-class="transition duration-200"
-        enter-from-class="opacity-0"
-        leave-active-class="transition duration-150"
-        leave-to-class="opacity-0"
-      >
-        <div
-          v-if="showModal"
-          class="fixed inset-0 z-50 flex items-center justify-center p-4"
-        >
-          <!-- Backdrop — nessun handler: la modale si chiude SOLO con i pulsanti -->
-          <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" />
-
-          <!-- Panel -->
-          <Transition
-            enter-active-class="transition duration-200"
-            enter-from-class="opacity-0 scale-95 translate-y-2"
-            leave-active-class="transition duration-150"
-            leave-to-class="opacity-0 scale-95 translate-y-2"
-          >
-            <div v-if="showModal" class="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-2xl">
-
-              <!-- Header -->
-              <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100">
-                <div>
-                  <h2 class="text-base font-semibold text-slate-800">
-                    {{ isEditMode ? `Modifica Utente — ${editingUser?.name}` : 'Crea Nuovo Utente' }}
-                  </h2>
-                  <p class="text-xs text-slate-400 mt-0.5">
-                    {{ isEditMode
-                      ? 'Aggiorna i dati. La password va cambiata solo se necessario.'
-                      : "L'utente riceverà le credenziali per accedere al sistema." }}
-                  </p>
-                </div>
-                <button
-                  @click="closeModal"
-                  class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
-                  title="Chiudi"
-                >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                  </svg>
-                </button>
-              </div>
-
-              <!-- Form -->
-              <form @submit.prevent="submitModal" class="px-6 py-5 space-y-4">
-
-                <!-- Nome -->
-                <div>
-                  <label class="block text-xs font-medium text-slate-700 mb-1.5">Nome completo</label>
-                  <input
-                    v-model="form.name"
-                    type="text"
-                    autocomplete="off"
-                    placeholder="Es. Mario Rossi"
-                    class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                    :class="{ 'border-red-400 bg-red-50': form.errors.name }"
-                  />
-                  <p v-if="form.errors.name" class="mt-1 text-xs text-red-500">{{ form.errors.name }}</p>
-                </div>
-
-                <!-- Email -->
-                <div>
-                  <label class="block text-xs font-medium text-slate-700 mb-1.5">Indirizzo email</label>
-                  <input
-                    v-model="form.email"
-                    type="email"
-                    autocomplete="off"
-                    placeholder="utente@esempio.it"
-                    class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                    :class="{ 'border-red-400 bg-red-50': form.errors.email }"
-                  />
-                  <p v-if="form.errors.email" class="mt-1 text-xs text-red-500">{{ form.errors.email }}</p>
-                </div>
-
-                <!-- Password -->
-                <div>
-                  <label class="block text-xs font-medium text-slate-700 mb-1.5">
-                    {{ isEditMode ? 'Nuova Password' : 'Password' }}
-                    <span v-if="!isEditMode" class="text-red-400">*</span>
-                    <span v-else class="text-slate-400 font-normal ml-1">(lascia vuoto per non modificare)</span>
-                  </label>
-                  <input
-                    v-model="form.password"
-                    type="password"
-                    autocomplete="new-password"
-                    :placeholder="isEditMode ? 'Lascia vuoto per non modificare' : 'Min. 8 caratteri'"
-                    class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                    :class="{ 'border-red-400 bg-red-50': form.errors.password }"
-                  />
-                  <p v-if="form.errors.password" class="mt-1 text-xs text-red-500">{{ form.errors.password }}</p>
-                </div>
-
-                <!-- Ruolo -->
-                <div>
-                  <label class="block text-xs font-medium text-slate-700 mb-1.5">Ruolo</label>
-                  <select
-                    v-model="form.role"
-                    class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                    :class="{ 'border-red-400': form.errors.role }"
-                  >
-                    <option value="user">User (operatore)</option>
-                    <option value="tenant-admin">Tenant Admin</option>
-                    <option value="superadmin">Superadmin</option>
-                  </select>
-                  <p v-if="form.errors.role" class="mt-1 text-xs text-red-500">{{ form.errors.role }}</p>
-                </div>
-
-                <!-- Tenant -->
-                <div>
-                  <label class="block text-xs font-medium text-slate-700 mb-1.5">
-                    Tenant associato
-                    <span v-if="form.role !== 'superadmin'" class="text-red-400">*</span>
-                  </label>
-                  <select
-                    v-model="form.tenant_id"
-                    :disabled="form.role === 'superadmin'"
-                    class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
-                    :class="{ 'border-red-400': form.errors.tenant_id }"
-                  >
-                    <option value="">
-                      {{ form.role === 'superadmin' ? '— Nessun tenant (globale) —' : 'Seleziona un tenant…' }}
-                    </option>
-                    <option v-for="t in tenants" :key="t.id" :value="String(t.id)">{{ t.name }}</option>
-                  </select>
-                  <p v-if="form.errors.tenant_id" class="mt-1 text-xs text-red-500">{{ form.errors.tenant_id }}</p>
-                </div>
-
-                <!-- Actions -->
-                <div class="flex items-center justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    @click="closeModal"
-                    class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition"
-                  >
-                    Annulla
-                  </button>
-                  <button
-                    type="submit"
-                    :disabled="form.processing"
-                    class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60 transition"
-                  >
-                    <svg v-if="form.processing" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                    </svg>
-                    <span v-if="form.processing">{{ isEditMode ? 'Salvataggio…' : 'Creazione…' }}</span>
-                    <span v-else>{{ isEditMode ? 'Salva modifiche' : 'Crea utente' }}</span>
-                  </button>
-                </div>
-
-              </form>
-            </div>
-          </Transition>
-        </div>
-      </Transition>
-    </Teleport>
+    <UtenteModal :open="showModal" :utente="editingUser" :tenants="tenants" @chiudi="showModal = false" />
 
   </SuperadminLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Link, router, useForm } from '@inertiajs/vue3'
+import { Link, router } from '@inertiajs/vue3'
 import SuperadminLayout from '@/Layouts/SuperadminLayout.vue'
 import RoleBadge from '@/Components/Superadmin/RoleBadge.vue'
+import UtenteModal from '@/Components/Superadmin/UtenteModal.vue'
 
 interface TenantMin { id: number; name: string }
 
@@ -419,63 +261,15 @@ function resetFilters() {
 // ── Modal state ────────────────────────────────────────────
 const showModal   = ref(false)
 const editingUser = ref<UserRow | null>(null)
-const isEditMode  = computed(() => editingUser.value !== null)
-
-const form = useForm({
-  name:      '',
-  email:     '',
-  password:  '',
-  role:      'user' as string,
-  tenant_id: '',
-})
-
-// Auto-reset tenant when role switches to superadmin
-watch(() => form.role, (role) => {
-  if (role === 'superadmin') form.tenant_id = ''
-})
 
 function openCreate() {
   editingUser.value = null
-  form.reset()
-  form.clearErrors()
   showModal.value = true
 }
 
 function openEdit(user: UserRow) {
   editingUser.value = user
-  form.name      = user.name
-  form.email     = user.email
-  form.password  = ''
-  form.role      = user.role
-  form.tenant_id = user.tenant ? String(user.tenant.id) : ''
-  form.clearErrors()
   showModal.value = true
-}
-
-function submitModal() {
-  if (isEditMode.value) {
-    form.patch(route('superadmin.users.update', editingUser.value!.id), {
-      onSuccess: () => {
-        showModal.value = false
-        editingUser.value = null
-        form.reset()
-      },
-    })
-  } else {
-    form.post(route('superadmin.users.store'), {
-      onSuccess: () => {
-        showModal.value = false
-        form.reset()
-      },
-    })
-  }
-}
-
-function closeModal() {
-  showModal.value = false
-  editingUser.value = null
-  form.reset()
-  form.clearErrors()
 }
 
 // ── Helpers ────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Head } from '@inertiajs/vue3'
+import { Head, Link } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import {
   ArcElement,
@@ -28,6 +28,16 @@ interface StatusStat {
   is_closed: boolean
 }
 
+interface SinistroDiOggi {
+  id: number
+  cliente: string | null
+  targa: string | null
+  compagnia: string | null
+  stato: { name: string; color: string } | null
+  aperto_il: string | null
+  avviso: 'inviato' | 'in_arrivo' | 'non_inviato'
+}
+
 interface MonthlyData {
   month: string  // 'YYYY-MM'
   count: number
@@ -42,7 +52,20 @@ const props = defineProps<{
     statuses: StatusStat[]
   }
   trend: MonthlyData[]
+  oggi: SinistroDiOggi[]
 }>()
+
+const AVVISO: Record<SinistroDiOggi['avviso'], { testo: string; classe: string }> = {
+  inviato:     { testo: 'Avviso inviato', classe: 'bg-emerald-50 text-emerald-700' },
+  in_arrivo:   { testo: 'Avviso in arrivo', classe: 'bg-slate-100 text-slate-600' },
+  non_inviato: { testo: 'Avviso non partito', classe: 'bg-red-50 text-red-700' },
+}
+
+function giorniDa(iso: string | null): string {
+  if (!iso) return ''
+  const g = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
+  return g <= 0 ? 'aperto oggi' : g === 1 ? 'aperto ieri' : `aperto da ${g} giorni`
+}
 
 // ── Month formatter ────────────────────────────────────────
 const MONTHS_IT = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic']
@@ -225,6 +248,44 @@ onBeforeUnmount(() => {
         <h1 class="text-lg font-semibold text-slate-800">Dashboard</h1>
         <p class="text-sm text-slate-500 mt-0.5">Panoramica delle attività del tuo workspace.</p>
       </div>
+
+      <!-- ── Oggi lavora su: sinistri con l'avviso di oggi ─────── -->
+      <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-semibold text-slate-900">Oggi lavora su</h2>
+            <p class="text-xs text-slate-500 mt-0.5">I sinistri che hanno l'avviso oggi: i più vecchi in cima.</p>
+          </div>
+          <span class="text-sm font-semibold tabular-nums rounded-full px-2.5 py-0.5" :class="oggi.length ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-500'">
+            {{ stats.todayReminders }}
+          </span>
+        </div>
+
+        <ul v-if="oggi.length" class="divide-y divide-slate-100">
+          <li v-for="p in oggi" :key="p.id">
+            <Link :href="route('pratiche.show', p.id)" class="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 transition">
+              <span class="font-mono text-sm font-semibold text-indigo-600 w-12 shrink-0">#{{ p.id }}</span>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium text-slate-800 truncate">
+                  {{ p.cliente ?? 'Cliente non indicato' }}
+                  <span v-if="p.targa" class="ml-1.5 font-mono text-xs text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">{{ p.targa }}</span>
+                </p>
+                <p class="text-xs text-slate-500 truncate">
+                  <span v-if="p.compagnia">{{ p.compagnia }} · </span>{{ giorniDa(p.aperto_il) }}
+                </p>
+              </div>
+              <span v-if="p.stato" class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-2 py-0.5 shrink-0" :style="{ backgroundColor: p.stato.color + '22', color: p.stato.color }">
+                <span class="w-1.5 h-1.5 rounded-full" :style="{ backgroundColor: p.stato.color }"></span>{{ p.stato.name }}
+              </span>
+              <span class="text-xs font-medium rounded-full px-2 py-0.5 shrink-0" :class="AVVISO[p.avviso].classe">{{ AVVISO[p.avviso].testo }}</span>
+            </Link>
+          </li>
+        </ul>
+        <p v-else class="px-5 py-8 text-sm text-slate-500 text-center">Nessun avviso oggi. 🎉</p>
+        <p v-if="stats.todayReminders > oggi.length" class="px-5 py-2.5 text-xs text-slate-500 border-t border-slate-100">
+          Mostrati i primi {{ oggi.length }} di {{ stats.todayReminders }}.
+        </p>
+      </section>
 
       <!-- ── Stat cards ──────────────────────────────────────── -->
       <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">

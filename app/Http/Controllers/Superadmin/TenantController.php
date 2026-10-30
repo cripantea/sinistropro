@@ -150,6 +150,12 @@ class TenantController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'role']);
 
+        // Tutti gli utenti dell'agenzia (anche disabilitati), per la sezione Utenti.
+        $utenti = User::where('tenant_id', $tenant->id)
+            ->orderByDesc('is_active')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'role', 'is_active', 'must_change_password', 'created_at']);
+
         $mailSettings    = $tenant->mailSettings;
         $whatsappSession = $tenant->whatsappSession;
 
@@ -159,6 +165,8 @@ class TenantController extends Controller
 
         return Inertia::render('Superadmin/Tenants/Edit', [
             'tenant'            => $tenant,
+            'utenti'            => $utenti,
+            'praticheCount'     => $tenant->pratiche()->count(),
             'categoriesConfig'  => $categoriesConfig,
             'automations'       => $automations,
             'allDocCategories'  => $allDocCategories,
@@ -225,7 +233,7 @@ class TenantController extends Controller
 
         $tenant->documentCategories()->sync($syncPayload);
 
-        return redirect()->route('superadmin.tenants.edit', $tenant)
+        return redirect()->to(route('superadmin.tenants.edit', $tenant) . '?tab=categories')
             ->with('success', 'Configurazione categorie salvata.');
     }
 
@@ -270,9 +278,8 @@ class TenantController extends Controller
             }
         });
 
-        return redirect()
-            ->route('superadmin.tenants.index')
-            ->with('success', "Tenant \"{$tenant->name}\" aggiornato.");
+        // Si resta nella sezione da cui si è salvato (il form manda la tab nell'URL).
+        return back()->with('success', "Tenant \"{$tenant->name}\" aggiornato.");
     }
 
     public function destroy(Tenant $tenant): RedirectResponse

@@ -180,6 +180,7 @@ Route::middleware('auth')->group(function () {
 // --- Pannello Superadmin (dashboard, utenti, tenant CRUD, impersonazione) ---
 Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
     Route::get('/',            [SuperadminController::class, 'dashboard'])->name('dashboard');
+    Route::post('/obiettivo',  [SuperadminController::class, 'obiettivo'])->name('obiettivo');
     Route::get('/audit-logs', [SuperadminController::class, 'auditLogs'])->name('audit-logs');
     Route::get('/users',      [SuperadminController::class, 'users'])->name('users');
     Route::post('/users',    [SuperadminController::class, 'store'])->name('users.store');
