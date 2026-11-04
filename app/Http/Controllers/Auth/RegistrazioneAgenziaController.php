@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\FusionCrm;
 use App\Services\NuovaAgenzia;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,7 +24,10 @@ class RegistrazioneAgenziaController extends Controller
 {
     public function create(): Response
     {
-        return Inertia::render('Auth/Registrati');
+        return Inertia::render('Auth/Registrati', [
+            'attivita' => collect(FusionCrm::ATTIVITA)->map(fn ($label, $value) => ['value' => $value, 'label' => $label])->values(),
+            'sinistri' => FusionCrm::SINISTRI,
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -35,16 +40,21 @@ class RegistrazioneAgenziaController extends Controller
             'agenzia'  => ['required', 'string', 'max:255'],
             'email'    => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
             'telefono' => ['required', 'string', 'regex:/^\+?[0-9 .\/-]{6,20}$/'],
+            'attivita' => ['required', Rule::in(array_keys(FusionCrm::ATTIVITA))],
+            'sinistri' => ['required', Rule::in(FusionCrm::SINISTRI)],
             'password' => ['required', Password::min(8)],
         ], [
             'email.unique' => 'Esiste già un account con questa email: accedi o recupera la password.',
         ], [
-            'nome' => 'nome e cognome', 'agenzia' => 'nome dell\'agenzia', 'telefono' => 'cellulare',
+            'nome' => 'nome e cognome', 'agenzia' => 'nome dell\'agenzia', 'telefono' => 'cellulare', 'attivita' => 'tipo di attività', 'sinistri' => 'sinistri gestiti',
         ]);
 
         $user = NuovaAgenzia::crea($data['agenzia'], $data['nome'], $data['email'], $data['password']);
         // Solo chi si registra da solo ha la prova gratuita (Tenant::trialDays).
-        $user->tenant->forceFill(['settings' => [...$user->tenant->settings, 'registrazione_da_solo' => true, 'telefono_registrazione' => trim($data['telefono'])]])->save();
+        $user->tenant->forceFill(['settings' => [...$user->tenant->settings, 'registrazione_da_solo' => true, 'telefono_registrazione' => trim($data['telefono']),
+            'attivita' => $data['attivita'], 'pratiche_mese' => $data['sinistri'],
+        ]])->save();
+        FusionCrm::registrato($user->fresh());
 
         Log::info('Registrazione: nuova agenzia', ['tenant' => $user->tenant_id, 'email' => $user->email]);
 

@@ -71,7 +71,7 @@ test('il superadmin crea agenzie nuove che pagano con Stripe', function () {
 
     // Primo accesso: ogni pagina porta a "Scegli la tua password"; dopo si va a pagare.
     $this->post('/logout');
-    $this->post('/login', ['email' => 'mario@nuova.it', 'telefono' => '333 1234567', 'password' => 'Provvisoria23']);
+    $this->post('/login', ['email' => 'mario@nuova.it', 'telefono' => '333 1234567', 'attivita' => 'agenzia_assicurativa', 'sinistri' => '30–100', 'password' => 'Provvisoria23']);
     $this->get('/dashboard')->assertRedirect(route('password.scegli'));
     $this->get('/scegli-password')->assertOk();
     $this->put('/scegli-password', ['password' => 'corta'])->assertSessionHasErrors('password');
@@ -262,7 +262,7 @@ test('il superadmin vede le fatture, disdice, annulla e rimborsa', function () {
 // ── Prova gratuita (solo registrazione da soli) ───────────────────────────
 
 test('chi si registra da solo ha 30 giorni di prova con carta, chi arriva dalla demo paga subito', function () {
-    $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Prova', 'email' => 'prova@agenzia.it', 'telefono' => '333 1234567', 'password' => 'password123']);
+    $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Prova', 'email' => 'prova@agenzia.it', 'telefono' => '333 1234567', 'attivita' => 'agenzia_assicurativa', 'sinistri' => '30–100', 'password' => 'password123']);
     $registrato = User::where('email', 'prova@agenzia.it')->first();
 
     expect($registrato->tenant->trialDays())->toBe(30)
@@ -304,7 +304,7 @@ test('in prova ha accesso pieno, è "prova" e non conta nell\'incasso', function
 
 test('dopo la registrazione la carta si inserisce nella stessa pagina, con la prova', function () {
     config(['services.stripe.secret' => 'sk_test_x', 'services.stripe.key' => 'pk_test_x']);
-    $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Carta', 'email' => 'carta@agenzia.it', 'telefono' => '333 1234567', 'password' => 'password123'])
+    $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Carta', 'email' => 'carta@agenzia.it', 'telefono' => '333 1234567', 'attivita' => 'agenzia_assicurativa', 'sinistri' => '30–100', 'password' => 'password123'])
         ->assertRedirect(route('registrati.carta'));
 
     $this->get('/registrati/carta')->assertOk()
@@ -324,7 +324,7 @@ test('la pagina carta non serve a chi ha già un abbonamento o non ha diritto al
 
 test('dopo la carta si prenota la call col tecnico con i dati già compilati, poi si apre il primo sinistro', function () {
     config(['billing.onboarding_url' => 'https://crm.example.it/prenota/onb']);
-    $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Tecnico', 'email' => 'tecnico@agenzia.it', 'telefono' => '333 1234567', 'password' => 'password123']);
+    $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Tecnico', 'email' => 'tecnico@agenzia.it', 'telefono' => '333 1234567', 'attivita' => 'agenzia_assicurativa', 'sinistri' => '30–100', 'password' => 'password123']);
     $tenant = User::where('email', 'tecnico@agenzia.it')->first()->tenant;
     expect($tenant->getSetting('telefono_registrazione'))->toBe('333 1234567');
 
@@ -358,4 +358,22 @@ test('promemoria fine prova: una email 7 giorni prima, una volta sola, mai se ha
 
     // L'email si genera senza errori.
     expect((new \App\Mail\FineProvaMail($this->tenant->fresh()))->render())->toContain('99 €');
+});
+
+test('registrazione e prova attiva vanno al CRM con attività e sinistri gestiti', function () {
+    config(['services.fusion_crm.webhook_url' => 'https://crm.test/api/hooks/x', 'services.fusion_crm.webhook_token' => 'tok']);
+    \Illuminate\Support\Facades\Http::fake();
+
+    $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Studio Rossi', 'email' => 'crm@agenzia.it', 'telefono' => '333 1234567', 'attivita' => 'studio_infortunistica', 'sinistri' => 'più di 300', 'password' => 'password123']);
+    $this->app->terminate();
+
+    \Illuminate\Support\Facades\Http::assertSent(fn ($r) => $r->hasHeader('X-Fusion-Token', 'tok')
+        && $r['tags'] === ['sinistropro', 'prova-registrato']
+        && $r['customFields']['attivita'] === 'Studio di infortunistica'
+        && $r['customFields']['pratiche_mese'] === 'più di 300'
+        && $r['phone'] === '333 1234567');
+
+    auth()->logout();
+    $this->post('/registrati', ['nome' => 'X', 'agenzia' => 'Y', 'email' => 'no@agenzia.it', 'telefono' => '333 1234567', 'attivita' => 'idraulico', 'sinistri' => '30–100', 'password' => 'password123'])
+        ->assertSessionHasErrors('attivita');
 });

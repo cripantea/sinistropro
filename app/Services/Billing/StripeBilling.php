@@ -3,6 +3,7 @@
 namespace App\Services\Billing;
 
 use App\Models\Tenant;
+use App\Services\FusionCrm;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -190,6 +191,10 @@ class StripeBilling
 
         if (! $hadAccess && $tenant->hasAccess()) {
             Artisan::call('app:scagliona-avvisi', ['--tenant' => $tenant->id]);
+
+            if ($subscription->status === 'trialing') {
+                FusionCrm::provaAttiva($tenant);
+            }
         }
     }
 

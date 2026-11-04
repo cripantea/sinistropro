@@ -70,6 +70,12 @@ return [
         'api_secret' => env('FUSIONWA_API_SECRET'),
     ],
 
+    // Registrazioni e prove verso Fusion CRM (endpoint webhook "SinistroPro – registrazioni e prove").
+    'fusion_crm' => [
+        'webhook_url'   => env('FUSION_CRM_WEBHOOK_URL'),
+        'webhook_token' => env('FUSION_CRM_WEBHOOK_TOKEN'),
+    ],
+
     // Abbonamenti SinistroPro (account Stripe condiviso Fusion Media, vedi config/billing.php).
     'stripe' => [
         'secret'         => env('STRIPE_SECRET'),

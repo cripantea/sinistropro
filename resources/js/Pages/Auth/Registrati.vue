@@ -15,6 +15,8 @@ const props = defineProps<{
   giorniProva?: number
   prezzoMensile?: number
   stripeKey?: string | null
+  attivita?: { value: string; label: string }[]
+  sinistri?: string[]
 }>()
 
 const passoCarta = computed(() => props.passo === 'carta')
@@ -27,6 +29,8 @@ const form = useForm({
   agenzia: '',
   email: '',
   telefono: '',
+  attivita: '',
+  sinistri: '',
   password: '',
   sito: '', // campo nascosto anti-bot
 })
@@ -156,6 +160,25 @@ onBeforeUnmount(() => {
           <InputError :message="form.errors.telefono" class="mt-1.5" />
         </div>
 
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="attivita" class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Sei un</label>
+            <select id="attivita" v-model="form.attivita" required :class="[...campo(form.errors.attivita), 'bg-white']">
+              <option value="" disabled>Scegli…</option>
+              <option v-for="a in attivita" :key="a.value" :value="a.value">{{ a.label }}</option>
+            </select>
+            <InputError :message="form.errors.attivita" class="mt-1.5" />
+          </div>
+          <div>
+            <label for="sinistri" class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Sinistri al mese</label>
+            <select id="sinistri" v-model="form.sinistri" required :class="[...campo(form.errors.sinistri), 'bg-white']">
+              <option value="" disabled>Scegli…</option>
+              <option v-for="n in sinistri" :key="n" :value="n">{{ n }}</option>
+            </select>
+            <InputError :message="form.errors.sinistri" class="mt-1.5" />
+          </div>
+        </div>
+
         <div>
           <label for="password" class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Password</label>
           <div class="relative">
@@ -198,7 +221,7 @@ onBeforeUnmount(() => {
       <ul class="mt-4 space-y-3">
         <li class="flex gap-3">
           <span class="rassicura">✓</span>
-          <div><p class="font-semibold text-gray-900">Disdici con un clic, quando vuoi</p><p class="text-sm text-gray-500">Se disdici prima del {{ fineProva }} non paghi niente. Ti avvisiamo via email 7 giorni prima.</p></div>
+          <div><p class="font-semibold text-gray-900">Disdici con un clic, quando vuoi</p><p class="text-sm text-gray-500">In SinistroPro vai su <b>Abbonamento → Gestisci pagamento → Annulla</b>, oppure scrivici su WhatsApp e lo facciamo noi. Se disdici prima del {{ fineProva }} non paghi niente; ti avvisiamo via email 7 giorni prima.</p></div>
         </li>
         <li class="flex gap-3">
           <span class="rassicura">✓</span>
