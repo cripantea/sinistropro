@@ -5,9 +5,12 @@ import { loadStripe, type StripeEmbeddedCheckout } from '@stripe/stripe-js'
 import axios from 'axios'
 import InputError from '@/Components/InputError.vue'
 
-// Due passi nella stessa pagina: 1) account, 2) carta per la prova (modulo Stripe incorporato).
+// Tre passi nella stessa pagina: 1) account, 2) carta per la prova (modulo Stripe incorporato),
+// 3) prenotazione della call col tecnico (calendario del CRM incorporato).
 const props = defineProps<{
-  passo?: 'account' | 'carta'
+  passo?: 'account' | 'carta' | 'onboarding'
+  bookingUrl?: string
+  provaFinoAl?: string
   agenzia?: string
   giorniProva?: number
   prezzoMensile?: number
@@ -15,12 +18,15 @@ const props = defineProps<{
 }>()
 
 const passoCarta = computed(() => props.passo === 'carta')
+const passoTecnico = computed(() => props.passo === 'onboarding')
+const numeroPasso = computed(() => (passoTecnico.value ? 3 : passoCarta.value ? 2 : 1))
 
 // ── Passo 1: account ──────────────────────────────────────────────────
 const form = useForm({
   nome: '',
   agenzia: '',
   email: '',
+  telefono: '',
   password: '',
   sito: '', // campo nascosto anti-bot
 })
@@ -79,11 +85,30 @@ const vaiAStripe = () => router.post(route('abbonamento.checkout'), { interval: 
 
 // Dal passo 1 Inertia riusa questa stessa pagina: si parte quando compare il passo carta, non solo al primo caricamento.
 watch(passoCarta, (carta) => { if (carta && !checkout) montaPagamento() }, { immediate: true, flush: 'post' })
-onBeforeUnmount(() => checkout?.destroy())
+// ── Passo 3: call col tecnico ─────────────────────────────────────────
+const altezzaCalendario = ref(640)
+
+function messaggioCalendario(e: MessageEvent) {
+  if (!props.bookingUrl || e.origin !== new URL(props.bookingUrl).origin) return
+  if (e.data?.type === 'fusion-booking:height') altezzaCalendario.value = Math.max(400, Number(e.data.height) + 8)
+  if (e.data?.type === 'fusion-booking:booked' || e.data?.type === 'fusion-booking:redirect') {
+    setTimeout(() => router.visit(route('clienti.import')), 2500)
+  }
+}
+
+watch(passoTecnico, (tecnico) => {
+  window.removeEventListener('message', messaggioCalendario)
+  if (tecnico) window.addEventListener('message', messaggioCalendario)
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  checkout?.destroy()
+  window.removeEventListener('message', messaggioCalendario)
+})
 </script>
 
 <template>
-  <Head :title="passoCarta ? 'Attiva la prova — SinistroPro' : 'Prova gratis 30 giorni — SinistroPro'" />
+  <Head :title="passoTecnico ? 'Prenota il tecnico — SinistroPro' : passoCarta ? 'Attiva la prova — SinistroPro' : 'Prova gratis 30 giorni — SinistroPro'" />
 
   <div class="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4 py-12">
     <div class="mb-6 text-center">
@@ -92,18 +117,17 @@ onBeforeUnmount(() => checkout?.destroy())
     </div>
 
     <!-- Passi -->
-    <ol class="flex items-center gap-3 text-xs font-semibold mb-5">
-      <li :class="passoCarta ? 'text-emerald-700' : 'text-[#1e3a8a]'">
-        <span :class="['inline-flex w-5 h-5 items-center justify-center rounded-full mr-1.5', passoCarta ? 'bg-emerald-100' : 'bg-[#1e3a8a] text-white']">{{ passoCarta ? '✓' : '1' }}</span>Account
-      </li>
-      <li class="w-8 h-px bg-gray-300"></li>
-      <li :class="passoCarta ? 'text-[#1e3a8a]' : 'text-gray-400'">
-        <span :class="['inline-flex w-5 h-5 items-center justify-center rounded-full mr-1.5', passoCarta ? 'bg-[#1e3a8a] text-white' : 'bg-gray-200']">2</span>Attiva la prova
-      </li>
+    <ol class="flex items-center gap-2 sm:gap-3 text-xs font-semibold mb-5">
+      <template v-for="(etichetta, i) in ['Account', 'Prova', 'Tecnico']" :key="etichetta">
+        <li v-if="i > 0" class="w-5 sm:w-8 h-px bg-gray-300"></li>
+        <li :class="i + 1 < numeroPasso ? 'text-emerald-700' : i + 1 === numeroPasso ? 'text-[#1e3a8a]' : 'text-gray-400'">
+          <span :class="['inline-flex w-5 h-5 items-center justify-center rounded-full mr-1.5', i + 1 < numeroPasso ? 'bg-emerald-100' : i + 1 === numeroPasso ? 'bg-[#1e3a8a] text-white' : 'bg-gray-200']">{{ i + 1 < numeroPasso ? '✓' : i + 1 }}</span>{{ etichetta }}
+        </li>
+      </template>
     </ol>
 
     <!-- Passo 1: account -->
-    <div v-if="!passoCarta" class="w-full max-w-[400px] bg-white rounded-xl border border-gray-200 shadow-sm p-8">
+    <div v-if="!passoCarta && !passoTecnico" class="w-full max-w-[400px] bg-white rounded-xl border border-gray-200 shadow-sm p-8">
       <h1 class="text-xl font-bold text-gray-900">Prova SinistroPro gratis per 30 giorni</h1>
       <p class="text-gray-500 text-sm mt-1">Poi 99 € al mese. Disdici quando vuoi, con un clic.</p>
 
@@ -124,6 +148,12 @@ onBeforeUnmount(() => checkout?.destroy())
           <label for="email" class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Email</label>
           <input id="email" v-model="form.email" type="email" autocomplete="username" required placeholder="mario@agenzia.it" :class="campo(form.errors.email)" />
           <InputError :message="form.errors.email" class="mt-1.5" />
+        </div>
+
+        <div>
+          <label for="telefono" class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Cellulare</label>
+          <input id="telefono" v-model="form.telefono" type="tel" autocomplete="tel" required placeholder="333 123 4567" :class="campo(form.errors.telefono)" />
+          <InputError :message="form.errors.telefono" class="mt-1.5" />
         </div>
 
         <div>
@@ -155,7 +185,7 @@ onBeforeUnmount(() => checkout?.destroy())
     </div>
 
     <!-- Passo 2: carta -->
-    <div v-else class="w-full max-w-[520px] bg-white rounded-xl border border-gray-200 shadow-sm p-6 sm:p-8">
+    <div v-else-if="passoCarta" class="w-full max-w-[520px] bg-white rounded-xl border border-gray-200 shadow-sm p-6 sm:p-8">
       <h1 class="text-xl font-bold text-gray-900">Ultimo passo: attiva la prova</h1>
       <p class="text-gray-500 text-sm mt-1">{{ agenzia }}</p>
 
@@ -178,6 +208,28 @@ onBeforeUnmount(() => checkout?.destroy())
       </div>
 
       <p class="text-xs text-gray-400 text-center mt-5">Pagamento protetto da Stripe. I dati della carta non passano dai nostri server.</p>
+    </div>
+
+    <!-- Passo 3: call col tecnico -->
+    <div v-if="passoTecnico" class="w-full max-w-[620px] bg-white rounded-xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <p class="text-sm font-semibold text-emerald-700">Prova attiva{{ provaFinoAl ? ` fino al ${provaFinoAl}` : '' }} ✓</p>
+      <h1 class="text-xl font-bold text-gray-900 mt-1">Prenota 45 minuti con il tecnico</h1>
+      <p class="text-gray-500 text-sm mt-1">
+        In videochiamata carichiamo insieme i tuoi clienti e le tue pratiche e impostiamo i promemoria automatici.
+        Alla fine della call SinistroPro è già pronto sul tuo lavoro.
+      </p>
+
+      <iframe
+        v-if="bookingUrl"
+        :src="bookingUrl"
+        title="Prenota la call con il tecnico"
+        class="w-full mt-5 border-0"
+        :style="{ height: altezzaCalendario + 'px' }"
+      ></iframe>
+
+      <p class="text-sm text-center mt-4">
+        <Link :href="route('clienti.import')" class="text-gray-500 hover:text-gray-700 underline underline-offset-2">Salta per ora: inizio da solo caricando i clienti</Link>
+      </p>
     </div>
   </div>
 </template>

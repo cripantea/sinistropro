@@ -71,7 +71,7 @@ test('il superadmin crea agenzie nuove che pagano con Stripe', function () {
 
     // Primo accesso: ogni pagina porta a "Scegli la tua password"; dopo si va a pagare.
     $this->post('/logout');
-    $this->post('/login', ['email' => 'mario@nuova.it', 'password' => 'Provvisoria23']);
+    $this->post('/login', ['email' => 'mario@nuova.it', 'telefono' => '333 1234567', 'password' => 'Provvisoria23']);
     $this->get('/dashboard')->assertRedirect(route('password.scegli'));
     $this->get('/scegli-password')->assertOk();
     $this->put('/scegli-password', ['password' => 'corta'])->assertSessionHasErrors('password');
@@ -262,7 +262,7 @@ test('il superadmin vede le fatture, disdice, annulla e rimborsa', function () {
 // ── Prova gratuita (solo registrazione da soli) ───────────────────────────
 
 test('chi si registra da solo ha 30 giorni di prova con carta, chi arriva dalla demo paga subito', function () {
-    $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Prova', 'email' => 'prova@agenzia.it', 'password' => 'password123']);
+    $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Prova', 'email' => 'prova@agenzia.it', 'telefono' => '333 1234567', 'password' => 'password123']);
     $registrato = User::where('email', 'prova@agenzia.it')->first();
 
     expect($registrato->tenant->trialDays())->toBe(30)
@@ -304,7 +304,7 @@ test('in prova ha accesso pieno, è "prova" e non conta nell\'incasso', function
 
 test('dopo la registrazione la carta si inserisce nella stessa pagina, con la prova', function () {
     config(['services.stripe.secret' => 'sk_test_x', 'services.stripe.key' => 'pk_test_x']);
-    $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Carta', 'email' => 'carta@agenzia.it', 'password' => 'password123'])
+    $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Carta', 'email' => 'carta@agenzia.it', 'telefono' => '333 1234567', 'password' => 'password123'])
         ->assertRedirect(route('registrati.carta'));
 
     $this->get('/registrati/carta')->assertOk()
@@ -320,4 +320,41 @@ test('dopo la registrazione la carta si inserisce nella stessa pagina, con la pr
 test('la pagina carta non serve a chi ha già un abbonamento o non ha diritto alla prova', function () {
     $this->actingAs($this->admin)->get('/registrati/carta')->assertRedirect(route('abbonamento'));
     $this->actingAs($this->user)->postJson('/abbonamento/sessione', ['interval' => 'month'])->assertForbidden();
+});
+
+test('dopo la carta si prenota la call col tecnico con i dati già compilati, poi si importano i clienti', function () {
+    config(['billing.onboarding_url' => 'https://crm.example.it/prenota/onb']);
+    $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Tecnico', 'email' => 'tecnico@agenzia.it', 'telefono' => '333 1234567', 'password' => 'password123']);
+    $tenant = User::where('email', 'tecnico@agenzia.it')->first()->tenant;
+    expect($tenant->getSetting('telefono_registrazione'))->toBe('333 1234567');
+
+    $tenant->forceFill(['stripe_subscription_id' => 'sub_p', 'subscription_status' => 'trialing', 'subscription_ends_at' => now()->addDays(30)])->save();
+    $this->get('/abbonamento/attivo')->assertRedirect(route('registrati.onboarding'));
+
+    $this->get('/registrati/tecnico')->assertOk()->assertInertia(fn ($page) => $page->where('passo', 'onboarding')
+        ->where('bookingUrl', fn ($url) => str_starts_with($url, 'https://crm.example.it/prenota/onb?embed=1') && str_contains($url, 'email=tecnico%40agenzia.it') && str_contains($url, 'phone=333+1234567')));
+
+    // Senza calendario configurato si va dritti a Importa clienti.
+    config(['billing.onboarding_url' => null]);
+    $this->get('/abbonamento/attivo')->assertRedirect(route('clienti.import'));
+    $this->get('/registrati/tecnico')->assertRedirect(route('clienti.import'));
+});
+
+test('promemoria fine prova: una email 7 giorni prima, una volta sola, mai se ha disdetto', function () {
+    \Illuminate\Support\Facades\Mail::fake();
+    $this->tenant->forceFill(['stripe_subscription_id' => 'sub_p', 'subscription_status' => 'trialing', 'subscription_ends_at' => now()->addDays(6)])->save();
+
+    $this->artisan('app:promemoria-fine-prova')->assertSuccessful();
+    $this->artisan('app:promemoria-fine-prova')->assertSuccessful();
+    \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\FineProvaMail::class, 1);
+    \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\FineProvaMail::class, fn ($m) => $m->hasTo($this->admin->email));
+
+    $altro = Tenant::create(['name' => 'Disdetta']);
+    $altro->forceFill(['billing_mode' => 'stripe', 'stripe_subscription_id' => 'sub_d', 'subscription_status' => 'trialing', 'subscription_ends_at' => now()->addDays(3), 'subscription_cancel_at_period_end' => true])->save();
+    User::factory()->create(['tenant_id' => $altro->id, 'role' => 'tenant-admin']);
+    $this->artisan('app:promemoria-fine-prova')->assertSuccessful();
+    \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\FineProvaMail::class, 1);
+
+    // L'email si genera senza errori.
+    expect((new \App\Mail\FineProvaMail($this->tenant->fresh()))->render())->toContain('99 €');
 });

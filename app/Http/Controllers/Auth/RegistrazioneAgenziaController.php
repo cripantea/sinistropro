@@ -34,16 +34,17 @@ class RegistrazioneAgenziaController extends Controller
             'nome'     => ['required', 'string', 'max:255'],
             'agenzia'  => ['required', 'string', 'max:255'],
             'email'    => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
+            'telefono' => ['required', 'string', 'regex:/^\+?[0-9 .\/-]{6,20}$/'],
             'password' => ['required', Password::min(8)],
         ], [
             'email.unique' => 'Esiste già un account con questa email: accedi o recupera la password.',
         ], [
-            'nome' => 'nome e cognome', 'agenzia' => 'nome dell\'agenzia',
+            'nome' => 'nome e cognome', 'agenzia' => 'nome dell\'agenzia', 'telefono' => 'cellulare',
         ]);
 
         $user = NuovaAgenzia::crea($data['agenzia'], $data['nome'], $data['email'], $data['password']);
         // Solo chi si registra da solo ha la prova gratuita (Tenant::trialDays).
-        $user->tenant->forceFill(['settings' => [...$user->tenant->settings, 'registrazione_da_solo' => true]])->save();
+        $user->tenant->forceFill(['settings' => [...$user->tenant->settings, 'registrazione_da_solo' => true, 'telefono_registrazione' => trim($data['telefono'])]])->save();
 
         Log::info('Registrazione: nuova agenzia', ['tenant' => $user->tenant_id, 'email' => $user->email]);
 
@@ -53,6 +54,34 @@ class RegistrazioneAgenziaController extends Controller
         return $user->tenant->trialDays() > 0
             ? redirect()->route('registrati.carta')
             : redirect()->route('abbonamento')->with('success', 'Account creato. Scegli il piano e attiva SinistroPro: dopo il pagamento si sblocca tutto.');
+    }
+
+    /**
+     * Terzo passo, dopo la carta: prenotare la call di onboarding col tecnico (calendario del CRM
+     * incorporato, con nome, email e cellulare già compilati). Si può saltare.
+     */
+    public function onboarding(Request $request): Response|RedirectResponse
+    {
+        $user = $request->user();
+        $url = config('billing.onboarding_url');
+
+        if (! $url || ! $user->tenant) {
+            return redirect()->route('clienti.import');
+        }
+
+        $query = http_build_query(array_filter([
+            'embed' => 1,
+            'name'  => $user->name,
+            'email' => $user->email,
+            'phone' => $user->tenant->getSetting('telefono_registrazione'),
+        ]));
+
+        return Inertia::render('Auth/Registrati', [
+            'passo'      => 'onboarding',
+            'agenzia'    => $user->tenant->name,
+            'bookingUrl' => $url . (str_contains($url, '?') ? '&' : '?') . $query,
+            'provaFinoAl' => $user->tenant->subscription_ends_at?->format('d/m/Y'),
+        ]);
     }
 
     /** Secondo passo della registrazione: la carta per la prova, nella stessa pagina (o sulla pagina Stripe senza chiave pubblica). */

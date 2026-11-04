@@ -34,3 +34,10 @@ Schedule::command('app:process-cliente-date-reminders')
     ->withoutOverlapping(10)
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/cliente-date-reminders.log'));
+
+// Promemoria 7 giorni prima della fine della prova gratuita — ogni mattina alle 09:00.
+Schedule::command('app:promemoria-fine-prova')
+    ->dailyAt('09:00')
+    ->timezone('Europe/Rome')
+    ->withoutOverlapping(10)
+    ->appendOutputTo(storage_path('logs/promemoria-fine-prova.log'));

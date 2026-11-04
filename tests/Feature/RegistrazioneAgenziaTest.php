@@ -10,7 +10,7 @@ test('ci si registra con nome, agenzia, email e password e si arriva al pagament
     $this->get('/registrati')->assertOk();
 
     $this->post('/registrati', [
-        'nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Rossi', 'email' => 'mario@agenzia.it', 'password' => 'password123',
+        'nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Rossi', 'email' => 'mario@agenzia.it', 'telefono' => '333 1234567', 'password' => 'password123',
     ])->assertRedirect(route('registrati.carta'));
 
     $user = User::where('email', 'mario@agenzia.it')->first();
@@ -43,11 +43,11 @@ test('ci si registra con nome, agenzia, email e password e si arriva al pagament
 test('email già usata, password corta e bot vengono rifiutati', function () {
     User::factory()->create(['email' => 'mario@agenzia.it']);
 
-    $this->post('/registrati', ['nome' => 'M', 'agenzia' => 'A', 'email' => 'mario@agenzia.it', 'password' => 'password123'])
+    $this->post('/registrati', ['nome' => 'M', 'agenzia' => 'A', 'email' => 'mario@agenzia.it', 'telefono' => '333 1234567', 'password' => 'password123'])
         ->assertSessionHasErrors('email');
-    $this->post('/registrati', ['nome' => 'M', 'agenzia' => 'A', 'email' => 'altro@agenzia.it', 'password' => 'corta'])
+    $this->post('/registrati', ['nome' => 'M', 'agenzia' => 'A', 'email' => 'altro@agenzia.it', 'telefono' => '333 1234567', 'password' => 'corta'])
         ->assertSessionHasErrors('password');
-    $this->post('/registrati', ['nome' => 'M', 'agenzia' => 'A', 'email' => 'bot@agenzia.it', 'password' => 'password123', 'sito' => 'x'])
+    $this->post('/registrati', ['nome' => 'M', 'agenzia' => 'A', 'email' => 'bot@agenzia.it', 'telefono' => '333 1234567', 'password' => 'password123', 'sito' => 'x'])
         ->assertStatus(422);
 
     expect(Tenant::count())->toBe(0);

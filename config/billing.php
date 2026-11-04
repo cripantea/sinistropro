@@ -11,6 +11,10 @@ return [
     // alla fine della prova. Dopo la demo (link /paga) si paga subito. 0 = niente prova.
     'trial_days'          => (int) env('BILLING_TRIAL_DAYS', 30),
 
+    // Dopo la carta: prenotazione della call di onboarding col tecnico (pagina di prenotazione
+    // del CRM Fusion, incorporata). Vuoto = si salta e si va diretti a Importa clienti.
+    'onboarding_url'      => env('ONBOARDING_BOOKING_URL'),
+
     // L'account Stripe è condiviso con gli altri prodotti Fusion: tutto ciò che creiamo
     // (prodotto, prezzi, checkout, abbonamenti, portale) porta metadata app = questo valore.
     'stripe_app'          => 'sinistropro',
