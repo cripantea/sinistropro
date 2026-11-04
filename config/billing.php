@@ -13,7 +13,7 @@ return [
 
     // Dopo la carta: prenotazione della call di onboarding col tecnico (pagina di prenotazione
     // del CRM Fusion, incorporata). Vuoto = si salta e si va diretti a Importa clienti.
-    'onboarding_url'      => env('ONBOARDING_BOOKING_URL'),
+    'onboarding_url'      => env('ONBOARDING_BOOKING_URL', 'https://crm.fusionsoft.it/prenota/cmw27p7sq002801q68vaacqe6'),
 
     // L'account Stripe è condiviso con gli altri prodotti Fusion: tutto ciò che creiamo
     // (prodotto, prezzi, checkout, abbonamenti, portale) porta metadata app = questo valore.
