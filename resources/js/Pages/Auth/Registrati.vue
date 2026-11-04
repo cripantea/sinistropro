@@ -192,8 +192,23 @@ onBeforeUnmount(() => {
       <div class="mt-5 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-700 space-y-1">
         <div class="flex justify-between"><span>Oggi</span><strong class="text-slate-900">0 €</strong></div>
         <div class="flex justify-between"><span>Dal {{ fineProva }}</span><span>{{ prezzo }} / mese, IVA inclusa</span></div>
-        <p class="text-xs text-slate-500 pt-1">Disdici prima del {{ fineProva }} e non paghi niente. Ti avvisiamo 7 giorni prima.</p>
       </div>
+
+      <!-- Rassicurazioni: chi si ferma qui di solito ha paura di restare legato o da solo -->
+      <ul class="mt-4 space-y-3">
+        <li class="flex gap-3">
+          <span class="rassicura">✓</span>
+          <div><p class="font-semibold text-gray-900">Disdici con un clic, quando vuoi</p><p class="text-sm text-gray-500">Se disdici prima del {{ fineProva }} non paghi niente. Ti avvisiamo via email 7 giorni prima.</p></div>
+        </li>
+        <li class="flex gap-3">
+          <span class="rassicura">✓</span>
+          <div><p class="font-semibold text-gray-900">Un tecnico imposta tutto con te</p><p class="text-sm text-gray-500">Subito dopo scegli quando fare 45 minuti in videochiamata: carichiamo i tuoi clienti e ti insegniamo a usarlo.</p></div>
+        </li>
+        <li class="flex gap-3">
+          <span class="rassicura">✓</span>
+          <div><p class="font-semibold text-gray-900">Supporto diretto su WhatsApp</p><p class="text-sm text-gray-500">Rispondono le persone che hanno costruito SinistroPro.</p></div>
+        </li>
+      </ul>
 
       <div class="mt-5">
         <p v-if="caricamento" class="text-sm text-gray-500 py-10 text-center">Caricamento del pagamento sicuro…</p>
@@ -208,6 +223,11 @@ onBeforeUnmount(() => {
       </div>
 
       <p class="text-xs text-gray-400 text-center mt-5">Pagamento protetto da Stripe. I dati della carta non passano dai nostri server.</p>
+
+      <div class="mt-5 border-t border-gray-100 pt-4 text-center">
+        <p class="text-sm text-gray-600">Preferisci prima vederlo con qualcuno?</p>
+        <a href="https://sinistropro.it/demo/" class="text-sm font-semibold underline underline-offset-2" style="color: #1e3a8a;">Prenota una demo gratuita di 20 minuti</a>
+      </div>
     </div>
 
     <!-- Passo 3: call col tecnico -->
@@ -237,4 +257,5 @@ onBeforeUnmount(() => {
 <style scoped>
 .crea-btn { background-color: #1e3a8a; }
 .crea-btn:hover:not(:disabled) { background-color: #172554; }
+.rassicura { flex: none; display: inline-flex; width: 1.5rem; height: 1.5rem; align-items: center; justify-content: center; border-radius: 9999px; background: #dcfce7; color: #15803d; font-weight: 700; font-size: .8rem; margin-top: .1rem; }
 </style>
