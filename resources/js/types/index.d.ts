@@ -32,6 +32,7 @@ export type PageProps<T extends Record<string, unknown> = Record<string, unknown
     success?: string
     error?: string
     credenziali?: string
+    primi_passi?: 'primo_sinistro' | 'importa_clienti' | null
   }
   notifications: AppNotification[]
   tenantFeatures: Record<string, boolean>

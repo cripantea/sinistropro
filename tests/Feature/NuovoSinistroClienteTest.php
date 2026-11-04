@@ -165,3 +165,10 @@ test('il conducente si segna sul sinistro, il cliente resta il proprietario', fu
     expect(\App\Models\Pratica::first()->only(['cliente_id', 'conducente_nome', 'conducente_telefono']))
         ->toBe(['cliente_id' => $azienda->id, 'conducente_nome' => 'Verdi Luca', 'conducente_telefono' => '3331234567']);
 });
+
+test('agenzia in prova: dopo il primo sinistro la guida porta a importare i clienti, dal secondo no', function () {
+    $this->tenant->forceFill(['billing_mode' => 'stripe', 'stripe_subscription_id' => 'sub_p', 'subscription_status' => 'trialing', 'subscription_ends_at' => now()->addDays(30)])->save();
+
+    $this->actingAs($this->user)->post('/pratiche', ['cliente_id' => $this->rossi->id])->assertSessionHas('primi_passi', 'importa_clienti');
+    $this->post('/pratiche', ['cliente_id' => $this->rossi->id])->assertSessionMissing('primi_passi');
+});

@@ -56,6 +56,12 @@ class RegistrazioneAgenziaController extends Controller
             : redirect()->route('abbonamento')->with('success', 'Account creato. Scegli il piano e attiva SinistroPro: dopo il pagamento si sblocca tutto.');
     }
 
+    /** Dopo la prenotazione (o se la salta): il primo sinistro, con la guida. */
+    public function primoSinistro(): RedirectResponse
+    {
+        return redirect()->route('pratiche.create')->with('primi_passi', 'primo_sinistro');
+    }
+
     /**
      * Terzo passo, dopo la carta: prenotare la call di onboarding col tecnico (calendario del CRM
      * incorporato, con nome, email e cellulare già compilati). Si può saltare.
@@ -66,7 +72,7 @@ class RegistrazioneAgenziaController extends Controller
         $url = config('billing.onboarding_url');
 
         if (! $url || ! $user->tenant) {
-            return redirect()->route('clienti.import');
+            return redirect()->route('pratiche.create')->with('primi_passi', 'primo_sinistro');
         }
 
         $query = http_build_query(array_filter([

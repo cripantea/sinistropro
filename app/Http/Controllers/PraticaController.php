@@ -196,9 +196,17 @@ class PraticaController extends Controller
                 ->with('nuova_pratica_id', $pratica->id);
         }
 
-        return redirect()
+        $redirect = redirect()
             ->route('pratiche.show', $pratica)
             ->with('success', "Sinistro #{$pratica->id} creato con successo.");
+
+        // Agenzia in prova al suo primo sinistro: il passo dopo è caricare i clienti.
+        $tenant = $request->user()->tenant;
+        if ($tenant?->billingState() === 'prova' && Pratica::where('tenant_id', $tenant->id)->count() === 1) {
+            $redirect->with('primi_passi', 'importa_clienti');
+        }
+
+        return $redirect;
     }
 
     public function show(Pratica $pratica): Response

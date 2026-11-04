@@ -86,12 +86,12 @@ class AbbonamentoController extends Controller
         $tenant->refresh();
 
         if ($tenant->billingState() === 'prova') {
-            // Prima la call col tecnico (se c'è il calendario), poi caricare i propri clienti: chi importa i dati resta.
+            // Prima la call col tecnico (se c'è il calendario), poi il primo sinistro e i clienti: chi mette dentro i suoi dati resta.
             if (config('billing.onboarding_url') && $tenant->getSetting('registrazione_da_solo')) {
                 return redirect()->route('registrati.onboarding');
             }
 
-            return redirect()->route('clienti.import')->with('success', 'Prova attiva fino al ' . $tenant->subscription_ends_at?->format('d/m/Y') . '. Primo passo: carica qui il file Excel dei tuoi clienti.');
+            return redirect()->route('pratiche.create')->with('primi_passi', 'primo_sinistro');
         }
 
         return $tenant->hasAccess()

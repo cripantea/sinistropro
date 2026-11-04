@@ -322,7 +322,7 @@ test('la pagina carta non serve a chi ha già un abbonamento o non ha diritto al
     $this->actingAs($this->user)->postJson('/abbonamento/sessione', ['interval' => 'month'])->assertForbidden();
 });
 
-test('dopo la carta si prenota la call col tecnico con i dati già compilati, poi si importano i clienti', function () {
+test('dopo la carta si prenota la call col tecnico con i dati già compilati, poi si apre il primo sinistro', function () {
     config(['billing.onboarding_url' => 'https://crm.example.it/prenota/onb']);
     $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Tecnico', 'email' => 'tecnico@agenzia.it', 'telefono' => '333 1234567', 'password' => 'password123']);
     $tenant = User::where('email', 'tecnico@agenzia.it')->first()->tenant;
@@ -334,10 +334,11 @@ test('dopo la carta si prenota la call col tecnico con i dati già compilati, po
     $this->get('/registrati/tecnico')->assertOk()->assertInertia(fn ($page) => $page->where('passo', 'onboarding')
         ->where('bookingUrl', fn ($url) => str_starts_with($url, 'https://crm.example.it/prenota/onb?embed=1') && str_contains($url, 'email=tecnico%40agenzia.it') && str_contains($url, 'phone=333+1234567')));
 
-    // Senza calendario configurato si va dritti a Importa clienti.
+    // Senza calendario configurato si va dritti al primo sinistro, con la guida.
     config(['billing.onboarding_url' => null]);
-    $this->get('/abbonamento/attivo')->assertRedirect(route('clienti.import'));
-    $this->get('/registrati/tecnico')->assertRedirect(route('clienti.import'));
+    $this->get('/abbonamento/attivo')->assertRedirect(route('pratiche.create'))->assertSessionHas('primi_passi', 'primo_sinistro');
+    $this->get('/registrati/tecnico')->assertRedirect(route('pratiche.create'));
+    $this->get('/registrati/inizia')->assertRedirect(route('pratiche.create'))->assertSessionHas('primi_passi', 'primo_sinistro');
 });
 
 test('promemoria fine prova: una email 7 giorni prima, una volta sola, mai se ha disdetto', function () {

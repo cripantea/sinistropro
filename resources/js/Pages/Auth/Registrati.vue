@@ -92,7 +92,7 @@ function messaggioCalendario(e: MessageEvent) {
   if (!props.bookingUrl || e.origin !== new URL(props.bookingUrl).origin) return
   if (e.data?.type === 'fusion-booking:height') altezzaCalendario.value = Math.max(400, Number(e.data.height) + 8)
   if (e.data?.type === 'fusion-booking:booked' || e.data?.type === 'fusion-booking:redirect') {
-    setTimeout(() => router.visit(route('clienti.import')), 2500)
+    setTimeout(() => router.visit(route('registrati.inizia')), 2500)
   }
 }
 
@@ -228,7 +228,7 @@ onBeforeUnmount(() => {
       ></iframe>
 
       <p class="text-sm text-center mt-4">
-        <Link :href="route('clienti.import')" class="text-gray-500 hover:text-gray-700 underline underline-offset-2">Salta per ora: inizio da solo caricando i clienti</Link>
+        <Link :href="route('registrati.inizia')" class="text-gray-500 hover:text-gray-700 underline underline-offset-2">Salta per ora: inizio da solo dal primo sinistro</Link>
       </p>
     </div>
   </div>

@@ -34,6 +34,15 @@
       </div>
     </Transition>
 
+    <!-- Prova: dopo il primo sinistro, il passo successivo è caricare i clienti -->
+    <div v-if="flash?.primi_passi === 'importa_clienti'" class="mx-4 mt-3 rounded-xl border border-sky-200 bg-sky-50 px-5 py-4 flex flex-wrap items-center gap-4">
+      <div class="flex-1 min-w-[240px]">
+        <p class="text-xs font-semibold uppercase tracking-wide text-sky-700">Primo sinistro fatto ✓ · passo 2 di 2</p>
+        <p class="mt-1 text-sm text-slate-700">Ora carica tutti i tuoi clienti dall'Excel del gestionale: così ogni nuovo sinistro si apre in un attimo e partono i promemoria.</p>
+      </div>
+      <Link :href="route('clienti.import')" class="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Importa i clienti →</Link>
+    </div>
+
     <div class="py-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
 
       <!-- Nominativo cliente -->

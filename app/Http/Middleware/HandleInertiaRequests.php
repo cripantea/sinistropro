@@ -30,6 +30,8 @@ class HandleInertiaRequests extends Middleware
                 'error'   => $request->session()->get('error'),
                 // Credenziali di un'agenzia appena creata dal superadmin (mostrate una volta).
                 'credenziali' => $request->session()->get('credenziali'),
+                // Prova appena attivata: guida al primo sinistro, poi all'import dei clienti.
+                'primi_passi' => $request->session()->get('primi_passi'),
             ],
             'notifications'  => $this->recentNotifications($request),
             'tenantFeatures' => $this->tenantFeatures($request),
