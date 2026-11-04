@@ -23,6 +23,7 @@
     },
     "dependencies": {
         "@laravel/echo-vue": "^2.3.7",
+        "@stripe/stripe-js": "^10.2.1",
         "chart.js": "^4.5.1",
         "laravel-echo": "^2.3.7",
         "pusher-js": "^8.5.0"

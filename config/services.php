@@ -73,6 +73,8 @@ return [
     // Abbonamenti SinistroPro (account Stripe condiviso Fusion Media, vedi config/billing.php).
     'stripe' => [
         'secret'         => env('STRIPE_SECRET'),
+        // Chiave pubblica (pk_...): serve solo al pagamento dentro la pagina. Senza, si va sulla pagina Stripe.
+        'key'            => env('STRIPE_KEY'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
     ],
 

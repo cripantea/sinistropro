@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Tenant;
 use App\Services\Billing\StripeBilling;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -27,6 +28,7 @@ class AbbonamentoController extends Controller
             'billing'  => $tenant->billingSummary(),
             'canManage' => $request->user()->isTenantAdmin(),
             'stripeReady' => StripeBilling::configured(),
+            'trialDays' => $tenant->trialDays(),
         ]);
     }
 
@@ -45,7 +47,27 @@ class AbbonamentoController extends Controller
             route('abbonamento.attivo'),
             route('abbonamento'),
             $request->user()->email,
+            $tenant->trialDays(),
         ));
+    }
+
+    /** Pagamento dentro la pagina (Stripe.js): client secret della sessione Checkout. */
+    public function sessione(Request $request, StripeBilling $billing): JsonResponse
+    {
+        $tenant = $this->tenantAdmin($request);
+        $interval = $request->validate(['interval' => ['required', 'in:month,year']])['interval'];
+
+        abort_if($tenant->hasSubscription(), 409, 'L\'abbonamento è già attivo.');
+        abort_unless(StripeBilling::configured(), 503, 'Pagamento non ancora disponibile.');
+
+        try {
+            $secret = $billing->embeddedClientSecret($tenant, $interval, route('abbonamento.attivo'), $request->user()->email, $tenant->trialDays());
+        } catch (\Throwable $e) {
+            Log::error('Stripe: sessione incorporata non disponibile', ['tenant' => $tenant->id, 'error' => $e->getMessage()]);
+            abort(503, 'Al momento non riusciamo ad aprire il pagamento. Riprova tra qualche minuto.');
+        }
+
+        return response()->json(['clientSecret' => $secret]);
     }
 
     /** Ritorno dal Checkout: attiva subito, senza aspettare il webhook. */
@@ -61,7 +83,14 @@ class AbbonamentoController extends Controller
             }
         }
 
-        return $tenant->fresh()->hasAccess()
+        $tenant->refresh();
+
+        if ($tenant->billingState() === 'prova') {
+            // Primo passo della prova: caricare i propri clienti (chi importa i dati resta).
+            return redirect()->route('clienti.import')->with('success', 'Prova attiva fino al ' . $tenant->subscription_ends_at?->format('d/m/Y') . '. Primo passo: carica qui il file Excel dei tuoi clienti.');
+        }
+
+        return $tenant->hasAccess()
             ? redirect()->route('abbonamento')->with('success', 'Abbonamento attivo. Grazie!')
             : redirect()->route('abbonamento')->with('success', 'Pagamento ricevuto: l\'attivazione richiede qualche secondo, ricarica la pagina tra poco.');
     }

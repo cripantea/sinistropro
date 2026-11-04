@@ -36,9 +36,13 @@
       @click="emit('paga', scelto)"
       class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-6 py-3 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      {{ processing ? 'Apertura pagamento…' : `Paga ${euro(totaleOggi)} e attiva` }}
+      {{ processing ? 'Apertura pagamento…' : trialDays ? `Inizia i ${trialDays} giorni gratis` : `Paga ${euro(totaleOggi)} e attiva` }}
     </button>
-    <p class="text-xs text-gray-500">
+    <p v-if="trialDays" class="text-xs text-gray-500">
+      Oggi non paghi niente: inserisci la carta (o Apple Pay, Google Pay) con Stripe.
+      Il primo addebito di {{ euro(totaleOggi) }} parte il {{ fineProva }}, a meno che tu non disdica prima con un clic.
+    </p>
+    <p v-else class="text-xs text-gray-500">
       Pagamento sicuro con Stripe (carta, Apple Pay, Google Pay). Soddisfatto o rimborsato entro 30 giorni.
       Disdici quando vuoi, con un clic.
     </p>
@@ -49,7 +53,7 @@
 import { computed, ref } from 'vue'
 import type { BillingSummary } from '@/types'
 
-const props = defineProps<{ billing: BillingSummary; processing?: boolean; disabled?: boolean }>()
+const props = defineProps<{ billing: BillingSummary; trialDays?: number; processing?: boolean; disabled?: boolean }>()
 const emit = defineEmits<{ paga: [interval: 'month' | 'year'] }>()
 
 const scelto = ref<'month' | 'year'>('month')
@@ -67,6 +71,12 @@ const piani = computed(() => {
 const totaleOggi = computed(() =>
   (scelto.value === 'year' ? props.billing.price_yearly_cents : props.billing.price_monthly_cents) + props.billing.setup_fee_cents
 )
+
+const fineProva = computed(() => {
+  const d = new Date()
+  d.setDate(d.getDate() + (props.trialDays ?? 0))
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })
+})
 
 function euro(cents: number): string {
   const v = cents / 100

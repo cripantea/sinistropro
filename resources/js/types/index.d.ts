@@ -40,7 +40,7 @@ export type PageProps<T extends Record<string, unknown> = Record<string, unknown
   abbonamento?: { state: BillingState; has_access: boolean; free_until: string | null } | null
 }
 
-export type BillingState = 'esterno' | 'gratis' | 'attivo' | 'disdetto' | 'in_ritardo' | 'non_attivo'
+export type BillingState = 'esterno' | 'gratis' | 'prova' | 'attivo' | 'disdetto' | 'in_ritardo' | 'non_attivo'
 
 export interface BillingSummary {
   state: BillingState

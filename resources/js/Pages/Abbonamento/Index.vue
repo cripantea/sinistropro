@@ -26,7 +26,7 @@
                   class="inline-flex items-center bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 disabled:opacity-50">
             Gestisci pagamento e fatture
           </button>
-          <button v-if="billing.interval === 'month' && !billing.cancel_at_period_end" type="button" @click="passaAnnuale" :disabled="processing"
+          <button v-if="billing.interval === 'month' && !billing.cancel_at_period_end && billing.state !== 'prova'" type="button" @click="passaAnnuale" :disabled="processing"
                   class="inline-flex items-center bg-indigo-50 text-indigo-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-indigo-100 disabled:opacity-50">
             Passa all'annuale ({{ euro(billing.price_yearly_cents) }} / anno)
           </button>
@@ -35,8 +35,8 @@
 
       <!-- Attivazione -->
       <div v-if="!billing.has_subscription" class="bg-white rounded-xl border border-gray-200 shadow-sm px-6 py-5">
-        <h3 class="text-base font-semibold text-gray-900 mb-4">Attiva SinistroPro</h3>
-        <SceltaPiano v-if="canManage" :billing="billing" :processing="processing" :disabled="!stripeReady" @paga="paga" />
+        <h3 class="text-base font-semibold text-gray-900 mb-4">{{ trialDays ? `Prova SinistroPro gratis per ${trialDays} giorni` : 'Attiva SinistroPro' }}</h3>
+        <SceltaPiano v-if="canManage" :billing="billing" :trial-days="trialDays" :processing="processing" :disabled="!stripeReady" @paga="paga" />
         <p v-else class="text-sm text-gray-600">Solo l'amministratore della tua agenzia può attivare l'abbonamento.</p>
         <p v-if="canManage && !stripeReady" class="text-sm text-amber-700 mt-3">Il pagamento online non è ancora disponibile: riprova tra poco.</p>
       </div>
@@ -51,12 +51,13 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import SceltaPiano from '@/Components/Abbonamento/SceltaPiano.vue'
 import type { BillingSummary, PageProps } from '@/types'
 
-const props = defineProps<{ billing: BillingSummary; canManage: boolean; stripeReady: boolean }>()
+const props = defineProps<{ billing: BillingSummary; canManage: boolean; stripeReady: boolean; trialDays: number }>()
 
 const flash = computed(() => usePage<PageProps>().props.flash)
 const processing = ref(false)
 
 const badge = computed(() => ({
+  prova:      { testo: 'Prova gratuita', classe: 'bg-sky-100 text-sky-800' },
   attivo:     { testo: 'Attivo', classe: 'bg-emerald-100 text-emerald-800' },
   disdetto:   { testo: 'Disdetto', classe: 'bg-gray-100 text-gray-700' },
   in_ritardo: { testo: 'Pagamento non riuscito', classe: 'bg-amber-100 text-amber-800' },
@@ -68,6 +69,9 @@ const badge = computed(() => ({
 const descrizione = computed(() => {
   const b = props.billing
   switch (b.state) {
+    case 'prova':      return b.cancel_at_period_end
+      ? `Hai disdetto: la prova resta attiva fino al ${data(b.ends_at)} e non ti verrà addebitato niente.`
+      : `Prova gratuita fino al ${data(b.ends_at)}. Da quel giorno parte l'abbonamento a ${euro(b.interval === 'year' ? b.price_yearly_cents : b.price_monthly_cents)} / ${b.interval === 'year' ? 'anno' : 'mese'}. Puoi disdire prima da "Gestisci pagamento e fatture", senza pagare niente.`
     case 'attivo':     return `Prossimo rinnovo il ${data(b.ends_at)}.`
     case 'disdetto':   return `Hai disdetto: SinistroPro resta attivo fino al ${data(b.ends_at)}, poi passa in sola lettura. Puoi riattivarlo da "Gestisci pagamento".`
     case 'in_ritardo': return 'L\'ultimo addebito non è riuscito. Stripe riproverà nei prossimi giorni: aggiorna la carta da "Gestisci pagamento" per non interrompere il servizio.'

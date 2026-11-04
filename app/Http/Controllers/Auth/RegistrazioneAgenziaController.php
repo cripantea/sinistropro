@@ -15,8 +15,8 @@ use Inertia\Response;
 
 /**
  * Registrazione da soli (/registrati): nome, agenzia, email e password. Crea l'agenzia già
- * pronta (NuovaAgenzia) con l'amministratore, entra e va a pagare. Finché non
- * paga l'agenzia è in sola lettura (EnsureTenantHasAccess).
+ * pronta (NuovaAgenzia) con l'amministratore, entra e va a inserire la carta per la prova
+ * gratuita. Finché non c'è un abbonamento l'agenzia è in sola lettura (EnsureTenantHasAccess).
  */
 class RegistrazioneAgenziaController extends Controller
 {
@@ -42,13 +42,35 @@ class RegistrazioneAgenziaController extends Controller
         ]);
 
         $user = NuovaAgenzia::crea($data['agenzia'], $data['nome'], $data['email'], $data['password']);
+        // Solo chi si registra da solo ha la prova gratuita (Tenant::trialDays).
+        $user->tenant->forceFill(['settings' => [...$user->tenant->settings, 'registrazione_da_solo' => true]])->save();
 
         Log::info('Registrazione: nuova agenzia', ['tenant' => $user->tenant_id, 'email' => $user->email]);
 
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('abbonamento')
-            ->with('success', 'Account creato. Scegli il piano e attiva SinistroPro: dopo il pagamento si sblocca tutto.');
+        return $user->tenant->trialDays() > 0
+            ? redirect()->route('registrati.carta')
+            : redirect()->route('abbonamento')->with('success', 'Account creato. Scegli il piano e attiva SinistroPro: dopo il pagamento si sblocca tutto.');
+    }
+
+    /** Secondo passo della registrazione: la carta per la prova, nella stessa pagina (o sulla pagina Stripe senza chiave pubblica). */
+    public function carta(Request $request): Response|RedirectResponse
+    {
+        $user = $request->user();
+        $tenant = $user->tenant;
+
+        if (! $tenant || ! $user->isTenantAdmin() || $tenant->hasSubscription() || $tenant->trialDays() === 0) {
+            return redirect()->route('abbonamento');
+        }
+
+        return Inertia::render('Auth/Registrati', [
+            'passo'         => 'carta',
+            'agenzia'       => $tenant->name,
+            'giorniProva'   => $tenant->trialDays(),
+            'prezzoMensile' => $tenant->priceCents('month'),
+            'stripeKey'     => config('services.stripe.key'),
+        ]);
     }
 }

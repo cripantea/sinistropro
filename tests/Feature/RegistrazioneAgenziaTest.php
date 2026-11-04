@@ -11,7 +11,7 @@ test('ci si registra con nome, agenzia, email e password e si arriva al pagament
 
     $this->post('/registrati', [
         'nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Rossi', 'email' => 'mario@agenzia.it', 'password' => 'password123',
-    ])->assertRedirect(route('abbonamento'));
+    ])->assertRedirect(route('registrati.carta'));
 
     $user = User::where('email', 'mario@agenzia.it')->first();
     $tenant = $user->tenant;

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AbbonamentoController;
+use App\Http\Controllers\Auth\RegistrazioneAgenziaController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AutomationPreviewController;
 use App\Http\Controllers\ClienteController;
@@ -152,8 +153,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 // --- Abbonamento (la pagina la vedono tutti, pagare e gestire solo il tenant-admin) ---
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/registrati/carta',      [RegistrazioneAgenziaController::class, 'carta'])->name('registrati.carta');
     Route::get('/abbonamento',           [AbbonamentoController::class, 'show'])->name('abbonamento');
     Route::post('/abbonamento/checkout', [AbbonamentoController::class, 'checkout'])->name('abbonamento.checkout');
+    Route::post('/abbonamento/sessione', [AbbonamentoController::class, 'sessione'])->middleware('throttle:20,1')->name('abbonamento.sessione');
     Route::get('/abbonamento/attivo',    [AbbonamentoController::class, 'attivo'])->name('abbonamento.attivo');
     Route::post('/abbonamento/annuale',  [AbbonamentoController::class, 'annuale'])->name('abbonamento.annuale');
     Route::post('/abbonamento/gestisci', [AbbonamentoController::class, 'portale'])->name('abbonamento.gestisci');

@@ -8,6 +8,7 @@
     </template>
 
     <div class="p-6 max-w-3xl space-y-5">
+      <div v-if="flash?.success" class="bg-green-50 border-l-4 border-green-500 px-4 py-3 text-sm text-green-800 rounded">{{ flash.success }}</div>
 
       <!-- ── Caricamento ─────────────────────────────────────── -->
       <template v-if="fase === 'carica' || fase === 'lettura'">
@@ -261,10 +262,13 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h, onBeforeUnmount, ref, watch, type PropType } from 'vue'
-import { Link, router } from '@inertiajs/vue3'
+import { Link, router, usePage } from '@inertiajs/vue3'
+import type { PageProps } from '@/types'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import TastoIndietro from '@/Components/TastoIndietro.vue'
 import axios from 'axios'
+
+const flash = computed(() => usePage<PageProps>().props.flash)
 
 interface Target { value: string; label: string; group: string }
 interface RiepilogoT {

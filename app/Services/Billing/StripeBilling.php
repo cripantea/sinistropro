@@ -34,9 +34,34 @@ class StripeBilling
     }
 
     /**
-     * Sessione Checkout per abbonarsi. Con un costo di attivazione da pagare lo aggiunge alla prima fattura.
+     * Sessione Checkout sulla pagina Stripe. Con un costo di attivazione da pagare lo aggiunge alla prima fattura.
+     * Con $trialDays la carta si salva subito e il primo addebito parte alla fine della prova.
      */
-    public function checkoutUrl(Tenant $tenant, string $interval, string $successUrl, string $cancelUrl, ?string $email = null): string
+    public function checkoutUrl(Tenant $tenant, string $interval, string $successUrl, string $cancelUrl, ?string $email = null, int $trialDays = 0): string
+    {
+        return $this->stripe->checkout->sessions->create([
+            ...$this->sessionParams($tenant, $interval, $email, $trialDays),
+            'success_url' => self::conSessionId($successUrl),
+            'cancel_url'  => $cancelUrl,
+        ])->url;
+    }
+
+    /** Come checkoutUrl, ma il modulo di pagamento si mostra dentro la nostra pagina (Stripe.js): ritorna il client secret. */
+    public function embeddedClientSecret(Tenant $tenant, string $interval, string $returnUrl, ?string $email = null, int $trialDays = 0): string
+    {
+        return $this->stripe->checkout->sessions->create([
+            ...$this->sessionParams($tenant, $interval, $email, $trialDays),
+            'ui_mode'    => 'embedded_page',
+            'return_url' => self::conSessionId($returnUrl),
+        ])->client_secret;
+    }
+
+    private static function conSessionId(string $url): string
+    {
+        return $url . (str_contains($url, '?') ? '&' : '?') . 'session_id={CHECKOUT_SESSION_ID}';
+    }
+
+    private function sessionParams(Tenant $tenant, string $interval, ?string $email, int $trialDays): array
     {
         $app = config('billing.stripe_app');
         $lineItems = [['price' => $this->priceId($tenant->priceCents($interval), $interval), 'quantity' => 1]];
@@ -53,12 +78,20 @@ class StripeBilling
             ];
         }
 
-        $session = $this->stripe->checkout->sessions->create([
+        return [
             'mode'                => 'subscription',
             'line_items'          => $lineItems,
             'client_reference_id' => (string) $tenant->id,
             'metadata'            => ['app' => $app, 'tenant_id' => $tenant->id, 'setup_fee_cents' => $tenant->pendingSetupFeeCents()],
-            'subscription_data'   => ['metadata' => ['app' => $app, 'tenant_id' => $tenant->id]],
+            'subscription_data'   => [
+                'metadata' => ['app' => $app, 'tenant_id' => $tenant->id],
+                ...($trialDays > 0 ? [
+                    'trial_period_days' => $trialDays,
+                    // Senza carta valida a fine prova l'abbonamento si chiude: l'agenzia va in sola lettura.
+                    'trial_settings'    => ['end_behavior' => ['missing_payment_method' => 'cancel']],
+                ] : []),
+            ],
+            ...($trialDays > 0 ? ['payment_method_collection' => 'always'] : []),
             ...($tenant->stripe_customer_id
                 ? ['customer' => $tenant->stripe_customer_id, 'customer_update' => ['name' => 'auto', 'address' => 'auto']]
                 : array_filter(['customer_email' => $email])),
@@ -83,11 +116,7 @@ class StripeBilling
             ],
             'locale'                => 'it',
             'allow_promotion_codes' => true,
-            'success_url'           => $successUrl . (str_contains($successUrl, '?') ? '&' : '?') . 'session_id={CHECKOUT_SESSION_ID}',
-            'cancel_url'            => $cancelUrl,
-        ]);
-
-        return $session->url;
+        ];
     }
 
     /**

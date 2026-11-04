@@ -9,6 +9,7 @@ defineProps<{ state: BillingState }>()
 
 const BADGE: Record<BillingState, { testo: string; classe: string }> = {
   esterno:    { testo: 'Fatturato a parte', classe: 'bg-slate-100 text-slate-600' },
+  prova:      { testo: 'In prova', classe: 'bg-sky-100 text-sky-800' },
   attivo:     { testo: 'Attivo', classe: 'bg-emerald-100 text-emerald-800' },
   disdetto:   { testo: 'Disdetto', classe: 'bg-gray-100 text-gray-700' },
   in_ritardo: { testo: 'Pagamento fallito', classe: 'bg-amber-100 text-amber-800' },

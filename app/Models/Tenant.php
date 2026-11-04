@@ -165,6 +165,19 @@ class Tenant extends Model
         return $this->setup_fee_paid_at ? 0 : (int) $this->setup_fee_cents;
     }
 
+    /**
+     * Giorni di prova al primo abbonamento: solo agenzie nate da /registrati, mai abbonate
+     * prima e senza costo di attivazione.
+     */
+    public function trialDays(): int
+    {
+        if (! $this->getSetting('registrazione_da_solo') || $this->stripe_subscription_id !== null || $this->pendingSetupFeeCents() > 0) {
+            return 0;
+        }
+
+        return max(0, (int) config('billing.trial_days'));
+    }
+
     public function hasSubscription(): bool
     {
         return $this->stripe_subscription_id !== null
@@ -172,12 +185,13 @@ class Tenant extends Model
     }
 
     /**
-     * Stato sintetico per pagine e badge: esterno | gratis | attivo | disdetto | in_ritardo | non_attivo.
+     * Stato sintetico per pagine e badge: esterno | gratis | prova | attivo | disdetto | in_ritardo | non_attivo.
      */
     public function billingState(): string
     {
         return match (true) {
             $this->isBilledExternally() => 'esterno',
+            $this->subscription_status === 'trialing' => 'prova',
             in_array($this->subscription_status, ['active', 'trialing'], true) => $this->subscription_cancel_at_period_end ? 'disdetto' : 'attivo',
             $this->subscription_status === 'past_due' => 'in_ritardo',
             $this->free_until && today()->lte($this->free_until) => 'gratis',

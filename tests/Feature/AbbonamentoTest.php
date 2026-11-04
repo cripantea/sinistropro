@@ -258,3 +258,66 @@ test('il superadmin vede le fatture, disdice, annulla e rimborsa', function () {
     $this->actingAs($this->admin)->post("{$url}/azione", ['azione' => 'annulla'])->assertRedirect();
     expect($chiamate)->toHaveCount(4);
 });
+
+// ── Prova gratuita (solo registrazione da soli) ───────────────────────────
+
+test('chi si registra da solo ha 30 giorni di prova con carta, chi arriva dalla demo paga subito', function () {
+    $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Prova', 'email' => 'prova@agenzia.it', 'password' => 'password123']);
+    $registrato = User::where('email', 'prova@agenzia.it')->first();
+
+    expect($registrato->tenant->trialDays())->toBe(30)
+        ->and($this->tenant->trialDays())->toBe(0); // creato dal superadmin, come dopo una demo
+
+    config(['services.stripe.secret' => 'sk_test_x']);
+    $this->mock(StripeBilling::class)->shouldReceive('checkoutUrl')->once()
+        ->withArgs(fn ($tenant, $interval, $ok, $annulla, $email, $giorni) => $tenant->id === $registrato->tenant_id && $giorni === 30)
+        ->andReturn('https://checkout.stripe.com/x');
+
+    $this->actingAs($registrato)->post('/abbonamento/checkout', ['interval' => 'month'])->assertRedirect('https://checkout.stripe.com/x');
+});
+
+test('niente seconda prova dopo un abbonamento, né con un costo di attivazione', function () {
+    $this->tenant->forceFill(['settings' => ['registrazione_da_solo' => true]])->save();
+    expect($this->tenant->fresh()->trialDays())->toBe(30);
+
+    $this->tenant->forceFill(['setup_fee_cents' => 50000])->save();
+    expect($this->tenant->fresh()->trialDays())->toBe(0);
+
+    $this->tenant->forceFill(['setup_fee_cents' => 0, 'stripe_subscription_id' => 'sub_vecchio', 'subscription_status' => 'canceled'])->save();
+    expect($this->tenant->fresh()->trialDays())->toBe(0);
+});
+
+test('in prova ha accesso pieno, è "prova" e non conta nell\'incasso', function () {
+    webhook(subscriptionEvent('customer.subscription.created', 'sub_prova', 'trialing'));
+
+    $t = $this->tenant->fresh();
+    expect($t->hasAccess())->toBeTrue()
+        ->and($t->billingState())->toBe('prova');
+
+    // Disdetta durante la prova: resta "prova" (niente addebito), non "disdetto".
+    webhook(subscriptionEvent('customer.subscription.updated', 'sub_prova', 'trialing', ['cancel_at_period_end' => true]));
+    expect($this->tenant->fresh()->billingState())->toBe('prova');
+
+    $riga = collect(\App\Support\CruscottoSuperadmin::dati()['agenzie'])->firstWhere('id', $this->tenant->id);
+    expect($riga['stato'])->toBe('prova')->and($riga['mensile_cents'])->toBe(0);
+});
+
+test('dopo la registrazione la carta si inserisce nella stessa pagina, con la prova', function () {
+    config(['services.stripe.secret' => 'sk_test_x', 'services.stripe.key' => 'pk_test_x']);
+    $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Carta', 'email' => 'carta@agenzia.it', 'password' => 'password123'])
+        ->assertRedirect(route('registrati.carta'));
+
+    $this->get('/registrati/carta')->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Auth/Registrati')->where('passo', 'carta')->where('giorniProva', 30)->where('stripeKey', 'pk_test_x'));
+
+    $this->mock(StripeBilling::class)->shouldReceive('embeddedClientSecret')->once()
+        ->withArgs(fn ($tenant, $interval, $ritorno, $email, $giorni) => $interval === 'month' && $giorni === 30 && $email === 'carta@agenzia.it')
+        ->andReturn('cs_secret_x');
+
+    $this->postJson('/abbonamento/sessione', ['interval' => 'month'])->assertOk()->assertJson(['clientSecret' => 'cs_secret_x']);
+});
+
+test('la pagina carta non serve a chi ha già un abbonamento o non ha diritto alla prova', function () {
+    $this->actingAs($this->admin)->get('/registrati/carta')->assertRedirect(route('abbonamento'));
+    $this->actingAs($this->user)->postJson('/abbonamento/sessione', ['interval' => 'month'])->assertForbidden();
+});
