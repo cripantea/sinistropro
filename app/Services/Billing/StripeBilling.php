@@ -84,6 +84,8 @@ class StripeBilling
             // L'account Stripe è condiviso: niente Klarna per un abbonamento. Con l'API 2026 payment_method_types
             // fa fallire la sessione, quindi si esclude e basta. (SEPA non è attivo sull'account.)
             'excluded_payment_method_types' => ['klarna'],
+            // Sempre in euro: senza questo Stripe converte il prezzo nella valuta di chi apre la pagina.
+            'adaptive_pricing'    => ['enabled' => false],
             'line_items'          => $lineItems,
             'client_reference_id' => (string) $tenant->id,
             'metadata'            => ['app' => $app, 'tenant_id' => $tenant->id, 'setup_fee_cents' => $tenant->pendingSetupFeeCents()],
