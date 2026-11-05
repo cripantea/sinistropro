@@ -225,7 +225,7 @@ onBeforeUnmount(() => {
         </li>
         <li class="flex gap-3">
           <span class="rassicura">✓</span>
-          <div><p class="font-semibold text-gray-900">Un tecnico imposta tutto con te</p><p class="text-sm text-gray-500">Subito dopo scegli quando fare 45 minuti in videochiamata: carichiamo i tuoi clienti e ti insegniamo a usarlo.</p></div>
+          <div><p class="font-semibold text-gray-900">Un tecnico imposta tutto con te</p><p class="text-sm text-gray-500">Subito dopo scegli quando fare 45 minuti in videochiamata: carichiamo i tuoi clienti, colleghiamo il tuo WhatsApp e la tua email e impostiamo le automazioni.</p></div>
         </li>
         <li class="flex gap-3">
           <span class="rassicura">✓</span>
@@ -258,8 +258,8 @@ onBeforeUnmount(() => {
       <p class="text-sm font-semibold text-emerald-700">Prova attiva{{ provaFinoAl ? ` fino al ${provaFinoAl}` : '' }} ✓</p>
       <h1 class="text-xl font-bold text-gray-900 mt-1">Prenota 45 minuti con il tecnico</h1>
       <p class="text-gray-500 text-sm mt-1">
-        In videochiamata carichiamo insieme i tuoi clienti e le tue pratiche e impostiamo i promemoria automatici.
-        Alla fine della call SinistroPro è già pronto sul tuo lavoro.
+        In videochiamata carichiamo insieme i tuoi clienti e le tue pratiche, colleghiamo il tuo WhatsApp e la tua email
+        e impostiamo le automazioni: promemoria delle scadenze e messaggi ai clienti. Alla fine della call SinistroPro è già pronto sul tuo lavoro.
       </p>
 
       <iframe

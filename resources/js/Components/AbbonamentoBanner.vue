@@ -1,6 +1,10 @@
 <template>
   <!-- Abbonamento non attivo: SinistroPro è in sola lettura e gli avvisi automatici sono fermi. -->
-  <div v-if="abbonamento && !abbonamento.has_access" class="shrink-0 bg-amber-500 text-slate-900 px-4 py-2.5 text-sm font-semibold flex flex-wrap items-center gap-x-3 gap-y-1">
+  <div v-if="abbonamento && !abbonamento.has_access && abbonamento.trial_days" class="shrink-0 bg-amber-500 text-slate-900 px-4 py-2.5 text-sm font-semibold flex flex-wrap items-center gap-x-3 gap-y-1">
+    <span>Manca un passo: attiva la prova gratuita di {{ abbonamento.trial_days }} giorni (0 € oggi, disdici con un clic) per iniziare a lavorare.</span>
+    <Link :href="route('registrati.carta')" class="underline underline-offset-2">Attiva la prova →</Link>
+  </div>
+  <div v-else-if="abbonamento && !abbonamento.has_access" class="shrink-0 bg-amber-500 text-slate-900 px-4 py-2.5 text-sm font-semibold flex flex-wrap items-center gap-x-3 gap-y-1">
     <span>Abbonamento non attivo: puoi consultare tutto ma non modificare, e gli avvisi automatici sono fermi.</span>
     <Link :href="route('abbonamento')" class="underline underline-offset-2">Attiva l'abbonamento →</Link>
   </div>

@@ -38,7 +38,7 @@ export type PageProps<T extends Record<string, unknown> = Record<string, unknown
   tenantFeatures: Record<string, boolean>
   impersonating: { tenant_id: number; tenant_name: string } | null
   tenantContext: { tenant_id: number; tenant_name: string } | null
-  abbonamento?: { state: BillingState; has_access: boolean; free_until: string | null } | null
+  abbonamento?: { state: BillingState; has_access: boolean; free_until: string | null; trial_days?: number } | null
 }
 
 export type BillingState = 'esterno' | 'gratis' | 'prova' | 'attivo' | 'disdetto' | 'in_ritardo' | 'non_attivo'

@@ -37,7 +37,9 @@ class EnsureTenantHasAccess
             return $next($request);
         }
 
-        $message = 'Abbonamento non attivo: SinistroPro è in sola lettura. Attivalo dalla pagina Abbonamento.';
+        $message = $tenant->trialDays() > 0
+            ? 'Per inserire dati attiva prima la prova gratuita: 0 € oggi, disdici con un clic. La trovi nella barra in alto.'
+            : 'Abbonamento non attivo: SinistroPro è in sola lettura. Attivalo dalla pagina Abbonamento.';
 
         if ($request->expectsJson() && ! $request->header('X-Inertia')) {
             return response()->json(['message' => $message], 402);

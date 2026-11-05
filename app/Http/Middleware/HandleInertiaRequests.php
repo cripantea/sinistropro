@@ -91,6 +91,8 @@ class HandleInertiaRequests extends Middleware
             'state'      => $tenant->billingState(),
             'has_access' => $tenant->hasAccess(),
             'free_until' => $tenant->free_until?->format('d/m/Y'),
+            // Registrato da solo e mai attivato: il banner porta alla prova gratuita, non al pagamento.
+            'trial_days' => $tenant->trialDays(),
         ];
     }
 
