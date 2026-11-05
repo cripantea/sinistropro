@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Head, Link, router, useForm } from '@inertiajs/vue3'
 import { loadStripe, type StripeEmbeddedCheckout } from '@stripe/stripe-js'
 import axios from 'axios'
@@ -65,7 +65,10 @@ const prezzo = computed(() => {
   return v.toLocaleString('it-IT', { minimumFractionDigits: Number.isInteger(v) ? 0 : 2, maximumFractionDigits: 2 }) + ' €'
 })
 
+let montando = false
 async function montaPagamento() {
+  if (montando) return
+  montando = true
   if (!props.stripeKey || !contenitore.value) {
     caricamento.value = false
     return
@@ -95,8 +98,10 @@ async function montaPagamento() {
 // Senza chiave pubblica (o se il modulo non si carica): pagina Stripe classica.
 const vaiAStripe = () => router.post(route('abbonamento.checkout'), { interval: 'month' })
 
-// Dal passo 1 Inertia riusa questa stessa pagina: si parte quando compare il passo carta, non solo al primo caricamento.
-watch(passoCarta, (carta) => { if (carta && !checkout) montaPagamento() }, { immediate: true, flush: 'post' })
+// Pagina aperta direttamente (ricarica, link della barra): si parte al mount, quando il contenitore esiste.
+// Dal passo 1 invece Inertia riusa questa stessa pagina: si parte quando compare il passo carta.
+onMounted(() => { if (passoCarta.value && !checkout) montaPagamento() })
+watch(passoCarta, (carta) => { if (carta && !checkout) montaPagamento() }, { flush: 'post' })
 // ── Passo 3: call col tecnico ─────────────────────────────────────────
 const altezzaCalendario = ref(640)
 
