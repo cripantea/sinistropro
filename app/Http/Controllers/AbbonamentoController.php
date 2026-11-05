@@ -144,6 +144,7 @@ class AbbonamentoController extends Controller
             'billing'     => $tenant->billingSummary(),
             'stripeReady' => StripeBilling::configured(),
             'checkoutUrl' => URL::signedRoute('paga.checkout', $tenant),
+            'trialDays'   => $tenant->trialDays(),
         ]);
     }
 
@@ -161,6 +162,7 @@ class AbbonamentoController extends Controller
             URL::signedRoute('paga.grazie', $tenant),
             URL::signedRoute('paga', $tenant),
             $tenant->users()->where('role', 'tenant-admin')->orderBy('id')->value('email'),
+            $tenant->trialDays(),
         ));
     }
 
@@ -177,9 +179,12 @@ class AbbonamentoController extends Controller
             }
         }
 
+        $tenant->refresh();
+
         return Inertia::render('Abbonamento/Grazie', [
             'tenantName' => $tenant->name,
-            'attivo'     => $tenant->fresh()->hasAccess(),
+            'attivo'     => $tenant->hasAccess(),
+            'provaFino'  => $tenant->billingState() === 'prova' ? $tenant->subscription_ends_at?->format('d/m/Y') : null,
         ]);
     }
 

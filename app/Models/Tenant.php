@@ -166,12 +166,13 @@ class Tenant extends Model
     }
 
     /**
-     * Giorni di prova al primo abbonamento: solo agenzie nate da /registrati, mai abbonate
-     * prima e senza costo di attivazione.
+     * Giorni di prova al primo abbonamento: per chi si registra da solo e per chi arriva dalla demo
+     * (stessa offerta ovunque: 0 € oggi, 99 € dal 30° giorno). Mai a chi è già stato abbonato
+     * o ha un costo di attivazione (clienti su misura).
      */
     public function trialDays(): int
     {
-        if (! $this->getSetting('registrazione_da_solo') || $this->stripe_subscription_id !== null || $this->pendingSetupFeeCents() > 0) {
+        if ($this->isBilledExternally() || $this->stripe_subscription_id !== null || $this->pendingSetupFeeCents() > 0) {
             return 0;
         }
 

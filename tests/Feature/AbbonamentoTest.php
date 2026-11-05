@@ -88,7 +88,7 @@ test('senza abbonamento si consulta ma non si modifica', function () {
 
     $this->actingAs($this->user)->post('/contatti', ['nome' => 'Perito', 'tags' => ['perito']])
         ->assertRedirect()
-        ->assertSessionHas('error', fn ($m) => str_contains($m, 'sola lettura'));
+        ->assertSessionHas('error', fn ($m) => str_contains($m, 'attiva prima la prova'));
 
     expect(Contatto::acrossAllTenants()->count())->toBe(0);
 });
@@ -261,12 +261,12 @@ test('il superadmin vede le fatture, disdice, annulla e rimborsa', function () {
 
 // ── Prova gratuita (solo registrazione da soli) ───────────────────────────
 
-test('chi si registra da solo ha 30 giorni di prova con carta, chi arriva dalla demo paga subito', function () {
+test('30 giorni di prova con carta sia per chi si registra da solo sia per chi arriva dalla demo', function () {
     $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Agenzia Prova', 'email' => 'prova@agenzia.it', 'telefono' => '333 1234567', 'attivita' => 'agenzia_assicurativa', 'sinistri' => '30–100', 'password' => 'password123']);
     $registrato = User::where('email', 'prova@agenzia.it')->first();
 
     expect($registrato->tenant->trialDays())->toBe(30)
-        ->and($this->tenant->trialDays())->toBe(0); // creato dal superadmin, come dopo una demo
+        ->and($this->tenant->trialDays())->toBe(30); // creato dal superadmin dopo una demo: stessa offerta
 
     config(['services.stripe.secret' => 'sk_test_x']);
     $this->mock(StripeBilling::class)->shouldReceive('checkoutUrl')->once()
@@ -318,7 +318,9 @@ test('dopo la registrazione la carta si inserisce nella stessa pagina, con la pr
 });
 
 test('la pagina carta non serve a chi ha già un abbonamento o non ha diritto alla prova', function () {
-    $this->actingAs($this->admin)->get('/registrati/carta')->assertRedirect(route('abbonamento'));
+    $this->actingAs($this->admin)->get('/registrati/carta')->assertOk(); // dopo la demo: stessa prova
+    $this->tenant->forceFill(['stripe_subscription_id' => 'sub_vecchio', 'subscription_status' => 'canceled'])->save();
+    $this->actingAs($this->admin->fresh())->get('/registrati/carta')->assertRedirect(route('abbonamento'));
     $this->actingAs($this->user)->postJson('/abbonamento/sessione', ['interval' => 'month'])->assertForbidden();
 });
 
