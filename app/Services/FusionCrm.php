@@ -41,6 +41,7 @@ class FusionCrm
                 'attivita'          => self::ATTIVITA[$tenant->getSetting('attivita')] ?? null,
                 'pratiche_mese'     => $tenant->getSetting('pratiche_mese'),
                 'agenzia_sinistropro' => $tenant->name,
+                'creativita'        => self::creativita($tenant->getSetting('attribuzione') ?? []),
             ]),
         ]);
     }
@@ -76,6 +77,12 @@ class FusionCrm
                 Log::warning('Fusion CRM: invio non riuscito', ['externalId' => $payload['externalId'], 'error' => $e->getMessage()]);
             }
         })->afterResponse();
+    }
+
+    /** Annuncio di provenienza (utm_content, o campagna) per sapere quale creatività porta prove. */
+    private static function creativita(array $a): ?string
+    {
+        return $a['utm_content'] ?? $a['utm_campaign'] ?? (isset($a['fbclid']) ? 'meta (senza utm)' : null);
     }
 
     private static function splitName(string $name): array

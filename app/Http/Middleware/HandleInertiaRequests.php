@@ -32,6 +32,8 @@ class HandleInertiaRequests extends Middleware
                 'credenziali' => $request->session()->get('credenziali'),
                 // Prova appena attivata: guida al primo sinistro, poi all'import dei clienti.
                 'primi_passi' => $request->session()->get('primi_passi'),
+                // Evento Meta da far partire nel browser (stesso event_id mandato dal server).
+                'traccia'     => $request->session()->get('traccia'),
             ],
             'notifications'  => $this->recentNotifications($request),
             'tenantFeatures' => $this->tenantFeatures($request),

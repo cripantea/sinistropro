@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\FusionCrm;
+use App\Services\MetaConversions;
 use App\Services\NuovaAgenzia;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,8 +23,14 @@ use Inertia\Response;
  */
 class RegistrazioneAgenziaController extends Controller
 {
-    public function create(): Response
+    public function create(Request $request): Response
     {
+        // Da quale annuncio arriva (fbclid e utm passati dalla landing): si salva con la registrazione.
+        $arrivo = array_filter($request->only(['fbclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content']), fn ($v) => is_string($v) && $v !== '' && strlen($v) < 300);
+        if ($arrivo) {
+            $request->session()->put('attribuzione', [...$arrivo, ...(isset($arrivo['fbclid']) ? ['fbclid_at' => (int) (microtime(true) * 1000)] : [])]);
+        }
+
         return Inertia::render('Auth/Registrati', [
             'attivita' => collect(FusionCrm::ATTIVITA)->map(fn ($label, $value) => ['value' => $value, 'label' => $label])->values(),
             'sinistri' => FusionCrm::SINISTRI,
@@ -53,8 +60,14 @@ class RegistrazioneAgenziaController extends Controller
         // Solo chi si registra da solo ha la prova gratuita (Tenant::trialDays).
         $user->tenant->forceFill(['settings' => [...$user->tenant->settings, 'registrazione_da_solo' => true, 'telefono_registrazione' => trim($data['telefono']),
             'attivita' => $data['attivita'], 'pratiche_mese' => $data['sinistri'],
+            'attribuzione' => $request->session()->pull('attribuzione'),
         ]])->save();
-        FusionCrm::registrato($user->fresh());
+        $user = $user->fresh();
+        FusionCrm::registrato($user);
+
+        $eventId = "sp-registrazione-{$user->tenant_id}";
+        MetaConversions::send($request, 'CompleteRegistration', $eventId, $user, ['content_name' => 'prova_sinistropro', 'attivita' => $data['attivita'], 'sinistri_mese' => $data['sinistri']]);
+        $request->session()->flash('traccia', ['event' => 'CompleteRegistration', 'eventID' => $eventId, 'params' => ['content_name' => 'prova_sinistropro']]);
 
         Log::info('Registrazione: nuova agenzia', ['tenant' => $user->tenant_id, 'email' => $user->email]);
 

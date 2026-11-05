@@ -70,6 +70,13 @@ return [
         'api_secret' => env('FUSIONWA_API_SECRET'),
     ],
 
+    // Pixel Meta "Luca Pantea - Pixel" (lo stesso di sinistropro.it e Moduli): solo con il consenso ai cookie.
+    'meta' => [
+        'pixel_id'   => env('META_PIXEL_ID', '1582993779974880'),
+        // Token della Conversions API (Gestione eventi → pixel → Impostazioni). Senza, solo il pixel nel browser.
+        'capi_token' => env('META_CAPI_TOKEN'),
+    ],
+
     // Registrazioni e prove verso Fusion CRM (endpoint webhook "SinistroPro – registrazioni e prove").
     'fusion_crm' => [
         'webhook_url'   => env('FUSION_CRM_WEBHOOK_URL'),

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Tenant;
 use App\Services\Billing\StripeBilling;
+use App\Services\MetaConversions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -86,6 +87,11 @@ class AbbonamentoController extends Controller
         $tenant->refresh();
 
         if ($tenant->billingState() === 'prova') {
+            // Prova attivata: evento per Meta (browser + server, stesso event_id).
+            $eventId = "sp-prova-{$tenant->id}";
+            MetaConversions::send($request, 'StartTrial', $eventId, $request->user(), ['value' => 0, 'currency' => 'EUR', 'predicted_ltv' => 297]);
+            $request->session()->flash('traccia', ['event' => 'StartTrial', 'eventID' => $eventId, 'params' => ['value' => 0, 'currency' => 'EUR', 'predicted_ltv' => 297]]);
+
             // Prima la call col tecnico (se c'è il calendario), poi il primo sinistro e i clienti: chi mette dentro i suoi dati resta.
             if (config('billing.onboarding_url') && $tenant->getSetting('registrazione_da_solo')) {
                 return redirect()->route('registrati.onboarding');

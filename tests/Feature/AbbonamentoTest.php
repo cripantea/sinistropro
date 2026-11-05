@@ -377,3 +377,29 @@ test('registrazione e prova attiva vanno al CRM con attività e sinistri gestiti
     $this->post('/registrati', ['nome' => 'X', 'agenzia' => 'Y', 'email' => 'no@agenzia.it', 'telefono' => '333 1234567', 'attivita' => 'idraulico', 'sinistri' => '30–100', 'password' => 'password123'])
         ->assertSessionHasErrors('attivita');
 });
+
+test('Meta: la registrazione va alla Conversions API solo con il consenso, e salva da quale annuncio arriva', function () {
+    config(['services.meta.pixel_id' => '123', 'services.meta.capi_token' => 'tok', 'services.fusion_crm.webhook_url' => null]);
+    \Illuminate\Support\Facades\Http::fake();
+
+    $this->get('/registrati?fbclid=ABC&utm_content=P1')->assertOk();
+    $this->withUnencryptedCookie('sp-consenso', 'si')
+        ->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Meta Test', 'email' => 'meta@agenzia.it', 'telefono' => '333 1234567', 'attivita' => 'broker', 'sinistri' => '30–100', 'password' => 'password123'])
+        ->assertSessionHas('traccia', fn ($t) => $t['event'] === 'CompleteRegistration');
+    $this->app->terminate();
+
+    $tenant = User::where('email', 'meta@agenzia.it')->first()->tenant;
+    expect($tenant->getSetting('attribuzione.fbclid'))->toBe('ABC')->and($tenant->getSetting('attribuzione.utm_content'))->toBe('P1');
+    \Illuminate\Support\Facades\Http::assertSent(fn ($r) => str_contains($r->url(), 'graph.facebook.com/v26.0/123/events')
+        && $r['data'][0]['event_name'] === 'CompleteRegistration'
+        && $r['data'][0]['event_id'] === "sp-registrazione-{$tenant->id}"
+        && str_starts_with($r['data'][0]['user_data']['fbc'], 'fb.1.'));
+
+    // Senza consenso (rifiutato): niente Conversions API.
+    auth()->logout();
+    $this->withUnencryptedCookie('sp-consenso', 'no')->post('/registrati', ['nome' => 'Anna Bianchi', 'agenzia' => 'No Consenso', 'email' => 'no@agenzia.it', 'telefono' => '333 1234567', 'attivita' => 'broker', 'sinistri' => '30–100', 'password' => 'password123']);
+    $this->app->terminate();
+    $senza = User::where('email', 'no@agenzia.it')->first()->tenant_id;
+    $ids = \Illuminate\Support\Facades\Http::recorded(fn ($r) => str_contains($r->url(), 'graph.facebook.com'))->map(fn ($p) => $p[0]['data'][0]['event_id'])->unique()->values()->all();
+    expect($ids)->toBe(["sp-registrazione-{$tenant->id}"])->and($ids)->not->toContain("sp-registrazione-{$senza}");
+});

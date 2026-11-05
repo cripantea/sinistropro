@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Head, Link, router, useForm } from '@inertiajs/vue3'
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
 import { loadStripe, type StripeEmbeddedCheckout } from '@stripe/stripe-js'
 import axios from 'axios'
 import InputError from '@/Components/InputError.vue'
+import CookieBanner from '@/Components/CookieBanner.vue'
+import { pageView, track } from '@/tracking'
+import type { PageProps } from '@/types'
 
 // Tre passi nella stessa pagina: 1) account, 2) carta per la prova (modulo Stripe incorporato),
 // 3) prenotazione della call col tecnico (calendario del CRM incorporato).
@@ -100,7 +103,18 @@ const vaiAStripe = () => router.post(route('abbonamento.checkout'), { interval: 
 
 // Pagina aperta direttamente (ricarica, link della barra): si parte al mount, quando il contenitore esiste.
 // Dal passo 1 invece Inertia riusa questa stessa pagina: si parte quando compare il passo carta.
-onMounted(() => { if (passoCarta.value && !checkout) montaPagamento() })
+onMounted(() => {
+  if (passoCarta.value && !checkout) montaPagamento()
+  pageView()
+  inviaEventoServer()
+})
+
+// Evento preparato dal server (registrazione, prova attivata): parte nel browser con lo stesso eventID.
+function inviaEventoServer() {
+  const t = usePage<PageProps>().props.flash?.traccia
+  if (t) track(t)
+}
+watch(() => props.passo, () => { pageView(); inviaEventoServer() })
 watch(passoCarta, (carta) => { if (carta && !checkout) montaPagamento() }, { flush: 'post' })
 // ── Passo 3: call col tecnico ─────────────────────────────────────────
 const altezzaCalendario = ref(640)
@@ -108,6 +122,7 @@ const altezzaCalendario = ref(640)
 function messaggioCalendario(e: MessageEvent) {
   if (!props.bookingUrl || e.origin !== new URL(props.bookingUrl).origin) return
   if (e.data?.type === 'fusion-booking:height') altezzaCalendario.value = Math.max(400, Number(e.data.height) + 8)
+  if (e.data?.type === 'fusion-booking:booked') track({ event: 'Schedule', eventID: `sp-tecnico-${e.data.start ?? ''}`, params: { content_name: 'onboarding_45' } })
   if (e.data?.type === 'fusion-booking:booked' || e.data?.type === 'fusion-booking:redirect') {
     setTimeout(() => router.visit(route('registrati.inizia')), 2500)
   }
@@ -287,6 +302,7 @@ onBeforeUnmount(() => {
         <Link :href="route('registrati.inizia')" class="text-gray-500 hover:text-gray-700 underline underline-offset-2">Salta per ora: inizio da solo dal primo sinistro</Link>
       </p>
     </div>
+    <CookieBanner />
   </div>
 </template>
 

@@ -25,6 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
+        // Cookie scritti dal browser (consenso ai cookie, pixel Meta): non cifrati, li legge la Conversions API.
+        $middleware->encryptCookies(except: ['sp-consenso', '_fbp', '_fbc']);
+
         // Alias middleware registrabili nei route group.
         $middleware->alias([
             'superadmin' => EnsureSuperAdmin::class,
