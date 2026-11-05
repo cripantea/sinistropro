@@ -405,3 +405,11 @@ test('Meta: la registrazione va alla Conversions API solo con il consenso, e sal
     $ids = \Illuminate\Support\Facades\Http::recorded(fn ($r) => str_contains($r->url(), 'graph.facebook.com'))->map(fn ($p) => $p[0]['data'][0]['event_id'])->unique()->values()->all();
     expect($ids)->toBe(["sp-registrazione-{$tenant->id}"])->and($ids)->not->toContain("sp-registrazione-{$senza}");
 });
+
+test('chi non è convinto prenota la demo dentro SinistroPro con i dati già compilati', function () {
+    config(['billing.demo_url' => 'https://crm.example.it/prenota/demo']);
+    $this->post('/registrati', ['nome' => 'Mario Rossi', 'agenzia' => 'Demo Test', 'email' => 'demo@agenzia.it', 'telefono' => '333 1234567', 'attivita' => 'broker', 'sinistri' => '30–100', 'password' => 'password123']);
+
+    $this->get('/registrati/demo')->assertOk()->assertInertia(fn ($page) => $page->where('passo', 'demo')->where('giorniProva', 30)
+        ->where('bookingUrl', fn ($u) => str_starts_with($u, 'https://crm.example.it/prenota/demo?embed=1') && str_contains($u, 'email=demo%40agenzia.it') && str_contains($u, 'name=Mario+Rossi')));
+});

@@ -113,6 +113,29 @@ class RegistrazioneAgenziaController extends Controller
         ]);
     }
 
+    /**
+     * Non ancora convinto: demo di 20 minuti prenotata dentro SinistroPro, con nome, email e
+     * cellulare già compilati (il calendario Demo del CRM, incorporato come quello del tecnico).
+     */
+    public function demo(Request $request): Response
+    {
+        $user = $request->user();
+        $url = config('billing.demo_url');
+        $query = http_build_query(array_filter([
+            'embed' => 1,
+            'name'  => $user->name,
+            'email' => $user->email,
+            'phone' => $user->tenant?->getSetting('telefono_registrazione'),
+        ]));
+
+        return Inertia::render('Auth/Registrati', [
+            'passo'       => 'demo',
+            'agenzia'     => $user->tenant?->name,
+            'bookingUrl'  => $url . (str_contains($url, '?') ? '&' : '?') . $query,
+            'giorniProva' => $user->tenant?->trialDays() ?? 0,
+        ]);
+    }
+
     /** Secondo passo della registrazione: la carta per la prova, nella stessa pagina (o sulla pagina Stripe senza chiave pubblica). */
     public function carta(Request $request): Response|RedirectResponse
     {

@@ -156,6 +156,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/registrati/carta',      [RegistrazioneAgenziaController::class, 'carta'])->name('registrati.carta');
     Route::get('/registrati/tecnico',    [RegistrazioneAgenziaController::class, 'onboarding'])->name('registrati.onboarding');
     Route::get('/registrati/inizia',     [RegistrazioneAgenziaController::class, 'primoSinistro'])->name('registrati.inizia');
+    Route::get('/registrati/demo',       [RegistrazioneAgenziaController::class, 'demo'])->name('registrati.demo');
     Route::get('/abbonamento',           [AbbonamentoController::class, 'show'])->name('abbonamento');
     Route::post('/abbonamento/checkout', [AbbonamentoController::class, 'checkout'])->name('abbonamento.checkout');
     Route::post('/abbonamento/sessione', [AbbonamentoController::class, 'sessione'])->middleware('throttle:20,1')->name('abbonamento.sessione');

@@ -13,6 +13,8 @@ return [
 
     // Dopo la carta: prenotazione della call di onboarding col tecnico (pagina di prenotazione
     // del CRM Fusion, incorporata). Vuoto = si salta e si va diretti a Importa clienti.
+    // Demo di 20 minuti (calendario "Demo SinistroPro" del CRM) per chi non è ancora convinto.
+    'demo_url'            => env('DEMO_BOOKING_URL', 'https://crm.fusionsoft.it/prenota/cmvj7gm94000801loys23zc9a'),
     'onboarding_url'      => env('ONBOARDING_BOOKING_URL', 'https://crm.fusionsoft.it/prenota/cmw27p7sq002801q68vaacqe6'),
 
     // L'account Stripe è condiviso con gli altri prodotti Fusion: tutto ciò che creiamo

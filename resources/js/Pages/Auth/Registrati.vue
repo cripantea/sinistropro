@@ -11,7 +11,7 @@ import type { PageProps } from '@/types'
 // Tre passi nella stessa pagina: 1) account, 2) carta per la prova (modulo Stripe incorporato),
 // 3) prenotazione della call col tecnico (calendario del CRM incorporato).
 const props = defineProps<{
-  passo?: 'account' | 'carta' | 'onboarding'
+  passo?: 'account' | 'carta' | 'onboarding' | 'demo'
   bookingUrl?: string
   provaFinoAl?: string
   agenzia?: string
@@ -24,6 +24,8 @@ const props = defineProps<{
 
 const passoCarta = computed(() => props.passo === 'carta')
 const passoTecnico = computed(() => props.passo === 'onboarding')
+const passoDemo = computed(() => props.passo === 'demo')
+const demoPrenotata = ref(false)
 const numeroPasso = computed(() => (passoTecnico.value ? 3 : passoCarta.value ? 2 : 1))
 
 // ── Passo 1: account ──────────────────────────────────────────────────
@@ -122,15 +124,20 @@ const altezzaCalendario = ref(640)
 function messaggioCalendario(e: MessageEvent) {
   if (!props.bookingUrl || e.origin !== new URL(props.bookingUrl).origin) return
   if (e.data?.type === 'fusion-booking:height') altezzaCalendario.value = Math.max(400, Number(e.data.height) + 8)
-  if (e.data?.type === 'fusion-booking:booked') track({ event: 'Schedule', eventID: `sp-tecnico-${e.data.start ?? ''}`, params: { content_name: 'onboarding_45' } })
+  if (e.data?.type === 'fusion-booking:booked') track({ event: 'Schedule', eventID: `sp-${passoDemo.value ? 'demo' : 'tecnico'}-${e.data.start ?? ''}`, params: { content_name: passoDemo.value ? 'demo_20' : 'onboarding_45' } })
+  // Demo: si resta qui con la conferma e il link per attivare la prova quando vuole.
+  if (passoDemo.value) {
+    if (e.data?.type === 'fusion-booking:booked') demoPrenotata.value = true
+    return
+  }
   if (e.data?.type === 'fusion-booking:booked' || e.data?.type === 'fusion-booking:redirect') {
     setTimeout(() => router.visit(route('registrati.inizia')), 2500)
   }
 }
 
-watch(passoTecnico, (tecnico) => {
+watch(() => passoTecnico.value || passoDemo.value, (calendario) => {
   window.removeEventListener('message', messaggioCalendario)
-  if (tecnico) window.addEventListener('message', messaggioCalendario)
+  if (calendario) window.addEventListener('message', messaggioCalendario)
 }, { immediate: true })
 
 onBeforeUnmount(() => {
@@ -140,7 +147,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <Head :title="passoTecnico ? 'Prenota il tecnico — SinistroPro' : passoCarta ? 'Attiva la prova — SinistroPro' : 'Prova gratis 30 giorni — SinistroPro'" />
+  <Head :title="passoDemo ? 'Prenota la demo — SinistroPro' : passoTecnico ? 'Prenota il tecnico — SinistroPro' : passoCarta ? 'Attiva la prova — SinistroPro' : 'Prova gratis 30 giorni — SinistroPro'" />
 
   <div class="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4 py-12">
     <div class="mb-6 text-center">
@@ -149,7 +156,7 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Passi -->
-    <ol class="flex items-center gap-2 sm:gap-3 text-xs font-semibold mb-5">
+    <ol v-if="!passoDemo" class="flex items-center gap-2 sm:gap-3 text-xs font-semibold mb-5">
       <template v-for="(etichetta, i) in ['Account', 'Prova', 'Tecnico']" :key="etichetta">
         <li v-if="i > 0" class="w-5 sm:w-8 h-px bg-gray-300"></li>
         <li :class="i + 1 < numeroPasso ? 'text-emerald-700' : i + 1 === numeroPasso ? 'text-[#1e3a8a]' : 'text-gray-400'">
@@ -159,7 +166,7 @@ onBeforeUnmount(() => {
     </ol>
 
     <!-- Passo 1: account -->
-    <div v-if="!passoCarta && !passoTecnico" class="w-full max-w-[400px] bg-white rounded-xl border border-gray-200 shadow-sm p-8">
+    <div v-if="!passoCarta && !passoTecnico && !passoDemo" class="w-full max-w-[400px] bg-white rounded-xl border border-gray-200 shadow-sm p-8">
       <h1 class="text-xl font-bold text-gray-900">Prova SinistroPro gratis per 30 giorni</h1>
       <p class="text-gray-500 text-sm mt-1">Poi 99 € al mese. Disdici quando vuoi, con un clic.</p>
 
@@ -275,9 +282,11 @@ onBeforeUnmount(() => {
 
       <p class="text-xs text-gray-400 text-center mt-5">Pagamento protetto da Stripe. I dati della carta non passano dai nostri server.</p>
 
-      <div class="mt-5 border-t border-gray-100 pt-4 text-center">
-        <p class="text-sm text-gray-600">Preferisci prima vederlo con qualcuno?</p>
-        <a href="https://sinistropro.it/demo/" class="text-sm font-semibold underline underline-offset-2" style="color: #1e3a8a;">Prenota una demo gratuita di 20 minuti</a>
+      <!-- Non ancora convinto: demo con i dati già compilati -->
+      <div class="mt-6 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-5 py-4">
+        <p class="font-semibold text-gray-900">Non sei ancora convinto?</p>
+        <p class="text-sm text-gray-600 mt-1">Te lo mostro io in una videochiamata di 20 minuti, sulle tue pratiche. I tuoi dati sono già compilati: scegli solo l'orario.</p>
+        <Link :href="route('registrati.demo')" class="mt-3 inline-flex items-center justify-center w-full rounded-lg border-2 px-4 py-2.5 text-sm font-semibold hover:bg-white" style="border-color: #1e3a8a; color: #1e3a8a;">Prenota una demo di 20 minuti →</Link>
       </div>
     </div>
 
@@ -302,6 +311,27 @@ onBeforeUnmount(() => {
         <Link :href="route('registrati.inizia')" class="text-gray-500 hover:text-gray-700 underline underline-offset-2">Salta per ora: inizio da solo dal primo sinistro</Link>
       </p>
     </div>
+    <!-- Demo per chi non è ancora convinto -->
+    <div v-if="passoDemo" class="w-full max-w-[620px] bg-white rounded-xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <template v-if="!demoPrenotata">
+        <h1 class="text-xl font-bold text-gray-900">Prenota una demo di 20 minuti</h1>
+        <p class="text-gray-500 text-sm mt-1">
+          Ti mostro SinistroPro sulle tue pratiche e rispondo a tutte le domande. I tuoi dati sono già compilati: scegli solo giorno e ora.
+          Ti arrivano subito l'email con il link della videochiamata e l'invito nel calendario.
+        </p>
+        <iframe v-if="bookingUrl" :src="bookingUrl" title="Prenota la demo" class="w-full mt-5 border-0" :style="{ height: altezzaCalendario + 'px' }"></iframe>
+      </template>
+      <div v-else class="text-center py-6">
+        <p class="text-sm font-semibold text-emerald-700">Demo prenotata ✓</p>
+        <h1 class="text-xl font-bold text-gray-900 mt-1">A presto in videochiamata</h1>
+        <p class="text-gray-500 text-sm mt-2">Ti è arrivata l'email con il link. Se nel frattempo vuoi iniziare, la prova è a un clic: 0 € oggi, disdici quando vuoi.</p>
+      </div>
+      <p class="text-sm text-center mt-5">
+        <Link v-if="giorniProva" :href="route('registrati.carta')" class="font-semibold underline underline-offset-2" style="color: #1e3a8a;">← Torna ad attivare la prova gratuita</Link>
+        <Link v-else :href="route('dashboard')" class="font-semibold underline underline-offset-2" style="color: #1e3a8a;">Vai a SinistroPro →</Link>
+      </p>
+    </div>
+
     <CookieBanner />
   </div>
 </template>
