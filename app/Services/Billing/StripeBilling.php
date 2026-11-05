@@ -81,9 +81,10 @@ class StripeBilling
 
         return [
             'mode'                => 'subscription',
-            // Solo carta (con Apple/Google Pay) e addebito SEPA: l'account Stripe è condiviso e senza
-            // questo comparirebbero Klarna & co., che per un abbonamento non hanno senso.
-            'payment_method_types' => ['card', 'sepa_debit'],
+            // Solo carta (Apple/Google Pay compresi): l'account Stripe è condiviso e senza questo comparirebbero
+            // Klarna & co., che per un abbonamento non hanno senso. SEPA non è attivo sull'account: aggiungerlo
+            // qui fa fallire la creazione della sessione.
+            'payment_method_types' => ['card'],
             'line_items'          => $lineItems,
             'client_reference_id' => (string) $tenant->id,
             'metadata'            => ['app' => $app, 'tenant_id' => $tenant->id, 'setup_fee_cents' => $tenant->pendingSetupFeeCents()],

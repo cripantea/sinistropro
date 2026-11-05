@@ -74,7 +74,15 @@ async function montaPagamento() {
     const stripe = await loadStripe(props.stripeKey, { locale: 'it' })
     if (!stripe) throw new Error('Stripe non disponibile')
     checkout = await stripe.createEmbeddedCheckoutPage({
-      fetchClientSecret: async () => (await axios.post(route('abbonamento.sessione'), { interval: 'month' })).data.clientSecret,
+      fetchClientSecret: async () => {
+        try {
+          return (await axios.post(route('abbonamento.sessione'), { interval: 'month' })).data.clientSecret
+        } catch (e) {
+          // Stripe chiama questa funzione dopo il mount: un errore qui non arriva al catch sotto.
+          errore.value = 'Non riusciamo a caricare il modulo di pagamento. Riprova tra poco o usa il pulsante qui sotto.'
+          throw e
+        }
+      },
     })
     checkout.mount(contenitore.value)
   } catch (e) {
