@@ -33,6 +33,7 @@ class Tenant extends Model
         'setup_fee_paid_at'                 => 'datetime',
         'subscription_ends_at'              => 'datetime',
         'subscription_cancel_at_period_end' => 'boolean',
+        'suspended_at'                      => 'datetime',
     ];
 
     /** Stati Stripe con cui l'abbonamento dà accesso pieno (past_due: Stripe sta ancora riprovando l'addebito). */

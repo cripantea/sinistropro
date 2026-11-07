@@ -23,5 +23,7 @@
     </head>
     <body class="font-sans antialiased">
         @inertia
+        {{-- Fusion Desk: pulsante Assistenza (solo per chi ha fatto l'accesso). --}}
+        {!! \App\FusionKit\Support::widgetTag(auth()->user()) !!}
     </body>
 </html>

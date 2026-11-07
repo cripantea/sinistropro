@@ -17,7 +17,10 @@ class EnsureUserIsActive
     {
         $user = $request->user();
 
-        if ($user && $user->is_active === false) {
+        // Agenzia sospesa da Fusion Control: vale come account disabilitato (non per il superadmin).
+        $suspended = $user && $user->role !== 'superadmin' && $user->tenant?->suspended_at;
+
+        if ($user && ($user->is_active === false || $suspended)) {
             Auth::guard('web')->logout();
 
             if ($request->hasSession()) {
@@ -30,7 +33,9 @@ class EnsureUserIsActive
             }
 
             return redirect()->route('login')->withErrors([
-                'email' => 'Il tuo account è stato disabilitato. Contatta l\'amministratore.',
+                'email' => $suspended
+                    ? 'L\'account della tua agenzia è sospeso: contatta Fusionsoft.'
+                    : 'Il tuo account è stato disabilitato. Contatta l\'amministratore.',
             ]);
         }
 
