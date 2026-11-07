@@ -19,30 +19,34 @@ class Support
         ];
     }
 
-    /** Tag <script> del widget Assistenza (da mettere in app.blade.php). */
-    public static function widgetTag(?Authenticatable $user, array $options = []): string
+    /**
+     * Dati del widget Assistenza per l'utente collegato, da condividere con Inertia
+     * (prop "fusionWidget", vedi HandleInertiaRequests) e passare a <FusionSupport>.
+     * null se non c'è utente o il Kit non è configurato.
+     */
+    public static function widget(?Authenticatable $user, array $options = []): ?array
     {
         $control = (string) config('fusionkit.control_url');
         if (! $user || $control === '' || ! config('fusionkit.kit_secret') || ! config('fusionkit.product')) {
-            return '';
+            return null;
         }
         $who = app(Adapter::class)->widgetUser($user);
         if (! $who) {
-            return '';
+            return null;
         }
-        $token = KitToken::sign(['product' => config('fusionkit.product')] + $who, 12 * 3600);
-        $attrs = [
-            'src' => $control.'/fusion-kit/widget.js',
-            'data-product' => config('fusionkit.product'),
-            'data-token' => $token,
-            'data-desk' => $control,
-            'data-position' => $options['position'] ?? 'right',
-            'data-button' => ($options['button'] ?? true) ? 'on' : 'off',
-            'data-offset' => (string) ($options['offset'] ?? 0),
-            'data-release' => (string) (env('FUSION_RELEASE') ?: env('GIT_COMMIT') ?: ''),
-        ];
 
-        return '<script defer '.collect($attrs)->map(fn ($v, $k) => $k.'="'.e($v).'"')->implode(' ').'></script>';
+        return [
+            'src' => $control.'/fusion-kit/widget.js',
+            'attrs' => [
+                'data-product' => (string) config('fusionkit.product'),
+                'data-token' => KitToken::sign(['product' => config('fusionkit.product')] + $who, 12 * 3600),
+                'data-desk' => $control,
+                'data-position' => $options['position'] ?? 'right',
+                'data-button' => ($options['button'] ?? true) ? 'on' : 'off',
+                'data-offset' => (string) ($options['offset'] ?? 0),
+                'data-release' => (string) (env('FUSION_RELEASE') ?: env('GIT_COMMIT') ?: ''),
+            ],
+        ];
     }
 
     /** Errore del server → Fusion Control. Non lancia mai. */

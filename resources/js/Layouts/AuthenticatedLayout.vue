@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FusionSupport from '@/Components/Fusion/FusionSupport.vue'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
 import ImpersonationBanner from '@/Components/ImpersonationBanner.vue'
@@ -474,6 +475,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 
       </div>
     </div>
+    <FusionSupport :widget="$page.props.fusionWidget as any" />
   </div>
 
   <!-- Overlay superadmin (fisso, visibile solo in impersonazione) -->

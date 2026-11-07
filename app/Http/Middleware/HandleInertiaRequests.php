@@ -21,6 +21,8 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
+            // Widget Assistenza di Fusion Desk (vedi resources/js/Components/Fusion/FusionSupport.vue).
+            'fusionWidget' => fn () => \App\FusionKit\Support::widget($request->user(), []),
             'auth' => [
                 'user'            => $request->user(),
                 'isImpersonating' => $request->session()->has('impersonator_id'),
