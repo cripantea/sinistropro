@@ -18,14 +18,14 @@ class FusionKitAdapter implements Adapter
         $user = User::where('fusion_id_sub', $claims['sub'])->first();
         if (! $user) {
             if (! $claims['email_verified']) {
-                throw new LinkError('Conferma prima la tua email in Fusion ID, poi riprova.');
+                throw new LinkError('Conferma prima la tua email (trovi il link nella posta), poi riprova.');
             }
             $user = User::where('email', $claims['email'])->first();
             if (! $user) {
                 throw new LinkError("Non c'è un account SinistroPro per {$claims['email']}. Chiedi un invito alla tua agenzia.");
             }
             if ($user->fusion_id_sub && $user->fusion_id_sub !== $claims['sub']) {
-                throw new LinkError('Questo account è già collegato a un altro accesso Fusion ID.');
+                throw new LinkError('Questo account è già collegato a un altro accesso: entra con quello o scrivi all\'assistenza.');
             }
             $user->forceFill(['fusion_id_sub' => $claims['sub']])->save();
         }
@@ -33,7 +33,7 @@ class FusionKitAdapter implements Adapter
             throw new LinkError('Il tuo account è stato disabilitato. Contatta l\'amministratore.');
         }
         if ($user->role === 'superadmin' && ! in_array('mfa', $claims['amr'], true)) {
-            throw new LinkError('Per entrare come superadmin serve la verifica in due passaggi: attivala in Fusion ID.');
+            throw new LinkError('Per entrare come superadmin serve la verifica in due passaggi: attivala nella pagina di accesso.');
         }
         if ($user->role !== 'superadmin' && $user->tenant?->suspended_at) {
             throw new LinkError('L\'account della tua agenzia è sospeso: contatta Fusionsoft.');

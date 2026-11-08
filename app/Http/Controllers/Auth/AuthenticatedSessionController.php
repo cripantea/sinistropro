@@ -35,7 +35,7 @@ class AuthenticatedSessionController extends Controller
     public function store(LoginRequest $request): RedirectResponse
     {
         if (! Oidc::legacyLoginEnabled()) {
-            throw ValidationException::withMessages(['email' => 'Accedi con Fusion ID.']);
+            throw ValidationException::withMessages(['email' => 'Accedi con Google o con «Accedi con email».']);
         }
 
         $request->authenticate();

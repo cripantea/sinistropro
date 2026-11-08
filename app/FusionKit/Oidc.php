@@ -27,7 +27,7 @@ class Oidc
         return Cache::remember('fusionkit.discovery', 3600, function () {
             $res = Http::timeout(10)->get(config('fusionkit.issuer').'/.well-known/openid-configuration');
             if (! $res->ok()) {
-                throw new \RuntimeException('Fusion ID non raggiungibile ('.$res->status().')');
+                throw new \RuntimeException('Servizio di accesso non raggiungibile ('.$res->status().')');
             }
 
             return $res->json();
@@ -100,17 +100,17 @@ class Oidc
                 'code_verifier' => $st['verifier'],
             ]);
         if (! $res->ok() || ! $res->json('id_token')) {
-            throw new LinkError('Fusion ID ha rifiutato l\'accesso ('.$res->status().').');
+            throw new LinkError('Il servizio di accesso ha rifiutato l\'accesso ('.$res->status().').');
         }
         $parts = explode('.', $res->json('id_token'));
         $c = json_decode(KitToken::unb64($parts[1] ?? ''), true) ?: [];
         $aud = (array) ($c['aud'] ?? []);
         if (($c['iss'] ?? null) !== $d['issuer'] || ! in_array(config('fusionkit.client_id'), $aud, true)
             || ($c['exp'] ?? 0) < time() - 30 || ($c['nonce'] ?? null) !== $st['nonce']) {
-            throw new LinkError('Token di Fusion ID non valido.');
+            throw new LinkError('Token di accesso non valido.');
         }
         if (empty($c['sub']) || empty($c['email'])) {
-            throw new LinkError('Fusion ID non ha fornito l\'email.');
+            throw new LinkError('Il servizio di accesso non ha fornito l\'email.');
         }
 
         return [
