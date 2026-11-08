@@ -401,6 +401,9 @@ class PraticaController extends Controller
 
     public function destroy(Pratica $pratica): RedirectResponse
     {
+        // Eliminare un sinistro è irreversibile: solo l'amministratore dell'agenzia (o il superadmin).
+        abort_unless(in_array(auth()->user()->role, ['tenant-admin', 'superadmin'], true), 403, 'Solo l\'amministratore dell\'agenzia può eliminare un sinistro.');
+
         $pratica->delete();
 
         return redirect()

@@ -106,8 +106,8 @@
         </button>
         <Link :href="route('pratiche.show', pratica.id)" class="text-sm text-gray-500 hover:underline">Annulla</Link>
 
-        <!-- Zona pericolosa: elimina sinistro -->
-        <div class="ml-auto">
+        <!-- Zona pericolosa: elimina sinistro (solo amministratori) -->
+        <div v-if="puoEliminare" class="ml-auto">
           <button
             type="button"
             @click="destroyPratica"
@@ -133,7 +133,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
-import { Link, useForm, router } from '@inertiajs/vue3'
+import { Link, useForm, router, usePage } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import TastoIndietro from '@/Components/TastoIndietro.vue'
@@ -235,6 +235,9 @@ function onConfirmBlockAutomations() {
 function onConfirmBlockAction() {
   automationConfirm.open = false
 }
+
+const page = usePage()
+const puoEliminare = computed(() => ['tenant-admin', 'superadmin'].includes((page.props.auth as any)?.user?.role))
 
 function destroyPratica() {
   if (!confirm('Sei sicuro di voler eliminare definitivamente questo sinistro? L\'operazione non è reversibile.')) return

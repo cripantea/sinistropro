@@ -132,3 +132,13 @@ test('il collegamento WhatsApp rifiuta un numero già collegato a un altro tenan
 
     expect(WhatsappSession::acrossAllTenants()->where('tenant_id', $this->tenantA->id)->exists())->toBeFalse();
 });
+
+test('solo l\'amministratore dell\'agenzia può eliminare un sinistro', function () {
+    foreach ([$this->userA, $this->externalA] as $utente) {
+        $this->actingAs($utente)->delete("/pratiche/{$this->praticaA->id}")->assertForbidden();
+    }
+    expect(Pratica::whereKey($this->praticaA->id)->exists())->toBeTrue();
+
+    $this->actingAs($this->adminA)->delete("/pratiche/{$this->praticaA->id}")->assertRedirect('/pratiche');
+    expect(Pratica::whereKey($this->praticaA->id)->exists())->toBeFalse();
+});
