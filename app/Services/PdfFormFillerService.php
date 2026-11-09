@@ -145,6 +145,16 @@ class PdfFormFillerService
                         // L'altezza (h) è solo indicativa per l'editor: MultiCell non
                         // tronca il testo, continua a scrivere oltre se necessario.
                         $pdf->MultiCell($mmW, 5, $encoded, 0, 'L');
+                    } elseif (! empty($field['fit'])) {
+                        // Campo stretto (es. provincia tra parentesi): se il testo non entra
+                        // nella riga si rimpicciolisce il carattere, fino a 6 pt.
+                        $size = $fontSize;
+                        while ($size > 6 && $pdf->GetStringWidth($encoded) > $mmW - 1) {
+                            $size -= 0.5;
+                            $pdf->SetFontSize($size);
+                        }
+                        $pdf->Cell($mmW, 5, $encoded, 0, 0, 'L');
+                        $pdf->SetFontSize($fontSize);
                     } else {
                         // ln=0 → cursor stays on same line after cell; border=0; align=L
                         $pdf->Cell($mmW, 5, $encoded, 0, 0, 'L');

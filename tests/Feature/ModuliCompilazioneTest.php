@@ -69,6 +69,33 @@ test('il PDF compilato ha la data gg/mm/aaaa e la X nella casella spuntata', fun
         ->and(substr_count($testo, '(X)'))->toBe(1);
 });
 
+test('un campo stretto con "fit" rimpicciolisce il carattere, gli altri restano a grandezza normale', function () {
+    Storage::disk('s3')->put('pdf_templates/incarico.pdf', matriceDiProva(1));
+    $template = ModuleTemplate::create([
+        'tenant_id' => $this->tenant->id,
+        'name' => 'Incarico',
+        'pdf_template_s3_key' => 'pdf_templates/incarico.pdf',
+        'font_size' => 10,
+        'fields_schema' => [
+            ['name' => 'rilasciato_da', 'label' => 'Rilasciato da', 'type' => 'text', 'required' => false, 'page' => 1, 'x' => 10, 'y' => 10, 'w' => 10, 'fit' => true],
+            ['name' => 'professione', 'label' => 'Professione', 'type' => 'text', 'required' => false, 'page' => 1, 'x' => 10, 'y' => 20, 'w' => 10],
+        ],
+    ]);
+    $cliente = Cliente::create(['tenant_id' => $this->tenant->id, 'nome' => 'ROSSI MARIO']);
+    $pratica = Pratica::create(['tenant_id' => $this->tenant->id, 'cliente_id' => $cliente->id, 'utente_creatore_id' => $this->user->id]);
+
+    $this->actingAs($this->user)->postJson("/pratiche/{$pratica->id}/modules", [
+        'module_template_id' => $template->id,
+        'values' => ['rilasciato_da' => 'Comune di Milano', 'professione' => 'Impiegato comunale'],
+    ])->assertCreated();
+
+    $testo = testoPdf(Storage::disk('s3')->get(Allegato::firstOrFail()->s3_key));
+    preg_match('/([\d.]+) Tf(?:(?!Tf)[^(])*\(Comune di Milano\)/s', $testo, $piccolo);
+    preg_match_all('/([\d.]+) Tf/', $testo, $grandezze);
+    expect((float) $piccolo[1])->toBeLessThan(10)->toBeGreaterThanOrEqual(6)
+        ->and(end($grandezze[1]))->toBe('10.00');
+});
+
 test('il superadmin sostituisce solo il PDF di un modulo: i campi restano, si tolgono quelli su pagine non più presenti', function () {
     $admin = User::factory()->create(['role' => 'superadmin']);
     $file = UploadedFile::fake()->createWithContent('giustificativo.pdf', matriceDiProva(2));
