@@ -79,7 +79,7 @@ class EmailConnectionTester
         }
 
         if ($provider === 'microsoft' && Str::contains($testo, ['authenticate failed', 'authentication failed', 'auth failed', 'authenticationfailed', '535'])) {
-            return "Microsoft ha rifiutato l'accesso per la {$fase}: chi gestisce Microsoft 365 deve controllare che IMAP e SMTP autenticato siano attivi per questa casella (Utenti → la casella → Posta → Gestisci app di posta).";
+            return "Microsoft ha rifiutato l'accesso per la {$fase}. Di solito è uno di questi: l'account con cui sei entrato non ha una casella di posta Microsoft (es. la posta è su un altro provider), oppure in Microsoft 365 IMAP / SMTP autenticato sono spenti per la casella (Utenti → la casella → Posta → Gestisci app di posta).";
         }
 
         if (Str::contains($testo, ['application-specific password', 'app password', 'apppassword'])) {
