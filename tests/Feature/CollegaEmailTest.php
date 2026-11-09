@@ -236,3 +236,16 @@ test('Outlook mostra il pulsante Microsoft solo se l\'app è configurata', funct
     $this->actingAs($this->admin)->get('/impostazioni/email/microsoft')->assertNotFound();
     $this->get('/impostazioni/email')->assertInertia(fn (Assert $page) => $page->where('microsoftDisponibile', false));
 });
+
+test('il superadmin in assistenza "come" un collaboratore può collegare la casella', function () {
+    $sa = User::factory()->create(['tenant_id' => null, 'role' => 'superadmin']);
+    $this->tester->shouldReceive('test')->andReturn(null);
+
+    $this->actingAs($this->utente)->withSession(['impersonator_id' => $sa->id])
+        ->get('/impostazioni/email')->assertOk();
+    $this->post('/impostazioni/email', ['email' => 'x@gmail.com', 'password' => 'pw'])->assertSessionHasNoErrors();
+
+    // Un collaboratore con un impersonatore non superadmin resta bloccato.
+    $this->actingAs($this->utente)->withSession(['impersonator_id' => $this->admin->id])
+        ->get('/impostazioni/email')->assertForbidden();
+});

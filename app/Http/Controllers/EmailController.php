@@ -34,7 +34,7 @@ class EmailController extends Controller
 
         return Inertia::render('Email/Index', [
             'emailConfigured' => (bool) ($settings && $settings->is_active && $settings->imap_host),
-            'puoCollegare' => auth()->user()->isTenantAdmin() || auth()->user()->role === 'superadmin',
+            'puoCollegare' => ImpostazioniEmailController::puoCollegare(),
         ]);
     }
 

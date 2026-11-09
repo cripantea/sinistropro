@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\SyncTenantMailboxJob;
 use App\Models\Tenant;
 use App\Models\TenantMailSettings;
+use App\Models\User;
 use App\Services\EmailConnectionTester;
 use App\Services\EmailProviders;
 use App\Services\MicrosoftMail;
@@ -48,7 +49,7 @@ class ImpostazioniEmailController extends Controller
     public function rileva(Request $request, EmailProviders $providers): JsonResponse
     {
         // Anche al superadmin dalla scheda tenant, senza essere dentro un'agenzia.
-        abort_unless($request->user()->isTenantAdmin() || $request->user()->role === 'superadmin', 403);
+        abort_unless(self::puoCollegare(), 403);
         $email = $request->validate(['email' => ['required', 'email']])['email'];
 
         return response()->json(['provider' => $providers->detect($email)]);
@@ -255,10 +256,27 @@ class ImpostazioniEmailController extends Controller
             : $password;
     }
 
-    private function tenant(): Tenant
+    /**
+     * Admin dell'agenzia, superadmin, oppure superadmin in assistenza "come" un utente qualsiasi
+     * (impersonazione: l'utente loggato è il collaboratore, ma chi agisce è il superadmin).
+     */
+    public static function puoCollegare(): bool
     {
         $user = auth()->user();
-        abort_unless($user->isTenantAdmin() || $user->role === 'superadmin', 403, 'Solo l\'amministratore dell\'agenzia può collegare la casella email.');
+        if (! $user) {
+            return false;
+        }
+        if ($user->isTenantAdmin() || $user->role === 'superadmin') {
+            return true;
+        }
+        $impersonatore = session('impersonator_id');
+
+        return $impersonatore && User::whereKey($impersonatore)->where('role', 'superadmin')->exists();
+    }
+
+    private function tenant(): Tenant
+    {
+        abort_unless(self::puoCollegare(), 403, 'Solo l\'amministratore dell\'agenzia può collegare la casella email.');
 
         $tenant = TenantContext::tenant();
         abort_unless($tenant, 404);
