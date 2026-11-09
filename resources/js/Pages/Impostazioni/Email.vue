@@ -37,6 +37,15 @@
           <p class="text-sm text-gray-500 mt-1">Scrivi l'indirizzo: i server li troviamo noi. Le email arriveranno in SinistroPro e gli avvisi partiranno da qui.</p>
         </div>
 
+        <!-- Outlook / Microsoft 365: sempre in vista, senza password -->
+        <div v-if="microsoftDisponibile && provider?.chiave !== 'microsoft'" class="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 p-3">
+          <a :href="microsoftUrl" class="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-800 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-50">
+            <svg class="w-4 h-4" viewBox="0 0 23 23" aria-hidden="true"><path fill="#f25022" d="M1 1h10v10H1z"/><path fill="#7fba00" d="M12 1h10v10H12z"/><path fill="#00a4ef" d="M1 12h10v10H1z"/><path fill="#ffb900" d="M12 12h10v10H12z"/></svg>
+            Accedi con Microsoft
+          </a>
+          <span class="text-xs text-gray-500">Per caselle Outlook, Hotmail o Microsoft 365. Per le altre scrivi l'indirizzo qui sotto.</span>
+        </div>
+
         <div>
           <label class="field-label">Indirizzo email</label>
           <input v-model="form.email" @blur="rileva" @keydown.enter.prevent="rileva" type="email" class="field-input" placeholder="sinistri@tuaagenzia.it" autocomplete="off" />
