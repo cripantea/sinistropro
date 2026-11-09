@@ -83,6 +83,14 @@ return [
         'webhook_token' => env('FUSION_CRM_WEBHOOK_TOKEN'),
     ],
 
+    // Collegamento caselle Outlook / Microsoft 365 (app registrata su portal.azure.com, account di qualsiasi
+    // organizzazione e personali). Redirect: https://login.sinistropro.it/impostazioni/email/microsoft/callback
+    'microsoft_mail' => [
+        'client_id'     => env('MICROSOFT_MAIL_CLIENT_ID'),
+        'client_secret' => env('MICROSOFT_MAIL_CLIENT_SECRET'),
+        'tenant'        => env('MICROSOFT_MAIL_TENANT', 'common'),
+    ],
+
     // Abbonamenti SinistroPro (account Stripe condiviso Fusion Media, vedi config/billing.php).
     'stripe' => [
         'secret'         => env('STRIPE_SECRET'),

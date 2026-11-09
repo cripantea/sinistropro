@@ -116,7 +116,9 @@ class WhatsappConversationController extends Controller
 
         $messages = $conversation->messages()
             ->with('user:id,name')
-            ->orderBy('created_at')
+            // Ora vera del messaggio: quelli importati dallo storico hanno created_at = giorno dell'import.
+            ->orderByRaw('COALESCE(wa_timestamp, created_at)')
+            ->orderBy('id')
             ->get()
             ->map(fn ($m) => $this->messagePayload($m));
 
@@ -176,10 +178,12 @@ class WhatsappConversationController extends Controller
             'source' => $m->source,
             'body' => $m->body,
             'mediaType' => $m->media_type,
-            'mediaUrl' => $m->imageUrl(),
+            'mediaUrl' => $m->mediaUrl(),
+                'mediaMime' => $m->media_mime_type,
+                'mediaFilename' => $m->media_filename,
             'status' => $m->status,
             'userName' => $m->user?->name,
-            'createdAt' => $m->created_at?->toIso8601String(),
+            'createdAt' => ($m->wa_timestamp ?? $m->created_at)?->toIso8601String(),
         ];
     }
 }

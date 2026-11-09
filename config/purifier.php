@@ -30,6 +30,23 @@ return [
             'AutoFormat.AutoParagraph' => true,
             'AutoFormat.RemoveEmpty'   => true,
         ],
+        // Email ricevute: tabelle, citazioni e titoli restano (molte email sono impaginate a tabelle).
+        // Immagini solo da http(s): le immagini interne (cid:) vengono già riscritte verso i nostri allegati.
+        'email' => [
+            'HTML.Doctype'             => 'HTML 4.01 Transitional',
+            'HTML.Allowed'             => 'div[style|align],span[style],p[style|align],br,hr,b,strong,i,em,u,s,strike,sub,sup,small,big,font[color|size|face],'
+                .'a[href|title],ul,ol,li,blockquote[style],pre,code,h1,h2,h3,h4,h5,h6,center,'
+                .'table[style|width|border|cellpadding|cellspacing|align|bgcolor],thead,tbody,tfoot,tr[style|bgcolor|align|valign],'
+                .'td[style|width|colspan|rowspan|align|valign|bgcolor],th[style|width|colspan|rowspan|align|valign|bgcolor],caption,'
+                .'img[width|height|alt|src|style]',
+            'CSS.AllowedProperties'    => 'font,font-size,font-weight,font-style,font-family,text-decoration,color,background-color,text-align,'
+                .'vertical-align,width,max-width,height,margin,margin-top,margin-bottom,margin-left,margin-right,padding,padding-top,'
+                .'padding-bottom,padding-left,padding-right,border,border-top,border-bottom,border-left,border-right,border-collapse,'
+                .'line-height,white-space',
+            'URI.AllowedSchemes'       => ['http' => true, 'https' => true, 'mailto' => true, 'tel' => true],
+            'HTML.TargetBlank'         => true,
+            'AutoFormat.RemoveEmpty'   => true,
+        ],
         'test'    => [
             'Attr.EnableID' => 'true',
         ],

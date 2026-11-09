@@ -12,7 +12,11 @@
           </svg>
         </div>
         <h3 class="text-lg font-semibold text-gray-800">Nessuna casella email collegata</h3>
-        <p class="text-sm text-gray-500 mt-1">Contatta l'amministratore per configurare la casella email di questo tenant.</p>
+        <template v-if="puoCollegare">
+          <p class="text-sm text-gray-500 mt-1">Collega la casella dei sinistri: bastano indirizzo e password.</p>
+          <Link :href="route('impostazioni.email')" class="inline-block mt-4 bg-indigo-600 text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-indigo-700">Collega casella email</Link>
+        </template>
+        <p v-else class="text-sm text-gray-500 mt-1">Chiedi all'amministratore dell'agenzia di collegare la casella email.</p>
       </div>
     </div>
 
@@ -74,7 +78,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import axios from 'axios'
-import { usePage } from '@inertiajs/vue3'
+import { Link, usePage } from '@inertiajs/vue3'
 import { useEcho } from '@laravel/echo-vue'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import ThreadList from '@/Components/Email/ThreadList.vue'
@@ -83,7 +87,7 @@ import EmailThread from '@/Components/Email/EmailThread.vue'
 import type { EmailMessageItem } from '@/Components/Email/EmailThread.vue'
 import type { PageProps } from '@/types'
 
-const props = defineProps<{ emailConfigured: boolean }>()
+const props = defineProps<{ emailConfigured: boolean; puoCollegare?: boolean }>()
 
 const page = usePage<PageProps>()
 const tenantId = computed(() => page.props.auth.user.tenant_id)

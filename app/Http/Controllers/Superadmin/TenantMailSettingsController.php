@@ -75,12 +75,7 @@ class TenantMailSettingsController extends Controller
         }
 
         try {
-            $resolver->sendTestWith([
-                'host' => $settings->host,
-                'port' => $settings->port,
-                'encryption' => $settings->encryption,
-                'username' => $settings->username,
-                'password' => $settings->password,
+            $resolver->sendTestWith($settings->smtpConfig() + [
                 'from_address' => $settings->from_address,
                 'from_name' => $settings->from_name,
             ], $data['to_email'], new TenantMailTestMail($tenant));
@@ -108,14 +103,7 @@ class TenantMailSettingsController extends Controller
         }
 
         try {
-            $client = (new ClientManager())->make([
-                'host' => $settings->imap_host,
-                'port' => $settings->imap_port ?: 993,
-                'encryption' => $settings->imap_encryption ?: 'ssl',
-                'validate_cert' => true,
-                'username' => $settings->username,
-                'password' => $settings->password,
-            ]);
+            $client = (new ClientManager())->make($settings->imapClientConfig());
 
             $client->connect();
             $client->disconnect();

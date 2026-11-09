@@ -114,7 +114,7 @@ class ProcessWhatsappHistoryChunkJob implements ShouldQueue
             ['contact_name' => $contact['profile']['name'] ?? null]
         );
 
-        $body = $message['text']['body'] ?? $message['image']['caption'] ?? null;
+        $body = WhatsappMessage::bodyFrom($message);
         $mediaType = ($message['type'] ?? 'text') !== 'text' ? $message['type'] : null;
 
         WhatsappMessage::create([
@@ -132,7 +132,7 @@ class ProcessWhatsappHistoryChunkJob implements ShouldQueue
 
         if (! $conversation->last_message_at || $timestamp->gt($conversation->last_message_at)) {
             $conversation->last_message_at = $timestamp;
-            $conversation->last_message_preview = Str::limit((string) ($body ?? ($mediaType ? "[{$mediaType}]" : '')), 200);
+            $conversation->last_message_preview = Str::limit((string) ($body ?? WhatsappMessage::etichettaMedia($mediaType)), 200);
             $conversation->save();
         }
 

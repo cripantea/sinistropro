@@ -139,7 +139,7 @@ class WhatsappWebhookController extends Controller
             ['contact_name' => $contact['profile']['name'] ?? null]
         );
 
-        $body = $message['text']['body'] ?? $message['image']['caption'] ?? null;
+        $body = WhatsappMessage::bodyFrom($message);
         $mediaType = $message['type'] !== 'text' ? $message['type'] : null;
         $timestamp = isset($message['timestamp']) ? Carbon::createFromTimestamp((int) $message['timestamp']) : now();
 
@@ -157,7 +157,7 @@ class WhatsappWebhookController extends Controller
         ]);
 
         $conversation->last_message_at = $timestamp;
-        $conversation->last_message_preview = Str::limit((string) ($body ?? ($mediaType ? '[media]' : '')), 200);
+        $conversation->last_message_preview = Str::limit((string) ($body ?? WhatsappMessage::etichettaMedia($mediaType)), 200);
         $conversation->increment('unread_count');
         $conversation->save();
 
@@ -176,9 +176,11 @@ class WhatsappWebhookController extends Controller
                 'source' => 'api',
                 'body' => $whatsappMessage->body,
                 'mediaType' => $whatsappMessage->media_type,
-                'mediaUrl' => $whatsappMessage->imageUrl(),
+                'mediaUrl' => $whatsappMessage->mediaUrl(),
+                'mediaMime' => $whatsappMessage->media_mime_type,
+                'mediaFilename' => $whatsappMessage->media_filename,
                 'status' => $whatsappMessage->status,
-                'createdAt' => $whatsappMessage->created_at?->toIso8601String(),
+                'createdAt' => ($whatsappMessage->wa_timestamp ?? $whatsappMessage->created_at)?->toIso8601String(),
             ],
         ]);
     }
@@ -361,7 +363,7 @@ class WhatsappWebhookController extends Controller
             ['contact_name' => $contact['profile']['name'] ?? null]
         );
 
-        $body = $message['text']['body'] ?? $message['image']['caption'] ?? null;
+        $body = WhatsappMessage::bodyFrom($message);
         $mediaType = ($message['type'] ?? 'text') !== 'text' ? $message['type'] : null;
         $timestamp = isset($message['timestamp']) ? Carbon::createFromTimestamp((int) $message['timestamp']) : now();
 
@@ -379,7 +381,7 @@ class WhatsappWebhookController extends Controller
         ]);
 
         $conversation->last_message_at = $timestamp;
-        $conversation->last_message_preview = Str::limit((string) ($body ?? ($mediaType ? '[media]' : '')), 200);
+        $conversation->last_message_preview = Str::limit((string) ($body ?? WhatsappMessage::etichettaMedia($mediaType)), 200);
         $conversation->save();
 
         // A differenza della history, gli echo vanno in realtime: un operatore che
@@ -399,9 +401,11 @@ class WhatsappWebhookController extends Controller
                 'source' => 'echo',
                 'body' => $whatsappMessage->body,
                 'mediaType' => $whatsappMessage->media_type,
-                'mediaUrl' => $whatsappMessage->imageUrl(),
+                'mediaUrl' => $whatsappMessage->mediaUrl(),
+                'mediaMime' => $whatsappMessage->media_mime_type,
+                'mediaFilename' => $whatsappMessage->media_filename,
                 'status' => $whatsappMessage->status,
-                'createdAt' => $whatsappMessage->created_at?->toIso8601String(),
+                'createdAt' => ($whatsappMessage->wa_timestamp ?? $whatsappMessage->created_at)?->toIso8601String(),
             ],
         ]);
     }

@@ -9,7 +9,9 @@ use App\Models\EmailMessage;
 use App\Models\EmailThread;
 use App\Models\Tenant;
 use App\Services\TenantMailerResolver;
+use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
@@ -32,6 +34,7 @@ class EmailController extends Controller
 
         return Inertia::render('Email/Index', [
             'emailConfigured' => (bool) ($settings && $settings->is_active && $settings->imap_host),
+            'puoCollegare' => auth()->user()->isTenantAdmin() || auth()->user()->role === 'superadmin',
         ]);
     }
 
@@ -153,6 +156,28 @@ class EmailController extends Controller
         return response()->json(['url' => $url]);
     }
 
+    /**
+     * Anteprima nella pagina (immagini e PDF, anche le immagini dentro il testo delle email):
+     * rimanda a un link S3 temporaneo che il browser mostra invece di scaricare.
+     */
+    public function viewAttachment(EmailAttachment $attachment): RedirectResponse
+    {
+        abort_unless($attachment->tenant_id === TenantContext::id(), 404);
+        $tipo = $attachment->tipoAnteprima();
+        abort_unless($tipo, 404);
+
+        $s3Client = Storage::disk('s3')->getClient();
+        $command = $s3Client->getCommand('GetObject', [
+            'Bucket' => config('filesystems.disks.s3.bucket'),
+            'Key' => $attachment->s3_key,
+            'ResponseContentType' => strtolower($attachment->mime_type),
+            'ResponseContentDisposition' => 'inline; filename="'.Str::ascii(str_replace('"', '', $attachment->filename)).'"',
+            'ResponseCacheControl' => 'private, max-age=300',
+        ]);
+
+        return redirect()->away((string) $s3Client->createPresignedRequest($command, self::PRESIGNED_TTL)->getUri());
+    }
+
     private function replySubject(?string $originalSubject): string
     {
         $originalSubject = $originalSubject ?: '(nessun oggetto)';
@@ -270,15 +295,13 @@ class EmailController extends Controller
             'fromName' => $m->from_name,
             'toAddresses' => $m->to_addresses,
             'subject' => $m->subject,
+            'ccAddresses' => $m->cc_addresses,
             'bodyHtml' => $m->body_html,
+            // Email solo testo: prima non si vedeva nulla.
+            'bodyText' => $m->body_html ? null : $m->body_text,
             'status' => $m->status,
             'createdAt' => $m->email_timestamp?->toIso8601String(),
-            'attachments' => $m->attachments->map(fn (EmailAttachment $a) => [
-                'id' => $a->id,
-                'filename' => $a->filename,
-                'mimeType' => $a->mime_type,
-                'size' => $a->size,
-            ]),
+            'attachments' => $m->attachments->map(fn (EmailAttachment $a) => $a->toPayload()),
         ];
     }
 }

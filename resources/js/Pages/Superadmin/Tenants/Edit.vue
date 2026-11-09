@@ -601,6 +601,22 @@
     <!-- ── Tab: Email ───────────────────────────────────────────────────────── -->
     <form v-show="activeTab === 'email'" @submit.prevent="submitMail" class="p-6 max-w-3xl space-y-8">
 
+      <p v-if="mailSettings?.microsoft" class="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-900">
+        Casella collegata con l'accesso Microsoft (niente password, il token si rinnova da solo). Per ricollegarla: entra nell'agenzia → menu utente → Casella email.
+      </p>
+      <div class="rounded-lg bg-indigo-50 p-4 text-sm text-indigo-900 space-y-2">
+        <p class="font-semibold">Compila dall'indirizzo</p>
+        <p>Scrivi l'email della casella: server e porte si riempiono da soli. L'agenzia può farlo anche da sola dal menu utente → Casella email.</p>
+        <div class="flex gap-2">
+          <input v-model="rilevaEmail" type="email" class="field-input" placeholder="sinistri@agenzia.it" @keydown.enter.prevent="rilevaProvider" />
+          <button type="button" @click="rilevaProvider" :disabled="rilevaStato.loading || !rilevaEmail" class="shrink-0 bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+            {{ rilevaStato.loading ? 'Cerco…' : 'Compila' }}
+          </button>
+        </div>
+        <p v-if="rilevaStato.message" :class="rilevaStato.ok ? 'text-indigo-900' : 'text-red-700'">{{ rilevaStato.message }}</p>
+        <a v-if="rilevaStato.link" :href="rilevaStato.link" target="_blank" rel="noopener" class="underline underline-offset-2 font-semibold">Pagina per creare la password per le app →</a>
+      </div>
+
       <FormSection title="Server SMTP">
         <p class="text-xs text-slate-500 -mt-2 mb-4">
           Se non configurato, l'invio email per questo tenant fallirà con un errore esplicito
@@ -1480,6 +1496,7 @@ interface MailSettings {
   has_password: boolean; encryption: 'tls' | 'ssl' | null
   from_address: string | null; from_name: string | null; is_active: boolean
   imap_host: string | null; imap_port: number | null; imap_encryption: 'tls' | 'ssl' | null
+  microsoft?: boolean
 }
 
 interface WhatsappSessionInfo {
@@ -2214,6 +2231,45 @@ const mailForm = useForm({
 })
 
 const mailHasPassword = ref(props.mailSettings?.has_password ?? false)
+
+const rilevaEmail = ref(props.mailSettings?.from_address ?? '')
+const rilevaStato = reactive({ loading: false, ok: false, message: '', link: null as string | null })
+
+async function rilevaProvider() {
+  rilevaStato.loading = true
+  rilevaStato.message = ''
+  rilevaStato.link = null
+  try {
+    const { data } = await http.post<{ provider: null | {
+      nome: string; supportato: boolean; password_app: boolean; link: string | null; nota: string | null; username: string
+      imap: { host: string; port: number; encryption: 'ssl' | 'tls' }; smtp: { host: string; port: number; encryption: 'ssl' | 'tls' }
+    } }>(route('impostazioni.email.rileva'), { email: rilevaEmail.value })
+    const p = data.provider
+    if (!p) {
+      rilevaStato.ok = false
+      rilevaStato.message = 'Provider non riconosciuto: compila i server a mano.'
+      return
+    }
+    if (!p.supportato) {
+      rilevaStato.ok = false
+      rilevaStato.message = `${p.nome}: ${p.nota}`
+      return
+    }
+    Object.assign(mailForm, {
+      host: p.smtp.host, port: p.smtp.port, encryption: p.smtp.encryption,
+      imap_host: p.imap.host, imap_port: p.imap.port, imap_encryption: p.imap.encryption,
+      username: p.username, from_address: rilevaEmail.value.trim().toLowerCase(),
+    })
+    rilevaStato.ok = true
+    rilevaStato.message = `${p.nome}: server compilati. ${p.password_app ? 'Serve la password per le app, non quella normale.' : 'Inserisci la password della casella.'} Poi salva e prova.`
+    rilevaStato.link = p.link
+  } catch {
+    rilevaStato.ok = false
+    rilevaStato.message = 'Ricerca non riuscita.'
+  } finally {
+    rilevaStato.loading = false
+  }
+}
 
 const testImap = reactive({ loading: false, message: '' as string, success: false })
 

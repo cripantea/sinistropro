@@ -201,6 +201,7 @@ class TenantController extends Controller
                 'imap_host'       => $mailSettings->imap_host,
                 'imap_port'       => $mailSettings->imap_port,
                 'imap_encryption' => $mailSettings->imap_encryption,
+                'microsoft'       => $mailSettings->isMicrosoft(),
             ] : null,
             'whatsappSession' => $whatsappSession ? [
                 'status'              => $whatsappSession->status,

@@ -13,6 +13,7 @@ use App\Http\Controllers\ListaValoriController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmailController;
 use App\Http\Controllers\ImpersonateController;
+use App\Http\Controllers\ImpostazioniEmailController;
 use App\Http\Controllers\TenantContextController;
 use App\Http\Controllers\IspezioneController;
 use App\Http\Controllers\PdfExportController;
@@ -149,6 +150,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/email/threads/{thread}/reply', [EmailController::class, 'reply'])->name('email.threads.reply');
     Route::post('/email/compose', [EmailController::class, 'compose'])->name('email.compose');
     Route::get('/email/attachments/{attachment}/download', [EmailController::class, 'downloadAttachment'])->name('email.attachments.download');
+    Route::get('/email/attachments/{attachment}/view', [EmailController::class, 'viewAttachment'])->middleware('throttle:300,1')->name('email.attachments.view');
+
+    // Collegamento della casella fatto dall'agenzia (tenant-admin o superadmin nel tenant)
+    Route::get('/impostazioni/email',          [ImpostazioniEmailController::class, 'show'])->name('impostazioni.email');
+    Route::post('/impostazioni/email/rileva',  [ImpostazioniEmailController::class, 'rileva'])->middleware('throttle:30,1')->name('impostazioni.email.rileva');
+    Route::post('/impostazioni/email',         [ImpostazioniEmailController::class, 'store'])->middleware('throttle:10,1')->name('impostazioni.email.store');
+    Route::delete('/impostazioni/email',       [ImpostazioniEmailController::class, 'destroy'])->name('impostazioni.email.destroy');
+    Route::get('/impostazioni/email/microsoft',          [ImpostazioniEmailController::class, 'microsoft'])->middleware('throttle:10,1')->name('impostazioni.email.microsoft');
+    Route::get('/impostazioni/email/microsoft/callback', [ImpostazioniEmailController::class, 'microsoftCallback'])->middleware('throttle:10,1')->name('impostazioni.email.microsoft.callback');
 });
 
 // --- Abbonamento (la pagina la vedono tutti, pagare e gestire solo il tenant-admin) ---

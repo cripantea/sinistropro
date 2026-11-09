@@ -57,7 +57,8 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
     private const SENT_FOLDER_CANDIDATES = [
         'Sent', 'INBOX.Sent', 'Sent Items', 'Sent Mail',
         'Posta inviata', 'Inviata', 'INBOX.Inviata',
-        '[Gmail]/Sent Mail',
+        '[Gmail]/Sent Mail', '[Gmail]/Posta inviata', '[Google Mail]/Posta inviata',
+        'Elementi inviati', 'INBOX.Posta inviata', 'Sent Messages',
     ];
 
     public function __construct(public readonly int $tenantId)
@@ -73,16 +74,9 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
             return;
         }
 
-        $client = (new ClientManager())->make([
-            'host' => $settings->imap_host,
-            'port' => $settings->imap_port ?: 993,
-            'encryption' => $settings->imap_encryption ?: 'ssl',
-            'validate_cert' => true,
-            'username' => $settings->username,
-            'password' => $settings->password,
-        ]);
-
         try {
+            // Per le caselle Microsoft qui si rinnova anche il token di accesso.
+            $client = (new ClientManager())->make($settings->imapClientConfig());
             $client->connect();
         } catch (\Throwable $e) {
             Log::error('SyncTenantMailboxJob: connessione IMAP fallita', [
@@ -227,8 +221,7 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
             $timestamp = now();
         }
 
-        $bodyHtmlRaw = $message->getHTMLBody();
-        $bodyHtml = $bodyHtmlRaw ? Purifier::clean($bodyHtmlRaw) : null;
+        $bodyHtmlRaw = $message->getHTMLBody() ?: null;
         $bodyText = $message->getTextBody() ?: null;
 
         $thread = EmailThread::firstOrCreate(
@@ -248,7 +241,7 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
             'to_addresses' => $toAddresses,
             'cc_addresses' => $ccAddresses ?: null,
             'subject' => $subject,
-            'body_html' => $bodyHtml,
+            'body_html' => null,
             'body_text' => $bodyText,
             'message_id' => $messageId,
             'in_reply_to' => is_string($inReplyTo) && $inReplyTo !== '' ? $inReplyTo : null,
@@ -256,7 +249,12 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
             'email_timestamp' => $timestamp,
         ]);
 
+        // Prima gli allegati: le immagini dentro il testo (src="cid:...") puntano a loro.
         $this->importAttachments($message, $emailMessage);
+        $bodyHtml = $bodyHtmlRaw ? self::pulisciHtml($bodyHtmlRaw, $emailMessage) : null;
+        if ($bodyHtml) {
+            $emailMessage->update(['body_html' => $bodyHtml]);
+        }
 
         $threadUpdates = [];
         if (! $thread->last_message_at || $timestamp->gt($thread->last_message_at)) {
@@ -288,14 +286,10 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
                 'fromName' => $fromName,
                 'subject' => $subject,
                 'bodyHtml' => $bodyHtml,
+                'bodyText' => $bodyHtml ? null : $bodyText,
                 'status' => $emailMessage->status,
                 'createdAt' => $emailMessage->email_timestamp?->toIso8601String(),
-                'attachments' => $emailMessage->attachments()->get()->map(fn ($a) => [
-                    'id' => $a->id,
-                    'filename' => $a->filename,
-                    'mimeType' => $a->mime_type,
-                    'size' => $a->size,
-                ])->all(),
+                'attachments' => $emailMessage->attachments()->get()->map->toPayload()->all(),
             ],
         ];
 
@@ -303,6 +297,7 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
         // inviamo il corpo, il client lo ricarica dal server (flag `truncated`).
         if (strlen((string) json_encode($payload)) > 8000) {
             $payload['message']['bodyHtml'] = null;
+            $payload['message']['bodyText'] = null;
             $payload['message']['truncated'] = true;
         }
 
@@ -334,7 +329,29 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
                 'mime_type' => $attachment->getMimeType(),
                 'size' => is_string($content) ? strlen($content) : null,
                 's3_key' => $s3Key,
+                'content_id' => is_string($attachment->id) && $attachment->id !== '' ? mb_substr($attachment->id, 0, 255) : null,
             ]);
         }
+    }
+
+    /**
+     * HTML dell'email ripulito: le immagini interne (cid:) diventano link ai nostri allegati
+     * (che restano fuori dalla lista allegati), poi passa il profilo "email" di Purifier.
+     */
+    public static function pulisciHtml(string $html, EmailMessage $emailMessage): string
+    {
+        $perCid = $emailMessage->attachments()->whereNotNull('content_id')->get()->keyBy(fn ($a) => Str::lower($a->content_id));
+
+        $html = preg_replace_callback('/(["\'])cid:([^"\']+)\1/i', function ($m) use ($perCid) {
+            $allegato = $perCid->get(Str::lower(rawurldecode(trim($m[2], '<> '))));
+            if (! $allegato) {
+                return $m[0];
+            }
+            $allegato->is_inline || $allegato->update(['is_inline' => true]);
+
+            return $m[1].route('email.attachments.view', $allegato).$m[1];
+        }, $html) ?? $html;
+
+        return Purifier::clean($html, 'email');
     }
 }

@@ -9,6 +9,7 @@ use App\Models\TenantMailSettings;
 use Illuminate\Contracts\Mail\Mailer;
 use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Mail;
+use Symfony\Component\Mailer\Transport\Smtp\Auth\XOAuth2Authenticator;
 
 /**
  * Risolve quale mailer/mittente usare per un tenant, in base alla sua
@@ -123,13 +124,7 @@ class TenantMailerResolver
     {
         $settings = $this->activeSettingsOrFail($tenant);
 
-        return $this->buildMailer("tenant_{$tenant->id}", [
-            'host' => $settings->host,
-            'port' => $settings->port,
-            'encryption' => $settings->encryption,
-            'username' => $settings->username,
-            'password' => $settings->password,
-        ]);
+        return $this->buildMailer("tenant_{$tenant->id}", $settings->smtpConfig());
     }
 
     /**
@@ -141,7 +136,7 @@ class TenantMailerResolver
 
         if (! $settings || ! $settings->is_active || ! $settings->host || ! $settings->from_address) {
             throw new MailNotConfiguredException(
-                "Il tenant \"{$tenant->name}\" non ha una configurazione email attiva. Configurala in Superadmin > Tenant > Email."
+                "Il tenant \"{$tenant->name}\" non ha una configurazione email attiva. Collegala dal menu utente > Casella email."
             );
         }
 
@@ -153,7 +148,7 @@ class TenantMailerResolver
      * necessariamente salvata) — usata dal pulsante "Invia email di prova"
      * prima di affidarsi alla configurazione in produzione.
      *
-     * @param  array{host: ?string, port: ?int, encryption: ?string, username: ?string, password: ?string, from_address: ?string, from_name: ?string}  $settings
+     * @param  array{host: ?string, port: ?int, encryption: ?string, username: ?string, password: ?string, oauth?: bool, from_address: ?string, from_name: ?string}  $settings
      */
     public function sendTestWith(array $settings, string $to, Mailable $mailable): void
     {
@@ -165,7 +160,7 @@ class TenantMailerResolver
     }
 
     /**
-     * @param  array{host: ?string, port: ?int, encryption: ?string, username: ?string, password: ?string}  $settings
+     * @param  array{host: ?string, port: ?int, encryption: ?string, username: ?string, password: ?string, oauth?: bool}  $settings
      */
     private function buildMailer(string $name, array $settings): Mailer
     {
@@ -178,6 +173,15 @@ class TenantMailerResolver
             'password' => $settings['password'],
         ]]);
 
-        return Mail::mailer($name);
+        // Il mailer resta in memoria nel worker: senza purge userebbe credenziali (o token) vecchi.
+        Mail::purge($name);
+        $mailer = Mail::mailer($name);
+
+        // Microsoft: il "password" è un token OAuth, si prova solo XOAUTH2 (niente tentativi LOGIN falliti).
+        if (! empty($settings['oauth'])) {
+            $mailer->getSymfonyTransport()->setAuthenticators([new XOAuth2Authenticator()]);
+        }
+
+        return $mailer;
     }
 }

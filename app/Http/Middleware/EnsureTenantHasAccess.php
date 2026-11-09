@@ -21,6 +21,7 @@ class EnsureTenantHasAccess
         'password.*',
         'verification.*',
         'impersonate.leave',
+        'impostazioni.email.rileva',
     ];
 
     public function handle(Request $request, Closure $next): Response
