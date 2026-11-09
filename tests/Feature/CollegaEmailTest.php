@@ -249,3 +249,30 @@ test('il superadmin in assistenza "come" un collaboratore può collegare la case
     $this->actingAs($this->utente)->withSession(['impersonator_id' => $this->admin->id])
         ->get('/impostazioni/email')->assertForbidden();
 });
+
+test('Microsoft: l\'amministratore approva per l\'azienda senza collegare la sua casella', function () {
+    config(['services.microsoft_mail.client_id' => 'cid', 'services.microsoft_mail.client_secret' => 'sec']);
+
+    $url = $this->actingAs($this->admin)->get('/impostazioni/email/microsoft?admin=1')->headers->get('Location');
+    expect($url)->toStartWith('https://login.microsoftonline.com/organizations/v2.0/adminconsent');
+
+    $this->get('/impostazioni/email/microsoft/callback?admin_consent=True&tenant=x&state='.session('microsoft_mail.state'))
+        ->assertSessionHas('success', fn ($m) => str_contains($m, 'approvato per tutta'));
+    expect(TenantMailSettings::count())->toBe(0);
+});
+
+test('Microsoft: casella condivisa letta con l\'account di chi entra', function () {
+    config(['services.microsoft_mail.client_id' => 'cid', 'services.microsoft_mail.client_secret' => 'sec']);
+    Http::fake(['login.microsoftonline.com/*' => Http::response([
+        'access_token' => 'at', 'refresh_token' => 'rt', 'expires_in' => 3600, 'id_token' => idToken(['preferred_username' => 'roberto@assiponte.it']),
+    ])]);
+    $this->tester->shouldReceive('imap')->once()->withArgs(fn ($c) => $c['username'] === 'sinistri@assiponte.it');
+    $this->tester->shouldReceive('smtp')->once();
+
+    $this->actingAs($this->admin)->get('/impostazioni/email/microsoft?email=Sinistri@Assiponte.it');
+    $this->get('/impostazioni/email/microsoft/callback?code=x&state='.session('microsoft_mail.state'))
+        ->assertSessionHas('success', fn ($m) => str_contains($m, 'condivisa'));
+
+    $s = TenantMailSettings::first();
+    expect($s->from_address)->toBe('sinistri@assiponte.it')->and($s->username)->toBe('sinistri@assiponte.it');
+});

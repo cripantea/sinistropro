@@ -46,6 +46,19 @@
           <span class="text-xs text-gray-500">Per caselle Outlook, Hotmail o Microsoft 365. Per le altre scrivi l'indirizzo qui sotto.</span>
         </div>
 
+
+        <details v-if="microsoftDisponibile" class="text-xs text-gray-600 -mt-2">
+          <summary class="cursor-pointer text-gray-500 hover:text-gray-700">Microsoft 365: chiede l'amministratore o la casella è condivisa?</summary>
+          <ol class="mt-2 space-y-1.5 list-decimal list-inside">
+            <li>
+              L'amministratore di Microsoft 365 approva SinistroPro per tutta l'azienda (una volta sola, non collega la sua casella):
+              <a :href="adminUrl" class="font-semibold text-indigo-600 hover:underline">Approva per l'azienda</a>
+            </li>
+            <li>Scrivi qui sotto l'indirizzo della casella da collegare, poi premi "Accedi con Microsoft".</li>
+            <li>Se la casella ha una sua password entra con quella; se è condivisa entra con un account che ha "Accesso completo" e "Invia come" su quella casella.</li>
+          </ol>
+        </details>
+
         <div>
           <label class="field-label">Indirizzo email</label>
           <input v-model="form.email" @blur="rileva" @keydown.enter.prevent="rileva" type="email" class="field-input" placeholder="sinistri@tuaagenzia.it" autocomplete="off" />
@@ -192,6 +205,7 @@ const form = useForm({
 const microsoftUrl = computed(() =>
   route('impostazioni.email.microsoft', { email: form.email.trim(), nome: form.nome || undefined })
 )
+const adminUrl = route('impostazioni.email.microsoft', { admin: 1 })
 
 async function rileva() {
   const email = form.email.trim()

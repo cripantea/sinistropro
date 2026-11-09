@@ -165,11 +165,22 @@ class ImpostazioniEmailController extends Controller
         abort_unless(MicrosoftMail::configured(), 404);
 
         $state = Str::random(40);
-        $request->session()->put('microsoft_mail', ['state' => $state, 'tenant_id' => $tenant->id, 'nome' => $request->string('nome')->limit(255)->toString()]);
+        $email = Str::lower(trim($request->string('email')->toString()));
+        $casella = filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null;
+        $admin = $request->boolean('admin');
 
-        $email = $request->string('email')->toString();
+        $request->session()->put('microsoft_mail', [
+            'state' => $state,
+            'tenant_id' => $tenant->id,
+            'nome' => $request->string('nome')->limit(255)->toString(),
+            // Casella da collegare: può essere diversa dall'account con cui si entra (casella condivisa).
+            'casella' => $casella,
+            'admin' => $admin,
+        ]);
 
-        return redirect()->away($microsoft->authorizeUrl($state, filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null));
+        return redirect()->away($admin
+            ? $microsoft->adminConsentUrl($state)
+            : $microsoft->authorizeUrl($state, $casella));
     }
 
     public function microsoftCallback(Request $request, MicrosoftMail $microsoft, EmailConnectionTester $tester): RedirectResponse
@@ -190,14 +201,26 @@ class ImpostazioniEmailController extends Controller
                 : ($request->query('error') === 'access_denied' ? 'Accesso Microsoft annullato.' : 'Microsoft ha rifiutato: '.Str::limit($motivo, 250)));
         }
 
+        // Solo approvazione dell'amministratore: nessuna casella collegata, si passa al login vero.
+        if (! empty($attesa['admin'])) {
+            return $request->query('admin_consent') === 'True'
+                ? $indietro->with('success', 'SinistroPro è approvato per tutta l\'azienda. Ora premi "Accedi con Microsoft" ed entra con la casella da collegare (o con un account che ha accesso alla casella condivisa).')
+                : $indietro->with('error', 'Approvazione non completata: deve farla un amministratore di Microsoft 365.');
+        }
+
         try {
             $token = $microsoft->exchangeCode((string) $request->query('code'));
         } catch (\Throwable $e) {
             return $indietro->with('error', $e->getMessage());
         }
 
+        // Casella condivisa: si entra con il proprio account e si legge/invia per la casella indicata.
+        $casella = $attesa['casella'] ?? null;
+        $condivisa = $casella && $casella !== $token['email'];
+        $indirizzo = $condivisa ? $casella : $token['email'];
+
         $config = [
-            'username' => $token['email'],
+            'username' => $indirizzo,
             'password' => $token['access_token'],
             'oauth' => true,
             'host' => MicrosoftMail::SMTP['host'], 'port' => MicrosoftMail::SMTP['port'], 'encryption' => MicrosoftMail::SMTP['encryption'],
@@ -208,7 +231,9 @@ class ImpostazioniEmailController extends Controller
         try {
             $tester->imap($config);
         } catch (\Throwable $e) {
-            return $indietro->with('error', $tester->spiega('lettura (IMAP)', $e, 'microsoft'));
+            return $indietro->with('error', $condivisa
+                ? "L'account {$token['email']} non riesce ad aprire la casella {$casella}. Se è una casella condivisa, in Microsoft 365 dai a {$token['email']} i permessi \"Accesso completo\" e \"Invia come\" su {$casella} (si attivano in qualche minuto). Se invece {$casella} ha una sua password, entra direttamente con quella."
+                : $tester->spiega('lettura (IMAP)', $e, 'microsoft'));
         }
         $avvisoInvio = null;
         try {
@@ -218,7 +243,7 @@ class ImpostazioniEmailController extends Controller
         }
 
         $settings = $tenant->mailSettings ?? new TenantMailSettings(['tenant_id' => $tenant->id]);
-        if (Str::lower((string) $settings->from_address) !== $token['email'] || $settings->imap_host !== $config['imap_host']) {
+        if (Str::lower((string) $settings->from_address) !== $indirizzo || $settings->imap_host !== $config['imap_host']) {
             $settings->imap_last_uid_inbox = null;
             $settings->imap_last_uid_sent = null;
         }
@@ -226,8 +251,8 @@ class ImpostazioniEmailController extends Controller
         $settings->fill([
             'host' => $config['host'], 'port' => $config['port'], 'encryption' => $config['encryption'],
             'imap_host' => $config['imap_host'], 'imap_port' => $config['imap_port'], 'imap_encryption' => $config['imap_encryption'],
-            'username' => $token['email'],
-            'from_address' => $token['email'],
+            'username' => $indirizzo,
+            'from_address' => $indirizzo,
             'from_name' => ($attesa['nome'] ?? '') ?: ($settings->from_name ?: $tenant->name),
             'is_active' => true,
         ]);
@@ -243,7 +268,9 @@ class ImpostazioniEmailController extends Controller
 
         SyncTenantMailboxJob::dispatch($tenant->id);
 
-        $indietro->with('success', "Casella {$token['email']} collegata con Microsoft: le email arrivano in SinistroPro entro un paio di minuti.");
+        $indietro->with('success', $condivisa
+            ? "Casella condivisa {$indirizzo} collegata tramite l'account {$token['email']}: le email arrivano in SinistroPro entro un paio di minuti."
+            : "Casella {$indirizzo} collegata con Microsoft: le email arrivano in SinistroPro entro un paio di minuti.");
 
         return $avvisoInvio ? $indietro->with('error', 'Attenzione, l\'invio non funziona ancora. '.$avvisoInvio) : $indietro;
     }

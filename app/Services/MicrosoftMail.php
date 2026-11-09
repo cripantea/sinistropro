@@ -40,6 +40,20 @@ class MicrosoftMail
     }
 
     /**
+     * Approvazione per tutta l'azienda fatta dall'amministratore di Microsoft 365, senza collegare
+     * la sua casella: dopo, chiunque dell'azienda può collegare la propria (o una condivisa).
+     */
+    public function adminConsentUrl(string $state): string
+    {
+        return 'https://login.microsoftonline.com/organizations/v2.0/adminconsent?'.http_build_query([
+            'client_id' => config('services.microsoft_mail.client_id'),
+            'scope' => 'https://outlook.office.com/IMAP.AccessAsUser.All https://outlook.office.com/SMTP.Send',
+            'redirect_uri' => $this->redirectUri(),
+            'state' => $state,
+        ]);
+    }
+
+    /**
      * @return array{email: string, nome: ?string, refresh_token: string, access_token: string, expires_at: \Illuminate\Support\Carbon}
      */
     public function exchangeCode(string $code): array
