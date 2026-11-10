@@ -90,10 +90,18 @@ class MicrosoftMail
             throw new RuntimeException('Accesso Microsoft mancante: ricollega la casella da Casella email.');
         }
 
-        $data = $this->token([
-            'grant_type' => 'refresh_token',
-            'refresh_token' => $settings->oauth_refresh_token,
-        ]);
+        try {
+            $data = $this->token([
+                'grant_type' => 'refresh_token',
+                'refresh_token' => $settings->oauth_refresh_token,
+            ]);
+        } catch (RuntimeException $e) {
+            // Permesso revocato (password cambiata, accesso tolto): SinistroPro mostra "Ricollega la casella".
+            if ($e->getCode() === 401 && ! $settings->oauth_revocato_at) {
+                $settings->forceFill(['oauth_revocato_at' => now()])->save();
+            }
+            throw $e;
+        }
 
         $settings->forceFill([
             'oauth_access_token' => $data['access_token'],
@@ -122,7 +130,8 @@ class MicrosoftMail
             throw new RuntimeException(
                 $response->json('error') === 'invalid_grant'
                     ? 'Accesso Microsoft scaduto o revocato: ricollega la casella da Casella email.'
-                    : 'Microsoft ha rifiutato l\'accesso: '.Str::limit(Str::before($errore, "\r"), 300)
+                    : 'Microsoft ha rifiutato l\'accesso: '.Str::limit(Str::before($errore, "\r"), 300),
+                $response->json('error') === 'invalid_grant' ? 401 : 0
             );
         }
 

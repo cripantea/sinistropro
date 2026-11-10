@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\GoogleMail;
 use App\Services\MicrosoftMail;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,6 +30,7 @@ class TenantMailSettings extends Model
         'oauth_refresh_token',
         'oauth_access_token',
         'oauth_expires_at',
+        'oauth_revocato_at',
     ];
 
     protected $casts = [
@@ -36,6 +38,7 @@ class TenantMailSettings extends Model
         'oauth_refresh_token' => 'encrypted',
         'oauth_access_token' => 'encrypted',
         'oauth_expires_at' => 'datetime',
+        'oauth_revocato_at' => 'datetime',
         'is_active' => 'boolean',
         'port' => 'integer',
     ];
@@ -51,10 +54,20 @@ class TenantMailSettings extends Model
         return $this->auth_type === 'microsoft';
     }
 
-    /** Password o, per Microsoft, token di accesso valido (rinnovato se serve). */
+    /** Collegata con "Accedi con Microsoft/Google": token OAuth al posto della password. */
+    public function isOAuth(): bool
+    {
+        return in_array($this->auth_type, ['microsoft', 'google'], true);
+    }
+
+    /** Password o, per Microsoft/Google, token di accesso valido (rinnovato se serve). */
     public function secret(): ?string
     {
-        return $this->isMicrosoft() ? app(MicrosoftMail::class)->accessToken($this) : $this->password;
+        return match ($this->auth_type) {
+            'microsoft' => app(MicrosoftMail::class)->accessToken($this),
+            'google' => app(GoogleMail::class)->accessToken($this),
+            default => $this->password,
+        };
     }
 
     /** Configurazione per Webklex\PHPIMAP\ClientManager::make(). */
@@ -67,7 +80,7 @@ class TenantMailSettings extends Model
             'validate_cert' => true,
             'username' => $this->username,
             'password' => $this->secret(),
-            'authentication' => $this->isMicrosoft() ? 'oauth' : null,
+            'authentication' => $this->isOAuth() ? 'oauth' : null,
         ];
     }
 
@@ -80,7 +93,7 @@ class TenantMailSettings extends Model
             'encryption' => $this->encryption,
             'username' => $this->username,
             'password' => $this->secret(),
-            'oauth' => $this->isMicrosoft(),
+            'oauth' => $this->isOAuth(),
         ];
     }
 

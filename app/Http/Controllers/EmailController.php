@@ -35,6 +35,7 @@ class EmailController extends Controller
         return Inertia::render('Email/Index', [
             'emailConfigured' => (bool) ($settings && $settings->is_active && $settings->imap_host),
             'puoCollegare' => ImpostazioniEmailController::puoCollegare(),
+            'daRicollegare' => (bool) $settings?->oauth_revocato_at,
         ]);
     }
 

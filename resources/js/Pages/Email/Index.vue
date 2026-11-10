@@ -20,6 +20,10 @@
       </div>
     </div>
 
+    <div v-if="emailConfigured && daRicollegare" class="bg-red-50 border-b border-red-200 px-4 py-2 text-sm text-red-800 flex flex-wrap items-center gap-2">
+      La casella non è più collegata: il permesso è stato tolto (es. password cambiata). Le email nuove non arrivano finché non la ricolleghi.
+      <Link v-if="puoCollegare" :href="route('impostazioni.email')" class="font-semibold underline">Ricollega la casella</Link>
+    </div>
     <div v-else class="h-[calc(100vh-3.5rem)] flex">
       <div class="w-80 border-r border-gray-200 bg-white shrink-0 min-h-0">
         <ThreadList
@@ -87,7 +91,7 @@ import EmailThread from '@/Components/Email/EmailThread.vue'
 import type { EmailMessageItem } from '@/Components/Email/EmailThread.vue'
 import type { PageProps } from '@/types'
 
-const props = defineProps<{ emailConfigured: boolean; puoCollegare?: boolean }>()
+const props = defineProps<{ emailConfigured: boolean; puoCollegare?: boolean; daRicollegare?: boolean }>()
 
 const page = usePage<PageProps>()
 const tenantId = computed(() => page.props.auth.user.tenant_id)

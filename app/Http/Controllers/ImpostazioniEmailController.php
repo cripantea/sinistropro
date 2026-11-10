@@ -8,6 +8,7 @@ use App\Models\TenantMailSettings;
 use App\Models\User;
 use App\Services\EmailConnectionTester;
 use App\Services\EmailProviders;
+use App\Services\GoogleMail;
 use App\Services\MicrosoftMail;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -40,9 +41,12 @@ class ImpostazioniEmailController extends Controller
                 'host' => $s->host, 'port' => $s->port, 'encryption' => $s->encryption,
                 'imap_host' => $s->imap_host, 'imap_port' => $s->imap_port, 'imap_encryption' => $s->imap_encryption,
                 'microsoft' => $s->isMicrosoft(),
+                'oauth' => $s->isOAuth() ? $s->auth_type : null,
+                'revocata' => $s->oauth_revocato_at !== null,
             ] : null,
             'nomeAgenzia' => $tenant->name,
             'microsoftDisponibile' => MicrosoftMail::configured(),
+            'googleDisponibile' => GoogleMail::configured(),
         ]);
     }
 
@@ -242,6 +246,74 @@ class ImpostazioniEmailController extends Controller
             $avvisoInvio = $tester->spiega('invio (SMTP)', $e, 'microsoft');
         }
 
+        $this->salvaOAuth($tenant, 'microsoft', $config, $indirizzo, $token, $attesa['nome'] ?? '');
+
+        $indietro->with('success', $condivisa
+            ? "Casella condivisa {$indirizzo} collegata tramite l'account {$token['email']}: le email arrivano in SinistroPro entro un paio di minuti."
+            : "Casella {$indirizzo} collegata con Microsoft: le email arrivano in SinistroPro entro un paio di minuti.");
+
+        return $avvisoInvio ? $indietro->with('error', 'Attenzione, l\'invio non funziona ancora. '.$avvisoInvio) : $indietro;
+    }
+
+    /** Va su Google per il permesso; torna su googleCallback. */
+    public function google(Request $request, GoogleMail $google): RedirectResponse
+    {
+        $tenant = $this->tenant();
+        abort_unless(GoogleMail::configured(), 404);
+
+        $state = Str::random(40);
+        $email = Str::lower(trim($request->string('email')->toString()));
+        $request->session()->put('google_mail', [
+            'state' => $state,
+            'tenant_id' => $tenant->id,
+            'nome' => $request->string('nome')->limit(255)->toString(),
+        ]);
+
+        return redirect()->away($google->authorizeUrl($state, filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null));
+    }
+
+    public function googleCallback(Request $request, GoogleMail $google, EmailConnectionTester $tester): RedirectResponse
+    {
+        $tenant = $this->tenant();
+        $attesa = $request->session()->pull('google_mail');
+        $indietro = redirect()->route('impostazioni.email');
+
+        if (! $attesa || ! hash_equals($attesa['state'], (string) $request->query('state')) || $attesa['tenant_id'] !== $tenant->id) {
+            return $indietro->with('error', 'Collegamento Google scaduto: riprova dal pulsante.');
+        }
+
+        if ($request->filled('error')) {
+            return $indietro->with('error', $request->query('error') === 'access_denied'
+                ? 'Accesso Google annullato. Se compare "app non verificata", premi Avanzate → Vai a SinistroPro.'
+                : 'Google ha rifiutato: '.Str::limit((string) $request->query('error'), 200));
+        }
+
+        try {
+            $token = $google->exchangeCode((string) $request->query('code'));
+        } catch (\Throwable $e) {
+            return $indietro->with('error', $e->getMessage());
+        }
+
+        $config = [
+            'username' => $token['email'],
+            'password' => $token['access_token'],
+            'oauth' => true,
+            'host' => GoogleMail::SMTP['host'], 'port' => GoogleMail::SMTP['port'], 'encryption' => GoogleMail::SMTP['encryption'],
+            'imap_host' => GoogleMail::IMAP['host'], 'imap_port' => GoogleMail::IMAP['port'], 'imap_encryption' => GoogleMail::IMAP['encryption'],
+        ];
+
+        if ($errore = $tester->test($config, 'google')) {
+            return $indietro->with('error', $errore);
+        }
+
+        $this->salvaOAuth($tenant, 'google', $config, $token['email'], $token, $attesa['nome'] ?? '');
+
+        return $indietro->with('success', "Casella {$token['email']} collegata con Google: le email arrivano in SinistroPro entro un paio di minuti.");
+    }
+
+    /** Salva la casella collegata con OAuth (Microsoft o Google) e avvia la prima sincronizzazione. */
+    private function salvaOAuth(Tenant $tenant, string $tipo, array $config, string $indirizzo, array $token, string $nome): void
+    {
         $settings = $tenant->mailSettings ?? new TenantMailSettings(['tenant_id' => $tenant->id]);
         if (Str::lower((string) $settings->from_address) !== $indirizzo || $settings->imap_host !== $config['imap_host']) {
             $settings->imap_last_uid_inbox = null;
@@ -253,26 +325,21 @@ class ImpostazioniEmailController extends Controller
             'imap_host' => $config['imap_host'], 'imap_port' => $config['imap_port'], 'imap_encryption' => $config['imap_encryption'],
             'username' => $indirizzo,
             'from_address' => $indirizzo,
-            'from_name' => ($attesa['nome'] ?? '') ?: ($settings->from_name ?: $tenant->name),
+            'from_name' => $nome ?: ($settings->from_name ?: $tenant->name),
             'is_active' => true,
         ]);
         $settings->forceFill([
             'password' => null,
-            'auth_type' => 'microsoft',
+            'auth_type' => $tipo,
             'oauth_refresh_token' => $token['refresh_token'],
             'oauth_access_token' => $token['access_token'],
             'oauth_expires_at' => $token['expires_at'],
+            'oauth_revocato_at' => null,
         ]);
         $settings->tenant_id = $tenant->id;
         $settings->save();
 
         SyncTenantMailboxJob::dispatch($tenant->id);
-
-        $indietro->with('success', $condivisa
-            ? "Casella condivisa {$indirizzo} collegata tramite l'account {$token['email']}: le email arrivano in SinistroPro entro un paio di minuti."
-            : "Casella {$indirizzo} collegata con Microsoft: le email arrivano in SinistroPro entro un paio di minuti.");
-
-        return $avvisoInvio ? $indietro->with('error', 'Attenzione, l\'invio non funziona ancora. '.$avvisoInvio) : $indietro;
     }
 
     /** La password per le app di Google si copia come "abcd efgh ijkl mnop": gli spazi vanno tolti. */

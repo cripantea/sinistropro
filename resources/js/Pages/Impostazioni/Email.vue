@@ -19,7 +19,8 @@
           <div class="flex-1 min-w-0">
             <p class="text-sm text-gray-500">Casella collegata</p>
             <p class="text-lg font-semibold text-gray-800 truncate">{{ collegata.email }}</p>
-            <p v-if="collegata.microsoft" class="text-xs text-gray-500">Collegata con l'accesso Microsoft</p>
+            <p v-if="collegata.oauth" class="text-xs text-gray-500">Collegata con l'accesso {{ collegata.oauth === 'google' ? 'Google' : 'Microsoft' }}</p>
+            <p v-if="collegata.revocata" class="mt-2 text-sm font-semibold text-red-700">Il permesso è stato tolto (es. password cambiata): ricollega la casella con il pulsante qui sotto.</p>
             <p class="text-sm text-gray-500 mt-1">Le email inviate e ricevute compaiono nella sezione Email. Gli avvisi e le automazioni partono da questo indirizzo, con il nome "{{ collegata.nome }}".</p>
           </div>
         </div>
@@ -35,6 +36,15 @@
         <div>
           <h3 class="text-lg font-semibold text-gray-800">Collega la casella dei sinistri</h3>
           <p class="text-sm text-gray-500 mt-1">Scrivi l'indirizzo: i server li troviamo noi. Le email arriveranno in SinistroPro e gli avvisi partiranno da qui.</p>
+        </div>
+
+        <!-- Gmail: accesso con Google, senza password per le app -->
+        <div v-if="googleDisponibile" class="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 p-3">
+          <a :href="googleUrl" class="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-800 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-50">
+            <svg class="w-4 h-4" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+            Accedi con Google
+          </a>
+          <span class="text-xs text-gray-500">Per Gmail e Google Workspace. Se Google dice "app non verificata": Avanzate → Vai a SinistroPro.</span>
         </div>
 
         <!-- Outlook / Microsoft 365: sempre in vista, senza password -->
@@ -90,6 +100,9 @@
             <a v-if="provider.link" :href="provider.link" target="_blank" rel="noopener" class="inline-block mt-3 font-semibold underline underline-offset-2">
               Apri la pagina per creare la password →
             </a>
+            <p v-if="provider.chiave === 'gmail' && googleDisponibile" class="mt-3">
+              Più semplice: <a :href="googleUrl" class="font-semibold underline underline-offset-2">Accedi con Google</a>, senza password per le app.
+            </p>
           </template>
         </div>
 
@@ -172,6 +185,8 @@ interface Collegata {
   host: string; port: number; encryption: 'ssl' | 'tls' | null
   imap_host: string; imap_port: number; imap_encryption: 'ssl' | 'tls' | null
   microsoft: boolean
+  oauth: 'microsoft' | 'google' | null
+  revocata: boolean
 }
 interface Provider {
   chiave: string; nome: string; supportato: boolean; password_app: boolean
@@ -180,7 +195,7 @@ interface Provider {
   smtp: { host: string; port: number; encryption: 'ssl' | 'tls' }
 }
 
-const props = defineProps<{ collegata: Collegata | null; nomeAgenzia: string; microsoftDisponibile: boolean }>()
+const props = defineProps<{ collegata: Collegata | null; nomeAgenzia: string; microsoftDisponibile: boolean; googleDisponibile: boolean }>()
 
 const page = usePage<PageProps>()
 const flash = computed(() => page.props.flash)
@@ -206,6 +221,9 @@ const microsoftUrl = computed(() =>
   route('impostazioni.email.microsoft', { email: form.email.trim(), nome: form.nome || undefined })
 )
 const adminUrl = route('impostazioni.email.microsoft', { admin: 1 })
+const googleUrl = computed(() =>
+  route('impostazioni.email.google', { email: form.email.trim() || undefined, nome: form.nome || undefined })
+)
 
 async function rileva() {
   const email = form.email.trim()

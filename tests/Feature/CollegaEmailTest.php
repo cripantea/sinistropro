@@ -276,3 +276,56 @@ test('Microsoft: casella condivisa letta con l\'account di chi entra', function 
     $s = TenantMailSettings::first();
     expect($s->from_address)->toBe('sinistri@assiponte.it')->and($s->username)->toBe('sinistri@assiponte.it');
 });
+
+// ── Google (Gmail) con OAuth ─────────────────────────────────────────────────
+
+test('Google: login, token con permesso posta, prova IMAP+SMTP e salvataggio', function () {
+    config(['services.google_mail.client_id' => 'gid', 'services.google_mail.client_secret' => 'gsec']);
+    Http::fake(['oauth2.googleapis.com/*' => Http::response([
+        'access_token' => 'g-at', 'refresh_token' => 'g-rt', 'expires_in' => 3599,
+        'scope' => 'openid https://mail.google.com/ email', 'id_token' => idToken(['email' => 'Sinistri.Ponte@gmail.com']),
+    ])]);
+    $this->tester->shouldReceive('test')->once()
+        ->withArgs(fn ($c, $p) => $c['oauth'] === true && $c['imap_host'] === 'imap.gmail.com' && $c['username'] === 'sinistri.ponte@gmail.com' && $p === 'google')
+        ->andReturn(null);
+
+    $url = $this->actingAs($this->admin)->get('/impostazioni/email/google')->headers->get('Location');
+    expect($url)->toStartWith('https://accounts.google.com/o/oauth2/v2/auth')
+        ->toContain('access_type=offline')->toContain(urlencode('https://mail.google.com/'));
+
+    $this->get('/impostazioni/email/google/callback?code=c&state='.session('google_mail.state'))
+        ->assertSessionHas('success');
+
+    $s = TenantMailSettings::first();
+    expect($s->auth_type)->toBe('google')->and($s->oauth_refresh_token)->toBe('g-rt')
+        ->and($s->from_address)->toBe('sinistri.ponte@gmail.com')->and($s->password)->toBeNull();
+});
+
+test('Google: se si toglie la spunta della posta si spiega cosa fare e non si salva', function () {
+    config(['services.google_mail.client_id' => 'gid', 'services.google_mail.client_secret' => 'gsec']);
+    Http::fake(['oauth2.googleapis.com/*' => Http::response([
+        'access_token' => 'x', 'refresh_token' => 'y', 'expires_in' => 3599, 'scope' => 'openid email', 'id_token' => idToken(['email' => 'a@gmail.com']),
+    ])]);
+    $this->tester->shouldNotReceive('test');
+
+    $this->actingAs($this->admin)->get('/impostazioni/email/google');
+    $this->get('/impostazioni/email/google/callback?code=c&state='.session('google_mail.state'))
+        ->assertSessionHas('error', fn ($m) => str_contains($m, 'spunta'));
+    expect(TenantMailSettings::count())->toBe(0);
+});
+
+test('permesso revocato: la casella risulta da ricollegare', function () {
+    config(['services.google_mail.client_id' => 'gid', 'services.google_mail.client_secret' => 'gsec']);
+    Http::fake(['oauth2.googleapis.com/*' => Http::response(['error' => 'invalid_grant'], 400)]);
+    $s = TenantMailSettings::create([
+        'tenant_id' => $this->tenant->id, 'auth_type' => 'google', 'username' => 'a@gmail.com', 'from_address' => 'a@gmail.com',
+        'host' => 'smtp.gmail.com', 'imap_host' => 'imap.gmail.com', 'is_active' => true,
+        'oauth_refresh_token' => 'rt', 'oauth_expires_at' => now()->subMinute(),
+    ]);
+
+    expect(fn () => $s->imapClientConfig())->toThrow(RuntimeException::class);
+    expect($s->fresh()->oauth_revocato_at)->not->toBeNull();
+
+    $this->actingAs($this->admin)->get('/impostazioni/email')
+        ->assertInertia(fn (Assert $page) => $page->where('collegata.revocata', true)->where('collegata.oauth', 'google'));
+});

@@ -159,6 +159,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/impostazioni/email',       [ImpostazioniEmailController::class, 'destroy'])->name('impostazioni.email.destroy');
     Route::get('/impostazioni/email/microsoft',          [ImpostazioniEmailController::class, 'microsoft'])->middleware('throttle:10,1')->name('impostazioni.email.microsoft');
     Route::get('/impostazioni/email/microsoft/callback', [ImpostazioniEmailController::class, 'microsoftCallback'])->middleware('throttle:10,1')->name('impostazioni.email.microsoft.callback');
+    Route::get('/impostazioni/email/google',             [ImpostazioniEmailController::class, 'google'])->middleware('throttle:10,1')->name('impostazioni.email.google');
+    Route::get('/impostazioni/email/google/callback',    [ImpostazioniEmailController::class, 'googleCallback'])->middleware('throttle:10,1')->name('impostazioni.email.google.callback');
 });
 
 // --- Abbonamento (la pagina la vedono tutti, pagare e gestire solo il tenant-admin) ---

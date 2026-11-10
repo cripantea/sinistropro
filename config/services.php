@@ -91,6 +91,13 @@ return [
         'tenant'        => env('MICROSOFT_MAIL_TENANT', 'common'),
     ],
 
+    // Collegamento caselle Gmail / Google Workspace (progetto Google Cloud "SinistroPro", client web).
+    // Redirect: https://login.sinistropro.it/impostazioni/email/google/callback
+    'google_mail' => [
+        'client_id'     => env('GOOGLE_MAIL_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_MAIL_CLIENT_SECRET'),
+    ],
+
     // Abbonamenti SinistroPro (account Stripe condiviso Fusion Media, vedi config/billing.php).
     'stripe' => [
         'secret'         => env('STRIPE_SECRET'),
