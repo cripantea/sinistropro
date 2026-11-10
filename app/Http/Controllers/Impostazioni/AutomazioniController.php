@@ -184,7 +184,7 @@ class AutomazioniController extends Controller
             ?? Pratica::where('tenant_id', $tenant->id)->latest()->first();
         abort_unless($pratica, 422, 'Serve almeno un sinistro per l\'anteprima.');
 
-        $ctx = $automazione->trigger_type === 'status' && $automazione->tenant_status_id ? ['status_id' => $automazione->tenant_status_id] : [];
+        $ctx = in_array($automazione->trigger_type, ['status', 'status_duration'], true) && $automazione->tenant_status_id ? ['status_id' => $automazione->tenant_status_id] : [];
         $piano = $planner->planPratica($pratica, $automazione, $ctx);
         $piano['pratica'] = ['id' => $pratica->id, 'cliente' => $pratica->cliente?->nome];
 
@@ -249,6 +249,7 @@ class AutomazioniController extends Controller
             'pratica_created' => 'Quando si apre un nuovo sinistro',
             'date_field' => 'Quando cambia «'.$data($opzioni['datePratica']).'»',
             'date_reminder' => $this->giorni($a->offset_days).' «'.$data($opzioni['datePratica']).'»',
+            'status_duration' => "Fermo da {$a->offset_days} ".($a->offset_days === 1 ? 'giorno' : 'giorni').' in «'.($a->status?->name ?? '?').'»'.($a->ripeti ? ', ripetuto' : ''),
             'cliente_date_field' => ($a->days_before ? "{$a->days_before} giorni prima di" : 'Il giorno di').' «'.$data($opzioni['dateCliente']).'» del cliente',
             default => $a->trigger_type,
         };

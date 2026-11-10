@@ -170,6 +170,7 @@ class AutomationPlanner
         '{data_perizia}'   => 'Data del sopralluogo/perizia',
         '{compagnia}'      => 'Compagnia assicurativa',
         '{targa}'          => 'Targa del veicolo',
+        '{giorni_in_stato}' => 'Da quanti giorni è in questo stato',
         '{nome_tenant}'    => 'Nome dell\'agenzia',
     ];
 
@@ -186,6 +187,7 @@ class AutomationPlanner
             '{data_perizia}'   => $perizia ? $perizia->format('d/m/Y').($perizia->format('H:i') !== '00:00' ? ' alle '.$perizia->format('H:i') : '') : '',
             '{compagnia}'      => (string) ($pratica->compagnia ?? ''),
             '{targa}'          => (string) ($pratica->veicolo?->targa ?? ''),
+            '{giorni_in_stato}' => $pratica->status_changed_at ? (string) (int) $pratica->status_changed_at->copy()->startOfDay()->diffInDays(today()) : '',
             '{link_documenti}' => '',
         ];
 

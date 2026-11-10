@@ -183,6 +183,56 @@ test('promemoria il giorno prima della perizia: una volta sola, solo sinistri ap
     expect(AutomationRun::count())->toBe(1);
 });
 
+test('sollecito per sinistro fermo in uno stato: dopo X giorni, ripetuto ogni X, si ferma cambiando stato', function () {
+    Queue::fake();
+    $this->travelTo(now()->startOfDay()->setTime(9, 0));
+    $this->pratica->update(['current_status_id' => $this->documenti->id]);
+    expect($this->pratica->fresh()->status_changed_at->isToday())->toBeTrue();
+
+    $auto = Automation::create([...automazione(['trigger_type' => 'status_duration', 'tenant_status_id' => $this->documenti->id, 'offset_days' => 3, 'ripeti' => true,
+        'message_template' => 'Fermo da {giorni_in_stato} giorni']), 'tenant_id' => $this->tenant->id]);
+    $unaVolta = Automation::create([...automazione(['trigger_type' => 'status_duration', 'tenant_status_id' => $this->documenti->id, 'offset_days' => 3, 'ripeti' => false]), 'tenant_id' => $this->tenant->id]);
+
+    // Entrare nello stato non fa partire nulla (non è un'automazione "a stato").
+    Queue::assertNothingPushed();
+
+    $giorno = function (int $n) {
+        $this->travelTo(now()->startOfDay()->addDays($n)->setTime(8, 5));
+        $this->artisan('app:process-pratica-date-reminders')->assertSuccessful();
+    };
+
+    $giorno(2);
+    Queue::assertNothingPushed();
+    $giorno(1); // 3° giorno: partono entrambe
+    Queue::assertPushed(ExecuteAutomationJob::class, 2);
+    $this->artisan('app:process-pratica-date-reminders')->assertSuccessful(); // rilancio: nessun doppione
+    $giorno(1);
+    Queue::assertPushed(ExecuteAutomationJob::class, 2);
+    $giorno(2); // 6° giorno: solo quella ripetuta
+    Queue::assertPushed(ExecuteAutomationJob::class, 3);
+    Queue::assertPushed(ExecuteAutomationJob::class, fn ($j) => $j->automation->is($unaVolta), );
+    expect(AutomationRun::where('automation_id', $unaVolta->id)->count())->toBe(1)
+        ->and(app(\App\Services\AutomationPlanner::class)->compilePratica('{giorni_in_stato}', $this->pratica->fresh(), null))->toBe('6');
+
+    // Cambia stato: i solleciti si fermano.
+    $this->pratica->update(['current_status_id' => $this->attesa->id]);
+    $giorno(3);
+    Queue::assertPushed(ExecuteAutomationJob::class, 3);
+});
+
+test('il sollecito si crea dall\'editor: serve lo stato e almeno un giorno', function () {
+    $this->actingAs($this->admin)->post('/impostazioni/automazioni', automazione(['trigger_type' => 'status_duration', 'offset_days' => 0]))
+        ->assertSessionHasErrors('tenant_status_id');
+    $this->post('/impostazioni/automazioni', automazione(['trigger_type' => 'status_duration', 'tenant_status_id' => $this->documenti->id, 'offset_days' => 0]))
+        ->assertSessionHasErrors('offset_days');
+    $this->post('/impostazioni/automazioni', automazione(['trigger_type' => 'status_duration', 'tenant_status_id' => $this->documenti->id, 'offset_days' => 7, 'ripeti' => true]))
+        ->assertSessionHasNoErrors();
+
+    $a = Automation::where('trigger_type', 'status_duration')->sole();
+    expect($a->offset_days)->toBe(7)->and($a->ripeti)->toBeTrue()->and($a->tenant_status_id)->toBe($this->documenti->id);
+    $this->get('/impostazioni/automazioni')->assertInertia(fn (Assert $p) => $p->where('automazioni.0.innesco', 'Fermo da 7 giorni in «Documenti mancanti», ripetuto'));
+});
+
 test('anteprima con un sinistro vero e prova inviata solo a chi configura', function () {
     Ispezione::create(['tenant_id' => $this->tenant->id, 'pratica_id' => $this->pratica->id, 'stato' => 'pianificata', 'data_appuntamento' => '2026-12-01 10:30:00']);
     $dati = automazione(['trigger_type' => 'date_field', 'watched_field' => 'data_appuntamento', 'subject' => 'Perizia {numero_pratica}', 'message_template' => 'Perizia il {data_perizia}', 'pratica_id' => $this->pratica->id]);

@@ -112,6 +112,28 @@
             <p class="text-xs text-gray-500 mt-1">Prima dell'invio, chi cambia lo stato vede il messaggio e può toglierlo o cambiare i destinatari.</p>
           </div>
 
+          <div v-if="form.trigger_type === 'status_duration'" class="space-y-3">
+            <div>
+              <label class="field-label">Sinistro fermo nello stato</label>
+              <select v-model="form.tenant_status_id" class="field-input">
+                <option :value="null" disabled>Scegli lo stato…</option>
+                <option v-for="s in opzioni.stati.filter((x) => !x.is_closed)" :key="s.id" :value="s.id">{{ s.name }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label">Da quanti giorni</label>
+              <div class="flex items-center gap-2">
+                <input v-model.number="giorniFermo" type="number" min="1" max="365" class="field-input w-20 text-center" />
+                <span class="text-sm text-gray-600">{{ giorniFermo === 1 ? 'giorno' : 'giorni' }} senza cambiare stato</span>
+              </div>
+            </div>
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <input v-model="form.ripeti" type="checkbox" class="rounded text-violet-600" />
+              Ripeti il sollecito ogni {{ giorniFermo }} {{ giorniFermo === 1 ? 'giorno' : 'giorni' }} finché resta in questo stato (max 10)
+            </label>
+            <p class="text-xs text-gray-500">Controllo ogni mattina alle 8. Appena il sinistro cambia stato i solleciti si fermano; se ci torna, il conto riparte. Nel testo puoi usare {giorni_in_stato}.</p>
+          </div>
+
           <div v-if="form.trigger_type === 'pratica_created'" class="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
             Parte appena un sinistro viene aperto, senza chiedere conferma.
           </div>
@@ -332,7 +354,7 @@ const schede = [
 ]
 
 // ── Innesco ─────────────────────────────────────────────────────────────────
-const iconeInnesco: Record<string, string> = { status: '🔄', pratica_created: '🆕', date_field: '📝', date_reminder: '📅', cliente_date_field: '⏰' }
+const iconeInnesco: Record<string, string> = { status: '🔄', pratica_created: '🆕', date_field: '📝', date_reminder: '📅', status_duration: '⏳', cliente_date_field: '⏰' }
 const etichettaInnesco = computed(() => props.opzioni.inneschi.find((i) => i.valore === form.trigger_type)?.etichetta ?? '')
 const nomeData = (lista: { name: string; label: string }[]) => lista.find((d) => d.name === form.watched_field)?.label
 
@@ -354,6 +376,12 @@ const dettaglioInnesco = computed<{ testo: string; mancante?: boolean }>(() => {
       const quanto = form.offset_days === 0 ? 'Il giorno di' : `${g} ${g === 1 ? 'giorno' : 'giorni'} ${form.offset_days < 0 ? 'prima di' : 'dopo'}`
       return { testo: `${quanto} «${n}», alle 8:00` }
     }
+    case 'status_duration': {
+      const s = props.opzioni.stati.find((x) => x.id === form.tenant_status_id)
+      if (!s) return { testo: 'Scegli lo stato', mancante: true }
+      const g = form.offset_days
+      return { testo: `Fermo da ${g} ${g === 1 ? 'giorno' : 'giorni'} in «${s.name}»${form.ripeti ? `, poi ogni ${g} ${g === 1 ? 'giorno' : 'giorni'}` : ''}, alle 8:00` }
+    }
     case 'cliente_date_field': {
       const n = nomeData(props.opzioni.dateCliente)
       if (!n) return { testo: 'Scegli la data del cliente', mancante: true }
@@ -369,6 +397,12 @@ const quando = ref<'prima' | 'dopo' | 'stesso'>(form.offset_days === 0 ? 'stesso
 watch([giorniOffset, quando], () => {
   form.offset_days = quando.value === 'stesso' ? 0 : (quando.value === 'prima' ? -1 : 1) * Math.max(1, giorniOffset.value || 1)
 })
+// "Fermo da N giorni": offset_days sempre positivo.
+const giorniFermo = ref(form.trigger_type === 'status_duration' && form.offset_days > 0 ? form.offset_days : 7)
+watch([giorniFermo, () => form.trigger_type], () => {
+  if (form.trigger_type === 'status_duration') form.offset_days = Math.max(1, giorniFermo.value || 1)
+  else if (form.offset_days > 0 && quando.value !== 'dopo') form.offset_days = quando.value === 'stesso' ? 0 : -Math.max(1, giorniOffset.value || 1)
+}, { immediate: true })
 watch(() => form.trigger_type, (t, prima) => {
   // Cambiando innesco la data scelta prima può non valere più (sinistro ↔ cliente).
   const listaNuova = t === 'cliente_date_field' ? props.opzioni.dateCliente : props.opzioni.datePratica

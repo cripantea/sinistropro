@@ -21,6 +21,7 @@ class Automation extends Model
         'watched_field',
         'days_before',
         'offset_days',
+        'ripeti',
         'channel',
         'subject',
         'recipient',
@@ -36,6 +37,7 @@ class Automation extends Model
         'requires_confirmation' => 'boolean',
         'days_before'           => 'integer',
         'offset_days'           => 'integer',
+        'ripeti'                => 'boolean',
         'recipients_to'         => 'array',
         'recipients_cc'         => 'array',
     ];
@@ -46,6 +48,7 @@ class Automation extends Model
         'pratica_created'    => 'Nuovo sinistro aperto',
         'date_field'         => 'Cambio di una data del sinistro',
         'date_reminder'      => 'Giorni prima/dopo una data del sinistro',
+        'status_duration'    => 'Sinistro fermo da X giorni in uno stato (sollecito)',
         'cliente_date_field' => 'Scadenza di una data del cliente',
     ];
 

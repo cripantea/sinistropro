@@ -26,6 +26,7 @@ class Pratica extends Model
         'conducente_nome',
         'conducente_telefono',
         'current_status_id',
+        'status_changed_at',
         'data_prossimo_avviso',
         'custom_fields',
         'tags',
@@ -34,6 +35,7 @@ class Pratica extends Model
 
     protected $casts = [
         'data_prossimo_avviso' => 'date',
+        'status_changed_at'    => 'datetime',
         'custom_fields'        => 'array',
         'tags'                 => 'array',
         'shared_module_values' => 'array',
@@ -101,6 +103,16 @@ class Pratica extends Model
     public function getCustomField(string $key, mixed $default = null): mixed
     {
         return data_get($this->custom_fields, $key, $default);
+    }
+
+    protected static function booted(): void
+    {
+        // Da quando il sinistro è nello stato attuale (solleciti "X giorni fermo in uno stato").
+        static::saving(function (Pratica $p): void {
+            if (! $p->exists || $p->isDirty('current_status_id')) {
+                $p->status_changed_at = now();
+            }
+        });
     }
 
     /** Tag puliti: senza spazi doppi, senza doppioni (anche se cambiano maiuscole), al massimo 10. */

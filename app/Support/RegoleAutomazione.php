@@ -35,6 +35,7 @@ class RegoleAutomazione
             ],
             'days_before' => ['nullable', 'integer', 'min:0', 'max:365'],
             'offset_days' => ['nullable', 'integer', 'min:-365', 'max:365'],
+            'ripeti' => ['boolean'],
             'channel' => ['required', Rule::in(['email', 'whatsapp', 'both'])],
             'subject' => ['nullable', 'string', 'max:200'],
             'recipients_to' => ['nullable', 'array', 'max:30'],
@@ -60,6 +61,15 @@ class RegoleAutomazione
             ->filter(fn ($r) => $r['type'] !== 'user' || $r['user_id'] > 0)
             ->unique(fn ($r) => $r['type'].':'.($r['user_id'] ?? ''))->values()->all();
 
+        if ($trigger === 'status_duration') {
+            if (empty($data['tenant_status_id'])) {
+                throw ValidationException::withMessages(['tenant_status_id' => 'Scegli lo stato in cui il sinistro è fermo.']);
+            }
+            if ((int) ($data['offset_days'] ?? 0) < 1) {
+                throw ValidationException::withMessages(['offset_days' => 'Indica dopo quanti giorni (almeno 1).']);
+            }
+        }
+
         // Il promemoria su data del cliente va sempre al cliente: lì i destinatari non si scelgono.
         if ($trigger !== 'cliente_date_field' && $destinatari === []) {
             throw ValidationException::withMessages(['recipients_to' => 'Scegli almeno un destinatario.']);
@@ -68,10 +78,11 @@ class RegoleAutomazione
         return [
             'name' => $data['name'],
             'trigger_type' => $trigger,
-            'tenant_status_id' => $trigger === 'status' ? ($data['tenant_status_id'] ?? null) : null,
+            'tenant_status_id' => in_array($trigger, ['status', 'status_duration'], true) ? ($data['tenant_status_id'] ?? null) : null,
             'watched_field' => in_array($trigger, ['date_field', 'date_reminder', 'cliente_date_field'], true) ? $data['watched_field'] : null,
             'days_before' => $trigger === 'cliente_date_field' ? (int) ($data['days_before'] ?? 0) : 0,
-            'offset_days' => $trigger === 'date_reminder' ? (int) ($data['offset_days'] ?? 0) : 0,
+            'offset_days' => in_array($trigger, ['date_reminder', 'status_duration'], true) ? (int) ($data['offset_days'] ?? 0) : 0,
+            'ripeti' => $trigger === 'status_duration' && ! empty($data['ripeti']),
             'channel' => $data['channel'],
             'subject' => trim((string) ($data['subject'] ?? '')) ?: null,
             'recipient' => 'cliente',
@@ -109,6 +120,7 @@ class RegoleAutomazione
             'watched_field' => $a->watched_field,
             'days_before' => (int) $a->days_before,
             'offset_days' => (int) $a->offset_days,
+            'ripeti' => (bool) $a->ripeti,
             'channel' => $a->channel,
             'subject' => $a->subject,
             'recipients_to' => $a->recipients_to ?: ($a->recipient ? [['type' => $a->recipient]] : []),

@@ -10,6 +10,7 @@ export interface BozzaAutomazione {
   watched_field: string | null
   days_before: number
   offset_days: number
+  ripeti: boolean
   channel: 'email' | 'whatsapp' | 'both'
   subject: string | null
   recipients_to: DestinatarioAuto[]
@@ -26,6 +27,7 @@ export const BOZZA_VUOTA: BozzaAutomazione = {
   watched_field: null,
   days_before: 0,
   offset_days: -1,
+  ripeti: false,
   channel: 'email',
   subject: null,
   recipients_to: [{ type: 'cliente' }],
@@ -77,6 +79,20 @@ export const MODELLI: Modello[] = [
       recipients_to: [{ type: 'cliente' }, { type: 'perito' }],
       subject: 'Perizia fissata — sinistro n. {numero_pratica}',
       message_template: 'Gentile {nome_cliente},\nla perizia per il sinistro n. {numero_pratica} è fissata per {data_perizia}.\n\n{nome_tenant}',
+    },
+  },
+  {
+    chiave: 'sollecito_stato',
+    titolo: 'Sollecito se il sinistro è fermo',
+    descrizione: 'Es. dopo 7 giorni in «Attesa documenti» il cliente riceve un sollecito, ripetuto ogni 7 giorni.',
+    icona: '⏳',
+    bozza: {
+      name: 'Sollecito documenti',
+      trigger_type: 'status_duration',
+      offset_days: 7,
+      ripeti: true,
+      subject: 'Sollecito — sinistro n. {numero_pratica}',
+      message_template: 'Gentile {nome_cliente},\nla pratica n. {numero_pratica} è ferma da {giorni_in_stato} giorni in attesa di un tuo riscontro ({stato_corrente}).\nTi chiediamo di inviarci quanto richiesto rispondendo a questo messaggio.\n\n{nome_tenant}',
     },
   },
   {
