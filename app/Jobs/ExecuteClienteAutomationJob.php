@@ -117,7 +117,7 @@ class ExecuteClienteAutomationJob implements ShouldQueue
 
         try {
             $to = preg_replace('/[^\d+]/', '', $phone);
-            app(WhatsappCloudApiClient::class)->sendText($session->phone_number_id, $to, $compiled);
+            app(WhatsappCloudApiClient::class)->sendText($session, $to, $compiled);
         } catch (\Throwable $e) {
             Log::error('ExecuteClienteAutomationJob: WA errore', [
                 'cliente_id' => $cliente->id,

@@ -187,7 +187,7 @@ class ExecuteAutomationJob implements ShouldQueue
 
         try {
             $to = preg_replace('/[^\d+]/', '', $phone);
-            app(WhatsappCloudApiClient::class)->sendText($session->phone_number_id, $to, $compiledMessage);
+            app(WhatsappCloudApiClient::class)->sendText($session, $to, $compiledMessage);
 
             Log::info('ExecuteAutomationJob: WhatsApp inviato', [
                 'pratica_id'    => $pratica->id,
