@@ -154,3 +154,12 @@ test('in apertura si scelgono (facoltativi) studio peritale, perito e carrozzeri
 
     $this->post('/pratiche', ['cliente_id' => $this->cliente->id, 'carrozzeria_contatto_id' => $perito->id])->assertSessionHasErrors('carrozzeria_contatto_id');
 });
+
+test('il pulsante Salva di perito e carrozzeria nella scheda non dà più errore 500', function () {
+    $perito = Contatto::create(['tenant_id' => $this->tenant->id, 'nome' => 'Perito X', 'tags' => ['perito'], 'is_active' => true]);
+
+    $this->actingAs($this->admin)->from("/pratiche/{$this->pratica->id}")
+        ->post("/pratiche/{$this->pratica->id}/ispezioni", ['perito_contatto_id' => $perito->id, 'carrozzeria_contatto_id' => null])
+        ->assertRedirect("/pratiche/{$this->pratica->id}")->assertSessionHas('success');
+    expect($this->pratica->ispezioni()->first()->perito_contatto_id)->toBe($perito->id);
+});

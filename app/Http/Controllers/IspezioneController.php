@@ -9,6 +9,7 @@ use App\Services\AutomationPlanner;
 use App\Models\Pratica;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -20,7 +21,7 @@ class IspezioneController extends Controller
      * Usato dalla board Kanban quando si sposta una card in una colonna 'external',
      * e dal pannello Sopralluogo/Perito nella pagina di dettaglio pratica.
      */
-    public function store(Request $request, Pratica $pratica): JsonResponse
+    public function store(Request $request, Pratica $pratica): JsonResponse|RedirectResponse
     {
         $user = auth()->user();
 
