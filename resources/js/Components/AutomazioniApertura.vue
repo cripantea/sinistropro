@@ -14,7 +14,7 @@
 <script setup lang="ts">
 // Dopo l'apertura di un sinistro: se ci sono automazioni "Nuovo sinistro aperto" si chiede conferma
 // (testo e destinatari), come per i cambi di stato. Montato nel layout: vale per scheda e Board.
-import { ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import axios from 'axios'
 import AutomationConfirmModal, { type AutomationOverrides, type AutomationPlan, type RubricaContatto } from '@/Components/AutomationConfirmModal.vue'
@@ -47,5 +47,16 @@ async function invia(payload: Record<string, unknown>) {
   if (praticaId.value) await axios.post(route('pratiche.automations.apertura', praticaId.value), payload)
 }
 const conferma = (overrides: AutomationOverrides) => invia({ automation_overrides: overrides })
-const nessuna = () => invia({ skip: true })
+function nessuna() {
+  // Chiudere vuol dire non inviarli mai più per questo sinistro: si chiede conferma.
+  const n = piani.value.length
+  const cosa = n === 1 ? `il messaggio "${piani.value[0].name}"` : `nessuno dei ${n} messaggi`
+  if (!window.confirm(`Sei sicuro di non inviare ${cosa}?\n\nPer questo sinistro non verrà più proposto.`)) return
+  invia({ skip: true })
+}
+
+// Finestra ancora aperta e si lascia la pagina: il browser chiede conferma (i messaggi non partirebbero).
+const avvisaUscita = (e: BeforeUnloadEvent) => { if (aperta.value) { e.preventDefault(); e.returnValue = '' } }
+onMounted(() => window.addEventListener('beforeunload', avvisaUscita))
+onBeforeUnmount(() => window.removeEventListener('beforeunload', avvisaUscita))
 </script>
