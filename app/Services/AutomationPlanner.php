@@ -123,6 +123,7 @@ class AutomationPlanner
                 'gestore'     => $this->resolveGestore($pratica),
                 'user'        => ($u = $users->get((int) ($r['user_id'] ?? 0))) ? ['email' => $u->email, 'phone' => null, 'name' => $u->name] : null,
                 'contatto'    => ($c = $contatti->get((int) ($r['contatto_id'] ?? 0))) ? ['email' => $c->email, 'phone' => $c->telefono, 'name' => $c->nome] : null,
+                'categoria'   => $this->resolveCategoria($pratica, (string) ($r['categoria'] ?? '')),
                 default       => null,
             };
             if ($resolved === null) {
@@ -131,6 +132,7 @@ class AutomationPlanner
             $chiave = match ($type) {
                 'user' => 'user'.($r['user_id'] ?? ''),
                 'contatto' => 'contatto'.($r['contatto_id'] ?? ''),
+                'categoria' => 'categoria:'.($r['categoria'] ?? ''),
                 default => $type,
             };
             $out[] = $this->recipient($type, $resolved['name'], $resolved['email'], $resolved['phone'], $chiave);
@@ -399,6 +401,16 @@ class AutomationPlanner
         $user = $user?->is_active ? $user : null;
 
         return ['email' => $user?->email, 'phone' => null, 'name' => $user?->name];
+    }
+
+    /** Contatto della rubrica scelto nel sinistro per quella categoria (es. lo studio peritale). */
+    private function resolveCategoria(Pratica $pratica, string $categoria): ?array
+    {
+        $id = ($pratica->contatti ?? [])[Contatto::normalizeTag($categoria)] ?? null;
+        $c = $id ? Contatto::acrossAllTenants()->where('tenant_id', $pratica->tenant_id)->where('is_active', true)->find($id) : null;
+
+        // Nessuno scelto: si segnala come destinatario senza recapito, così in conferma si vede.
+        return ['email' => $c?->email, 'phone' => $c?->telefono, 'name' => $c?->nome ?? ucfirst($categoria).' (non scelto nel sinistro)'];
     }
 
     private function resolvePerito(Pratica $pratica, array $ctx = []): array

@@ -9,6 +9,8 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Mail\Mailables\Headers;
 use Illuminate\Queue\SerializesModels;
+use Symfony\Component\Mime\Email;
+use Symfony\Component\Mime\Part\DataPart;
 
 /**
  * Mailable generica per risposte/nuovi messaggi composti dal client email
@@ -29,7 +31,14 @@ class OutboundEmailMessage extends Mailable
         public readonly string $messageIdValue,
         public readonly ?string $inReplyTo = null,
         public readonly array $uploadedFiles = [],
+        /** Immagini incorporate nel testo (firma): [['cid' => …, 'data' => …, 'mime' => …, 'nome' => …]] */
+        public readonly array $inline = [],
     ) {
+        $this->withSymfonyMessage(function (Email $email): void {
+            foreach ($this->inline as $img) {
+                $email->addPart((new DataPart($img['data'], $img['nome'], $img['mime']))->asInline()->setContentId($img['cid']));
+            }
+        });
     }
 
     public function envelope(): Envelope

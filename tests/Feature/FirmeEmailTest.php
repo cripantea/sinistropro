@@ -53,3 +53,32 @@ test('la firma scelta va in fondo all\'email, nuova o risposta; nessuna firma = 
 
     $this->postJson("/email/threads/{$thread->id}/reply", ['body' => 'Altra', 'firma_id' => $this->estranea->id])->assertStatus(422);
 });
+
+test('firma con immagine: nell\'email è incorporata, in SinistroPro si vede; la predefinita per tutti la propone a chi non ha scelto', function () {
+    \Illuminate\Support\Facades\Storage::fake('s3');
+    $png = \Illuminate\Http\UploadedFile::fake()->image('FIRMA.png', 300, 120);
+
+    $this->actingAs($this->admin)->post('/email/firme', ['nome' => 'Generale', 'testo' => '', 'agenzia' => '1', 'immagine' => $png])->assertOk();
+    $firma = EmailFirma::where('nome', 'Generale')->sole();
+    expect($firma->immagine)->not->toBeNull();
+    \Illuminate\Support\Facades\Storage::disk('s3')->assertExists($firma->immagine);
+
+    $this->postJson('/email/firme/predefinita', ['firma_id' => $firma->id])->assertJsonPath('predefinitaAgenzia', $firma->id);
+    $this->actingAs($this->collega)->postJson('/email/firme/predefinita', ['firma_id' => null])->assertForbidden();
+    $this->get('/email')->assertInertia(fn (Assert $p) => $p->where('firme.preferita', $firma->id));
+    $this->get("/email/firme/{$firma->id}/immagine")->assertOk()->assertHeader('Content-Type', 'image/png');
+
+    $inviate = new ArrayObject();
+    app()->bind(TenantMailerResolver::class, fn () => new class($inviate) extends TenantMailerResolver {
+        public function __construct(public ArrayObject $inviate) {}
+        public function send(Tenant $tenant, string $to, Mailable $mailable, array $cc = [], array $logContext = []): void { $this->inviate[] = $mailable; }
+    });
+    $this->postJson('/email/compose', ['to' => 'cliente@example.com', 'subject' => 'Ciao', 'body' => 'Testo', 'firma_id' => $firma->id])->assertOk();
+
+    expect($inviate[0]->bodyHtml)->toContain('src="cid:'.$firma->cid().'"')
+        ->and($inviate[0]->inline[0]['cid'])->toBe($firma->cid())
+        ->and(EmailMessage::latest('id')->first()->body_html)->toContain('/email/firme/'.$firma->id.'/immagine');
+
+    // Le email automatiche dell'agenzia usano la firma predefinita.
+    expect(EmailFirma::predefinitaPer($this->tenant->fresh())?->id)->toBe($firma->id);
+});

@@ -1,6 +1,6 @@
 // Modelli pronti per partire in fretta: l'agenzia sceglie, l'editor si apre già compilato.
 
-export interface DestinatarioAuto { type: string; user_id?: number; contatto_id?: number }
+export interface DestinatarioAuto { type: string; user_id?: number; contatto_id?: number; categoria?: string }
 
 export interface BozzaAutomazione {
   id?: number

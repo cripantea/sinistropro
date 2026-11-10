@@ -111,3 +111,25 @@ test('se FusionWA rifiuta, il messaggio resta in chat come non inviato e si vede
     $this->actingAs($this->admin)->postJson("/whatsapp/conversations/{$conv->id}/messages", ['body' => 'Ciao'])->assertOk()
         ->assertJsonPath('message.status', 'failed')->assertJsonPath('errore', 'Re-engagement message: finestra di 24 ore chiusa');
 });
+
+test('destinatario "studio peritale del sinistro": l\'automazione scrive a quello scelto nella scheda', function () {
+    $studio = Contatto::create(['tenant_id' => $this->tenant->id, 'nome' => 'Studio Magni', 'tags' => ['studio peritale'], 'email' => 'info@magni.it', 'is_active' => true]);
+    $perito = Contatto::create(['tenant_id' => $this->tenant->id, 'nome' => 'Perito X', 'tags' => ['perito'], 'email' => 'x@p.it', 'is_active' => true]);
+
+    $this->actingAs($this->admin)->get("/pratiche/{$this->pratica->id}")
+        ->assertInertia(fn ($p) => $p->where('categorieRubrica.0.tag', 'studio peritale')->has('categorieRubrica', 1));
+
+    $this->patchJson("/pratiche/{$this->pratica->id}/contatti", ['contatti' => ['studio peritale' => $perito->id]])->assertStatus(422);
+    $this->patchJson("/pratiche/{$this->pratica->id}/contatti", ['contatti' => ['Studio Peritale' => $studio->id]])->assertOk();
+    expect($this->pratica->fresh()->contatti)->toBe(['studio peritale' => $studio->id]);
+
+    $this->post('/impostazioni/automazioni', [
+        'name' => 'Allo studio', 'trigger_type' => 'status', 'tenant_status_id' => $this->stato->id, 'channel' => 'email',
+        'recipients_to' => [['type' => 'categoria', 'categoria' => 'studio peritale']], 'recipients_cc' => [],
+        'message_template' => 'Buongiorno {nome_destinatario}', 'document_category_ids' => [],
+    ])->assertSessionHasNoErrors();
+    $auto = Automation::where('name', 'Allo studio')->sole();
+
+    $piano = app(\App\Services\AutomationPlanner::class)->planPratica($this->pratica->fresh(), $auto);
+    expect($piano['recipients'][0]['email'])->toBe('info@magni.it')->and($piano['recipients'][0]['name'])->toBe('Studio Magni');
+});

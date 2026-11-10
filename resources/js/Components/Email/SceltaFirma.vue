@@ -8,7 +8,10 @@
       </select>
       <button type="button" @click="gestione = true" class="text-indigo-600 hover:underline shrink-0">{{ stato.firme.length ? 'Gestisci firme' : '+ Crea una firma' }}</button>
     </div>
-    <p v-if="scelta" class="mt-1.5 text-gray-500 whitespace-pre-line border-l-2 border-gray-200 pl-2 line-clamp-4">{{ scelta.testo }}</p>
+    <div v-if="scelta" class="mt-1.5 border-l-2 border-gray-200 pl-2">
+      <p v-if="scelta.testo" class="text-gray-500 whitespace-pre-line line-clamp-4">{{ scelta.testo }}</p>
+      <img v-if="scelta.immagine" :src="scelta.immagine" :alt="scelta.nome" class="max-h-20 w-auto mt-1" />
+    </div>
 
     <GestioneFirme v-if="gestione" :stato="stato" @close="gestione = false" @creata="(id) => emit('update:modelValue', id)" />
   </div>

@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Automation;
+use App\Models\Contatto;
 use App\Models\Tenant;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -14,7 +15,7 @@ use Illuminate\Validation\ValidationException;
  */
 class RegoleAutomazione
 {
-    public const DESTINATARI = ['cliente', 'carrozzeria', 'perito', 'gestore', 'user', 'contatto'];
+    public const DESTINATARI = ['cliente', 'carrozzeria', 'perito', 'gestore', 'user', 'contatto', 'categoria'];
 
     /** Valida la richiesta e restituisce i dati già normalizzati per il trigger scelto. */
     public static function valida(Request $request, Tenant $tenant): array
@@ -46,6 +47,7 @@ class RegoleAutomazione
             'recipients_to.*.type' => ['required', Rule::in(self::DESTINATARI)],
             'recipients_to.*.user_id' => ['nullable', 'integer', $utenti],
             'recipients_to.*.contatto_id' => ['nullable', 'integer', $contatti],
+            'recipients_to.*.categoria' => ['nullable', 'string', 'max:30'],
             'recipients_cc' => ['nullable', 'array', 'max:30'],
             'recipients_cc.*.type' => ['required', Rule::in(['user', 'contatto'])],
             'recipients_cc.*.user_id' => ['required_if:recipients_cc.*.type,user', 'nullable', 'integer', $utenti],
@@ -68,10 +70,11 @@ class RegoleAutomazione
             ->map(fn ($r) => match ($r['type']) {
                 'user' => ['type' => 'user', 'user_id' => (int) ($r['user_id'] ?? 0)],
                 'contatto' => ['type' => 'contatto', 'contatto_id' => (int) ($r['contatto_id'] ?? 0)],
+                'categoria' => ['type' => 'categoria', 'categoria' => Contatto::normalizeTag((string) ($r['categoria'] ?? ''))],
                 default => ['type' => $r['type']],
             })
-            ->filter(fn ($r) => ($r['user_id'] ?? 1) > 0 && ($r['contatto_id'] ?? 1) > 0)
-            ->unique(fn ($r) => $r['type'].':'.($r['user_id'] ?? $r['contatto_id'] ?? ''))->values()->all();
+            ->filter(fn ($r) => ($r['user_id'] ?? 1) > 0 && ($r['contatto_id'] ?? 1) > 0 && ($r['categoria'] ?? 'x') !== '')
+            ->unique(fn ($r) => $r['type'].':'.($r['user_id'] ?? $r['contatto_id'] ?? $r['categoria'] ?? ''))->values()->all();
 
         if ($trigger === 'status_duration') {
             if (empty($data['tenant_status_id'])) {

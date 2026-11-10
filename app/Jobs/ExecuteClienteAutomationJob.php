@@ -92,6 +92,7 @@ class ExecuteClienteAutomationJob implements ShouldQueue
                 compiledBody:  $compiled,
                 tenantName:    $cliente->tenant?->name ?? '',
                 documentLinks: [],
+                firma:         \App\Models\EmailFirma::predefinitaPer($cliente->tenant),
             ),
             $cc,
             ['tipo' => 'promemoria_cliente', 'automation_id' => $this->automation->id]

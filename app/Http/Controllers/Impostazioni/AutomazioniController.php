@@ -135,6 +135,7 @@ class AutomazioniController extends Controller
                 compiledBody: $piano['message'],
                 tenantName: $tenant->name,
                 documentLinks: array_map(fn ($d) => ['nome_file' => $d['nome_file'], 'url' => '#'], $piano['documents'] ?? []),
+                firma: \App\Models\EmailFirma::predefinitaPer($tenant),
             ), [], ['tipo' => 'test', 'automation_id' => $automazione->id ?: null]);
         } catch (\Throwable $e) {
             return response()->json(['errori' => ['prova' => 'Invio non riuscito: '.$e->getMessage().' — controlla Impostazioni → Casella email.']], 422);

@@ -150,6 +150,7 @@ class ExecuteAutomationJob implements ShouldQueue
                 compiledBody:  $compiledMessage,
                 tenantName:    $pratica->tenant?->name ?? '',
                 documentLinks: $documentLinks,
+                firma:         \App\Models\EmailFirma::predefinitaPer($pratica->tenant),
             ),
             $ccEmails,
             $this->logContext($pratica)

@@ -178,7 +178,7 @@
       <!-- Perito / Carrozzeria -->
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-semibold text-gray-700">Perito / Carrozzeria</h3>
+          <h3 class="text-sm font-semibold text-gray-700">{{ categorieRubrica.length ? 'Contatti del sinistro' : 'Perito / Carrozzeria' }}</h3>
           <Link :href="route('rubrica.index')" class="text-xs text-indigo-600 hover:underline">Gestisci rubrica</Link>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -208,7 +208,22 @@
               <option v-for="u in carrozzerie" :key="u.id" :value="u.id">{{ u.nome }}</option>
             </select>
           </div>
+
+          <!-- Altre categorie della rubrica (es. studio peritale): si salvano appena si sceglie -->
+          <div v-for="c in categorieRubrica" :key="c.tag">
+            <label class="block text-xs font-medium text-gray-600 mb-1 capitalize">{{ c.tag }}</label>
+            <select
+              :value="contattiSinistro[c.tag] ?? ''"
+              class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+              @change="scegliContatto(c.tag, ($event.target as HTMLSelectElement).value)"
+            >
+              <option value="">— Nessuno —</option>
+              <option v-for="u in c.contatti" :key="u.id" :value="u.id">{{ u.nome }}</option>
+            </select>
+            <p v-if="contattoScelto(c)" class="text-xs text-gray-500 mt-1 truncate">{{ [contattoScelto(c)?.email, contattoScelto(c)?.telefono].filter(Boolean).join(' · ') }}</p>
+          </div>
         </div>
+        <p v-if="contattiSalvati" class="text-xs text-emerald-600 mt-2">Salvato.</p>
 
         <div class="flex items-center gap-4 mt-4">
           <button
@@ -595,6 +610,7 @@ interface Pratica {
 const props   = defineProps<{
   pratica: Pratica
   puoEliminare: boolean
+  categorieRubrica: CategoriaRubrica[]
   firme: StatoFirme
   categories: DocumentCategory[]
   moduleTemplates: ModuleTemplate[]
@@ -862,5 +878,22 @@ function salvaAvviso() {
 function eliminaSinistro() {
   if (!confirm(`Eliminare definitivamente il sinistro ${props.pratica.numero ?? '#' + props.pratica.id} con note, sopralluoghi e allegati? Non si può annullare.`)) return
   router.delete(route('pratiche.destroy', props.pratica.id))
+}
+
+// ── Contatti della rubrica per categoria ──────────────────────────────────────
+interface ContattoRubrica { id: number; nome: string; email: string | null; telefono: string | null }
+interface CategoriaRubrica { tag: string; contatti: ContattoRubrica[] }
+const contattiSinistro = ref<Record<string, number>>({ ...((props.pratica as any).contatti ?? {}) })
+const contattiSalvati = ref(false)
+const contattoScelto = (c: CategoriaRubrica) => c.contatti.find((u) => u.id === contattiSinistro.value[c.tag]) ?? null
+async function scegliContatto(tag: string, valore: string) {
+  const nuovi = { ...contattiSinistro.value }
+  if (valore) nuovi[tag] = Number(valore)
+  else delete nuovi[tag]
+  contattiSinistro.value = nuovi
+  contattiSalvati.value = false
+  await axios.patch(route('pratiche.update-contatti', props.pratica.id), { contatti: nuovi })
+  contattiSalvati.value = true
+  setTimeout(() => { contattiSalvati.value = false }, 2000)
 }
 </script>

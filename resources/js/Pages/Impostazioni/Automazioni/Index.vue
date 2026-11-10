@@ -86,7 +86,7 @@ function destinatari(a: Riga): string {
   const nomi: Record<string, string> = { cliente: 'cliente', perito: 'perito', carrozzeria: 'carrozzeria', gestore: 'gestore', contatto: 'contatto rubrica' }
   const lista = a.recipients_to.map((r) => r.type === 'user'
     ? (props.opzioni.utenti.find((u) => u.id === r.user_id)?.name ?? 'collega')
-    : nomi[r.type] ?? r.type)
+    : r.type === 'categoria' ? `${(r as any).categoria} del sinistro` : nomi[r.type] ?? r.type)
   return lista.join(', ') || 'nessuno'
 }
 

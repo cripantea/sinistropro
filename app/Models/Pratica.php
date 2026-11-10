@@ -30,6 +30,7 @@ class Pratica extends Model
         'data_prossimo_avviso',
         'custom_fields',
         'tags',
+        'contatti',
         'shared_module_values',
     ];
 
@@ -38,6 +39,7 @@ class Pratica extends Model
         'status_changed_at'    => 'datetime',
         'custom_fields'        => 'array',
         'tags'                 => 'array',
+        'contatti'             => 'array',
         'shared_module_values' => 'array',
     ];
 

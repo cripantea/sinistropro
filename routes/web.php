@@ -61,6 +61,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('/pratiche/{pratica}/status', [PraticaController::class, 'updateStatus'])->name('pratiche.update-status');
     Route::patch('/pratiche/{pratica}/avviso', [PraticaController::class, 'updateAvviso'])->name('pratiche.update-avviso');
     Route::patch('/pratiche/{pratica}/tag',    [PraticaController::class, 'updateTag'])->name('pratiche.update-tag');
+    Route::patch('/pratiche/{pratica}/contatti', [PraticaController::class, 'updateContatti'])->name('pratiche.update-contatti');
     Route::delete('/pratiche/{pratica}', [PraticaController::class, 'destroy'])->name('pratiche.destroy');
 
     // Anteprima automazioni "richiede conferma" prima di confermare cambio stato/data
@@ -162,6 +163,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/email/firme/{firma}', [\App\Http\Controllers\FirmaEmailController::class, 'update'])->name('email.firme.update');
     Route::delete('/email/firme/{firma}', [\App\Http\Controllers\FirmaEmailController::class, 'destroy'])->name('email.firme.destroy');
     Route::post('/email/firme/preferita', [\App\Http\Controllers\FirmaEmailController::class, 'preferita'])->name('email.firme.preferita');
+    Route::post('/email/firme/predefinita', [\App\Http\Controllers\FirmaEmailController::class, 'predefinita'])->name('email.firme.predefinita');
+    Route::get('/email/firme/{firma}/immagine', [\App\Http\Controllers\FirmaEmailController::class, 'immagine'])->name('email.firme.immagine');
+    Route::post('/email/firme/{firma}', [\App\Http\Controllers\FirmaEmailController::class, 'update'])->name('email.firme.update-file');
     Route::get('/email/attachments/{attachment}/download', [EmailController::class, 'downloadAttachment'])->name('email.attachments.download');
     Route::get('/email/attachments/{attachment}/view', [EmailController::class, 'viewAttachment'])->middleware('throttle:300,1')->name('email.attachments.view');
 

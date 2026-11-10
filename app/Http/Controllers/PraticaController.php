@@ -272,6 +272,7 @@ class PraticaController extends Controller
         return Inertia::render('Pratiche/Show', [
             'pratica'         => $pratica,
             'puoEliminare'    => self::puoEliminare($pratica),
+            'categorieRubrica' => self::categorieRubrica(),
             'firme'           => FirmaEmailController::elenco(),
             'categories'      => $enabledCategories,
             'moduleTemplates' => $moduleTemplates,
@@ -470,6 +471,41 @@ class PraticaController extends Controller
         return redirect()
             ->route('pratiche.index')
             ->with('success', "Sinistro #{$numero} eliminato.");
+    }
+
+    /**
+     * Contatti della rubrica assegnati al sinistro per categoria (es. "studio peritale"): le automazioni
+     * con destinatario "Studio peritale del sinistro" scrivono a quello scelto qui.
+     */
+    public function updateContatti(Request $request, Pratica $pratica): JsonResponse
+    {
+        abort_if(auth()->user()->role === 'external', 403);
+        $data = $request->validate(['contatti' => ['present', 'array', 'max:20'], 'contatti.*' => ['nullable', 'integer']]);
+
+        $puliti = [];
+        foreach ($data['contatti'] as $categoria => $id) {
+            $categoria = Contatto::normalizeTag((string) $categoria);
+            if ($categoria === '' || ! $id) {
+                continue;
+            }
+            $contatto = Contatto::where('is_active', true)->tag($categoria)->find($id);
+            abort_unless($contatto, 422, "Il contatto scelto non è nella categoria «{$categoria}» della rubrica.");
+            $puliti[$categoria] = $contatto->id;
+        }
+        $pratica->update(['contatti' => $puliti ?: null]);
+
+        return response()->json(['contatti' => $puliti]);
+    }
+
+    /** Categorie della rubrica (oltre a perito e carrozzeria, che hanno già il loro posto) con i loro contatti. */
+    public static function categorieRubrica(): array
+    {
+        return Contatto::where('is_active', true)->orderBy('nome')->get(['id', 'nome', 'email', 'telefono', 'tags'])
+            ->flatMap(fn (Contatto $c) => collect($c->tags ?? [])->map(fn ($t) => ['tag' => $t, 'contatto' => ['id' => $c->id, 'nome' => $c->nome, 'email' => $c->email, 'telefono' => $c->telefono]]))
+            ->reject(fn ($r) => in_array($r['tag'], [Contatto::TAG_PERITO, Contatto::TAG_CARROZZERIA], true))
+            ->groupBy('tag')
+            ->map(fn ($righe, $tag) => ['tag' => $tag, 'contatti' => $righe->pluck('contatto')->values()])
+            ->sortKeys()->values()->all();
     }
 
     /** Eliminare è irreversibile: amministratore dell'agenzia, superadmin o chi ha aperto il sinistro. */

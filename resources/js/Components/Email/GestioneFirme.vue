@@ -18,18 +18,21 @@
               <p class="font-semibold text-gray-800 truncate">
                 {{ f.nome }}
                 <span v-if="f.agenzia" class="ml-1 text-[11px] font-medium text-gray-500 bg-gray-100 rounded px-1.5 py-0.5">di tutta l'agenzia</span>
-                <span v-if="stato.preferita === f.id" class="ml-1 text-[11px] font-medium text-indigo-700 bg-indigo-100 rounded px-1.5 py-0.5">predefinita</span>
+                <span v-if="stato.preferita === f.id" class="ml-1 text-[11px] font-medium text-indigo-700 bg-indigo-100 rounded px-1.5 py-0.5">la usi di solito</span>
+                <span v-if="stato.predefinitaAgenzia === f.id" class="ml-1 text-[11px] font-medium text-emerald-700 bg-emerald-100 rounded px-1.5 py-0.5">predefinita per tutti</span>
               </p>
               <div class="flex items-center gap-3 text-xs shrink-0">
                 <button v-if="stato.preferita !== f.id" type="button" @click="preferita(f.id)" class="text-indigo-600 hover:underline">Usa di solito</button>
                 <button v-else type="button" @click="preferita(null)" class="text-gray-500 hover:underline">Non proporla</button>
+                <button v-if="f.agenzia && stato.puoAgenzia && stato.predefinitaAgenzia !== f.id" type="button" @click="predefinita(f.id)" class="text-emerald-700 hover:underline" title="Proposta di base a tutti i colleghi e usata nelle email automatiche">Predefinita per tutti</button>
                 <template v-if="f.modificabile">
-                  <button type="button" @click="modifica = { id: f.id, nome: f.nome, testo: f.testo, agenzia: f.agenzia }" class="text-gray-600 hover:underline">Modifica</button>
+                  <button type="button" @click="modifica = { id: f.id, nome: f.nome, testo: f.testo, agenzia: f.agenzia, immagineUrl: f.immagine }" class="text-gray-600 hover:underline">Modifica</button>
                   <button type="button" @click="elimina(f.id, f.nome)" class="text-red-600 hover:underline">Elimina</button>
                 </template>
               </div>
             </div>
-            <p class="mt-1.5 text-gray-600 whitespace-pre-line text-xs">{{ f.testo }}</p>
+            <p v-if="f.testo" class="mt-1.5 text-gray-600 whitespace-pre-line text-xs">{{ f.testo }}</p>
+            <img v-if="f.immagine" :src="f.immagine" :alt="f.nome" class="mt-2 max-h-28 w-auto rounded border border-gray-100" />
           </template>
         </div>
 
@@ -44,9 +47,9 @@
 </template>
 
 <script lang="ts">
-export interface Firma { id: number; nome: string; testo: string; agenzia: boolean; modificabile: boolean }
-export interface StatoFirme { firme: Firma[]; preferita: number | null; puoAgenzia: boolean }
-export interface BozzaFirma { id?: number; nome: string; testo: string; agenzia: boolean }
+export interface Firma { id: number; nome: string; testo: string; immagine: string | null; agenzia: boolean; modificabile: boolean }
+export interface StatoFirme { firme: Firma[]; preferita: number | null; predefinitaAgenzia?: number | null; puoAgenzia: boolean }
+export interface BozzaFirma { id?: number; nome: string; testo: string; agenzia: boolean; immagine?: File | null; immagineUrl?: string | null; togliImmagine?: boolean }
 </script>
 
 <script setup lang="ts">
@@ -65,7 +68,12 @@ const salvando = ref(false)
 function aggiorna(dati: StatoFirme) {
   props.stato.firme = dati.firme
   props.stato.preferita = dati.preferita
+  props.stato.predefinitaAgenzia = dati.predefinitaAgenzia
   props.stato.puoAgenzia = dati.puoAgenzia
+}
+
+async function predefinita(id: number | null) {
+  aggiorna((await axios.post(route('email.firme.predefinita'), { firma_id: id })).data)
 }
 
 function nuova() {
@@ -80,9 +88,14 @@ async function salva() {
   erroreGenerale.value = null
   try {
     const b = modifica.value
-    const { data } = b.id
-      ? await axios.put(route('email.firme.update', b.id), b)
-      : await axios.post(route('email.firme.store'), { ...b, preferita: !props.stato.firme.length })
+    const fd = new FormData()
+    fd.append('nome', b.nome)
+    fd.append('testo', b.testo ?? '')
+    fd.append('agenzia', b.agenzia ? '1' : '0')
+    if (b.immagine) fd.append('immagine', b.immagine)
+    if (b.togliImmagine) fd.append('togli_immagine', '1')
+    if (!b.id && !props.stato.firme.length) fd.append('preferita', '1')
+    const { data } = await axios.post(b.id ? route('email.firme.update-file', b.id) : route('email.firme.store'), fd)
     aggiorna(data)
     if (data.creata) emit('creata', data.creata)
     modifica.value = null

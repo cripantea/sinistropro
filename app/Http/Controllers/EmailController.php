@@ -108,7 +108,8 @@ class EmailController extends Controller
             to: $thread->counterpart_email,
             subject: $subject,
             praticaId: $lastMessage?->pratica_id,
-            bodyHtml: nl2br(e($data['body'])).$this->firma($data['firma_id'] ?? null),
+            bodyHtml: nl2br(e($data['body'])),
+            firma: $this->firma($data['firma_id'] ?? null),
             inReplyTo: $lastMessage?->message_id,
             files: $request->file('attachments', []),
             userId: $authed->id,
@@ -141,7 +142,8 @@ class EmailController extends Controller
             to: $data['to'],
             subject: $data['subject'],
             praticaId: $this->praticaDelTenant($data['pratica_id'] ?? null),
-            bodyHtml: nl2br(e($data['body'])).$this->firma($data['firma_id'] ?? null),
+            bodyHtml: nl2br(e($data['body'])),
+            firma: $this->firma($data['firma_id'] ?? null),
             inReplyTo: null,
             files: $request->file('attachments', []),
             userId: $authed->id,
@@ -203,16 +205,16 @@ class EmailController extends Controller
         return $id;
     }
 
-    /** HTML della firma scelta (solo tra quelle dell'utente o dell'agenzia). */
-    private function firma(?int $id): string
+    /** Firma scelta (solo tra quelle dell'utente o dell'agenzia). */
+    private function firma(?int $id): ?EmailFirma
     {
         if (! $id) {
-            return '';
+            return null;
         }
         $firma = EmailFirma::disponibiliPer(auth()->user())->find($id);
         abort_unless($firma, 422, 'La firma scelta non esiste più: scegline un\'altra.');
 
-        return $firma->html();
+        return $firma;
     }
 
     public function downloadAttachment(EmailAttachment $attachment): JsonResponse
@@ -274,11 +276,17 @@ class EmailController extends Controller
         array $files,
         int $userId,
         ?int $praticaId = null,
+        ?EmailFirma $firma = null,
     ): array {
         $host = parse_url(config('app.url'), PHP_URL_HOST) ?: 'localhost';
         $messageIdValue = Str::uuid()."@{$host}";
 
-        $mailable = new OutboundEmailMessage($subject, $bodyHtml, $messageIdValue, $inReplyTo, $files);
+        // Nell'email l'immagine della firma è incorporata; nella copia salvata punta a SinistroPro.
+        $htmlEmail = $bodyHtml.($firma?->html(true) ?? '');
+        $mailable = new OutboundEmailMessage($subject, $htmlEmail, $messageIdValue, $inReplyTo, $files, $firma?->immagine ? [[
+            'cid' => $firma->cid(), 'data' => $firma->contenutoImmagine(), 'mime' => $firma->immagine_mime ?: 'image/png', 'nome' => 'firma.png',
+        ]] : []);
+        $bodyHtml .= $firma?->html(false) ?? '';
 
         $status = 'sent';
         try {

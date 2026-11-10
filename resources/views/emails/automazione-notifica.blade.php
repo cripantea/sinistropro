@@ -7,6 +7,9 @@
 @endslot
 
 {!! nl2br(e($compiledBody)) !!}
+@if($firma)
+{!! $firma->html(true) !!}
+@endif
 
 @if(!empty($documentLinks))
 

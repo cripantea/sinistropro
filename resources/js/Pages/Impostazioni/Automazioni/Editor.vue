@@ -226,7 +226,11 @@
               <button v-for="r in ruoli" :key="r.type" type="button" class="px-3 py-1 rounded-full text-sm border transition"
                 :class="haDestinatario(r.type) ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'"
                 :title="r.aiuto" @click="toggleDestinatario({ type: r.type })">{{ r.label }}</button>
+              <button v-for="c in categorieExtra" :key="c" type="button" class="px-3 py-1 rounded-full text-sm border transition capitalize"
+                :class="haCategoria(c) ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'"
+                :title="`Il contatto «${c}» scelto nel sinistro dal collega`" @click="toggleDestinatario({ type: 'categoria', categoria: c })">{{ c }} del sinistro</button>
             </div>
+            <p v-if="categorieExtra.length" class="text-xs text-gray-500 mt-1">«… del sinistro» = il contatto di quella categoria che il collega sceglie nella scheda del sinistro.</p>
             <p class="text-xs text-gray-500 mt-2 mb-1">Colleghi dell'agenzia</p>
             <div class="flex flex-wrap gap-1.5">
               <button v-for="u in opzioni.utenti" :key="u.id" type="button" class="px-3 py-1 rounded-full text-sm border transition"
@@ -494,9 +498,15 @@ const ruoli = [
   { type: 'carrozzeria', label: 'Carrozzeria', aiuto: 'La carrozzeria del sopralluogo' },
   { type: 'gestore', label: 'Chi ha aperto il sinistro', aiuto: 'Il collega che ha aperto il sinistro' },
 ]
-const chiave = (r: DestinatarioAuto) => `${r.type}:${r.user_id ?? r.contatto_id ?? ''}`
+const chiave = (r: DestinatarioAuto) => `${r.type}:${r.user_id ?? r.contatto_id ?? r.categoria ?? ''}`
 const haDestinatario = (type: string, userId?: number, contattoId?: number) => form.recipients_to.some((r) => chiave(r) === chiave({ type, user_id: userId, contatto_id: contattoId }))
+const haCategoria = (c: string) => form.recipients_to.some((r) => r.type === 'categoria' && r.categoria === c)
+const categorieExtra = computed(() => [...new Set(props.opzioni.contatti.flatMap((c) => c.tags))].filter((t) => !['perito', 'carrozzeria'].includes(t)).sort())
 function toggleDestinatario(r: DestinatarioAuto) {
+  if (r.type === 'categoria') {
+    form.recipients_to = haCategoria(r.categoria ?? '') ? form.recipients_to.filter((x) => !(x.type === 'categoria' && x.categoria === r.categoria)) : [...form.recipients_to, r]
+    return
+  }
   form.recipients_to = haDestinatario(r.type, r.user_id, r.contatto_id)
     ? form.recipients_to.filter((x) => chiave(x) !== chiave(r))
     : [...form.recipients_to, r]
@@ -544,6 +554,8 @@ const riassuntoDestinatari = computed(() => {
     ? (props.opzioni.utenti.find((u) => u.id === r.user_id)?.name ?? 'collega')
     : r.type === 'contatto'
     ? (props.opzioni.contatti.find((c) => c.id === r.contatto_id)?.nome ?? 'contatto')
+    : r.type === 'categoria'
+    ? `${r.categoria} del sinistro`
     : ruoli.find((x) => x.type === r.type)?.label.toLowerCase() ?? r.type)
   return nomi.length ? nomi.join(', ') : 'nessuno — scegli i destinatari'
 })
