@@ -29,6 +29,14 @@
       >+ Tag</button>
     </template>
 
+    <!-- Tag già usati nell'agenzia: un clic e sono aggiunti -->
+    <div v-if="aggiunta && proposti.length" class="basis-full flex flex-wrap items-center gap-1 pt-1">
+      <span class="text-[11px] text-gray-400 mr-0.5">Usati di recente:</span>
+      <button v-for="s in proposti" :key="s" type="button" class="opacity-80 hover:opacity-100" @mousedown.prevent="scegli(s)">
+        <TagSinistro :tag="s">+ {{ s }}</TagSinistro>
+      </button>
+    </div>
+
     <span v-if="!tags.length && !modificabile" class="text-xs text-gray-400">—</span>
     <span v-if="errore" class="text-xs text-red-600">{{ errore }}</span>
   </div>
@@ -46,6 +54,13 @@ const nuovo = ref('')
 const errore = ref('')
 const campo = ref<HTMLInputElement | null>(null)
 const suggeriti = computed(() => props.suggeriti.filter((s) => !props.tags.some((t) => t.toLowerCase() === s.toLowerCase())))
+// Mentre si scrive restano solo quelli che contengono il testo.
+const proposti = computed(() => suggeriti.value.filter((s) => s.toLowerCase().includes(nuovo.value.trim().toLowerCase())).slice(0, 15))
+
+function scegli(t: string) {
+  nuovo.value = t
+  aggiungi()
+}
 
 function apri() {
   aggiunta.value = true
