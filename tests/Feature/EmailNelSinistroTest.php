@@ -74,10 +74,13 @@ test('il numero del sinistro può essere quello della compagnia: si vede ovunque
     $this->get('/pratiche?search=778899')->assertInertia(fn (Assert $p) => $p->where('pratiche.data.0.numero', 'UNI-2026-778899'));
 });
 
-test('la casella email si collega o cambia anche quando l\'agenzia è in sola lettura', function () {
+test('casella email e WhatsApp si collegano anche quando l\'agenzia è in sola lettura', function () {
     $this->tenant->forceFill(['billing_mode' => 'stripe', 'subscription_status' => null, 'free_until' => null])->save();
     expect($this->tenant->fresh()->hasAccess())->toBeFalse();
 
     $this->actingAs($this->admin)->delete('/impostazioni/email')->assertRedirect();
+    // Anche il salvataggio del collegamento WhatsApp passa (poi decide la verifica con FusionWA).
+    $this->app->instance(\App\Services\FusionWaConnectionClient::class, \Mockery::mock(\App\Services\FusionWaConnectionClient::class, fn ($m) => $m->shouldReceive('status')->andReturn(null)));
+    $this->postJson('/whatsapp/embedded-signup', ['waba_id' => 'W', 'phone_number_id' => 'P', 'phone_number' => '+39 1'])->assertStatus(503);
     $this->post('/pratiche', [])->assertSessionHas('error');
 });
