@@ -245,6 +245,8 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
             'body_text' => $bodyText,
             'message_id' => $messageId,
             'in_reply_to' => is_string($inReplyTo) && $inReplyTo !== '' ? $inReplyTo : null,
+            // La risposta a un'email del sinistro finisce nello stesso sinistro.
+            'pratica_id' => $this->praticaDellaRisposta($inReplyTo),
             'status' => $direction === 'outbound' ? 'sent' : 'received',
             'email_timestamp' => $timestamp,
         ]);
@@ -353,5 +355,16 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
         }, $html) ?? $html;
 
         return Purifier::clean($html, 'email');
+    }
+
+    private function praticaDellaRisposta(mixed $inReplyTo): ?int
+    {
+        $id = is_string($inReplyTo) ? trim($inReplyTo, " <>") : '';
+        if ($id === '') {
+            return null;
+        }
+
+        return EmailMessage::acrossAllTenants()->where('tenant_id', $this->tenantId)
+            ->whereIn('message_id', [$id, "<{$id}>"])->whereNotNull('pratica_id')->value('pratica_id');
     }
 }

@@ -16,6 +16,7 @@ class EmailMessage extends Model
     protected $fillable = [
         'tenant_id',
         'email_thread_id',
+        'pratica_id',
         'user_id',
         'direction',
         'folder',

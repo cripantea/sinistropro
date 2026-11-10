@@ -3,7 +3,7 @@
     <template #header>
       <div class="flex items-center justify-between">
         <h2 class="text-xl font-semibold text-gray-800 leading-tight">
-          Modifica Sinistro <span class="font-mono text-indigo-600">#{{ pratica.id }}</span>
+          Modifica Sinistro <span class="font-mono text-indigo-600">{{ pratica.numero ?? '#' + pratica.id }}</span>
         </h2>
         <TastoIndietro :href="route('pratiche.show', pratica.id)">Torna al sinistro</TastoIndietro>
       </div>
@@ -149,6 +149,7 @@ interface Tenant {
 }
 interface Pratica {
   id: number
+  numero?: string
   current_status_id: number | null
   custom_fields: Record<string, string | boolean> | null
 }
@@ -237,7 +238,7 @@ function onConfirmBlockAction() {
 }
 
 function destroyPratica() {
-  if (!confirm('Eliminare definitivamente il sinistro #' + props.pratica.id + ' con note, sopralluoghi e allegati? Non si può annullare.')) return
+  if (!confirm('Eliminare definitivamente il sinistro ' + (props.pratica.numero ?? '#' + props.pratica.id) + ' con note, sopralluoghi e allegati? Non si può annullare.')) return
   router.delete(route('pratiche.destroy', props.pratica.id))
 }
 </script>

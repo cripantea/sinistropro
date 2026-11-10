@@ -8,6 +8,7 @@ use App\Models\EmailAttachment;
 use App\Models\EmailMessage;
 use App\Models\EmailFirma;
 use App\Models\EmailThread;
+use App\Models\Pratica;
 use App\Models\Tenant;
 use App\Services\TenantMailerResolver;
 use App\Support\TenantContext;
@@ -106,6 +107,7 @@ class EmailController extends Controller
             thread: $thread,
             to: $thread->counterpart_email,
             subject: $subject,
+            praticaId: $lastMessage?->pratica_id,
             bodyHtml: nl2br(e($data['body'])).$this->firma($data['firma_id'] ?? null),
             inReplyTo: $lastMessage?->message_id,
             files: $request->file('attachments', []),
@@ -122,6 +124,7 @@ class EmailController extends Controller
         $data = $request->validate([
             'to' => ['required', 'email'],
             'subject' => ['required', 'string', 'max:255'],
+            'pratica_id' => ['nullable', 'integer'],
             'body' => ['required', 'string'],
             'firma_id' => ['nullable', 'integer'],
             'attachments.*' => ['file', 'max:10240'],
@@ -137,6 +140,7 @@ class EmailController extends Controller
             thread: $thread,
             to: $data['to'],
             subject: $data['subject'],
+            praticaId: $this->praticaDelTenant($data['pratica_id'] ?? null),
             bodyHtml: nl2br(e($data['body'])).$this->firma($data['firma_id'] ?? null),
             inReplyTo: null,
             files: $request->file('attachments', []),
@@ -144,6 +148,59 @@ class EmailController extends Controller
         );
 
         return response()->json(['thread' => $this->threadPayload($thread->fresh()), 'message' => $message]);
+    }
+
+    /**
+     * Corrispondenza del sinistro: le email scritte dal sinistro e le loro risposte, quelle con il cliente
+     * e quelle che citano il numero del sinistro nell'oggetto.
+     */
+    public function perPratica(Pratica $pratica): JsonResponse
+    {
+        $pratica->loadMissing('cliente');
+        $clienteEmail = strtolower(trim((string) $pratica->cliente?->email));
+        $numeri = collect([$pratica->numeroCompagnia()])->filter(fn ($n) => mb_strlen((string) $n) >= 5)->values();
+
+        $messaggi = EmailMessage::query()
+            ->where(function ($q) use ($pratica, $clienteEmail, $numeri) {
+                $q->where('pratica_id', $pratica->id);
+                if ($clienteEmail !== '') {
+                    $q->orWhereHas('thread', fn ($t) => $t->whereRaw('lower(counterpart_email) = ?', [$clienteEmail]));
+                }
+                foreach ($numeri as $n) {
+                    $q->orWhere('subject', 'like', '%'.$n.'%');
+                }
+            })
+            // Le email già legate a un altro sinistro restano lì.
+            ->where(fn ($q) => $q->whereNull('pratica_id')->orWhere('pratica_id', $pratica->id))
+            ->with('attachments')
+            ->orderByDesc('email_timestamp')
+            ->limit(200)
+            ->get();
+
+        $settings = TenantContext::tenant()?->mailSettings;
+        $ispezione = $pratica->ispezioni()->latest()->with(['peritoContatto', 'carrozzeriaContatto'])->first();
+        $destinatari = collect([
+            ['label' => 'Cliente', 'email' => $pratica->cliente?->email],
+            ['label' => 'Perito', 'email' => $ispezione?->peritoContatto?->email],
+            ['label' => 'Carrozzeria', 'email' => $ispezione?->carrozzeriaContatto?->email],
+        ])->filter(fn ($d) => filled($d['email']))->values();
+
+        return response()->json([
+            'messages' => $messaggi->map(fn (EmailMessage $m) => $this->messagePayload($m))->values(),
+            'destinatari' => $destinatari,
+            'oggetto' => 'Sinistro '.ltrim($pratica->numero, '#').($pratica->cliente?->nome ? ' — '.$pratica->cliente->nome : ''),
+            'emailConfigured' => (bool) ($settings && $settings->is_active && $settings->host),
+        ]);
+    }
+
+    private function praticaDelTenant(?int $id): ?int
+    {
+        if (! $id) {
+            return null;
+        }
+        abort_unless(Pratica::whereKey($id)->exists(), 404);
+
+        return $id;
     }
 
     /** HTML della firma scelta (solo tra quelle dell'utente o dell'agenzia). */
@@ -216,6 +273,7 @@ class EmailController extends Controller
         ?string $inReplyTo,
         array $files,
         int $userId,
+        ?int $praticaId = null,
     ): array {
         $host = parse_url(config('app.url'), PHP_URL_HOST) ?: 'localhost';
         $messageIdValue = Str::uuid()."@{$host}";
@@ -240,6 +298,7 @@ class EmailController extends Controller
         $emailMessage = EmailMessage::create([
             'tenant_id' => $tenant->id,
             'email_thread_id' => $thread->id,
+            'pratica_id' => $praticaId,
             'user_id' => $userId,
             'direction' => 'outbound',
             'folder' => 'sent',
@@ -317,6 +376,7 @@ class EmailController extends Controller
             // Email solo testo: prima non si vedeva nulla.
             'bodyText' => $m->body_html ? null : $m->body_text,
             'status' => $m->status,
+            'praticaId' => $m->pratica_id,
             'createdAt' => $m->email_timestamp?->toIso8601String(),
             'attachments' => $m->attachments->map(fn (EmailAttachment $a) => $a->toPayload()),
         ];

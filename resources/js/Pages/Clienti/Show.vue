@@ -141,7 +141,7 @@
             >
               <td class="px-5 py-3.5">
                 <Link :href="route('pratiche.show', pratica.id)" class="text-indigo-600 hover:underline font-semibold">
-                  #{{ pratica.id }}
+                  {{ pratica.numero ?? '#' + pratica.id }}
                 </Link>
               </td>
               <td class="px-5 py-3.5">
@@ -175,7 +175,7 @@ import TastoIndietro from '@/Components/TastoIndietro.vue'
 
 interface FieldSchema { name: string; label: string; type: string }
 interface TenantStatus { id: number; name: string; color: string }
-interface Pratica { id: number; current_status: TenantStatus | null; created_at: string }
+interface Pratica { id: number; numero?: string; current_status: TenantStatus | null; created_at: string }
 interface Veicolo {
   id: number; targa: string | null; telaio: string | null; marca: string | null; modello: string | null
   descrizione: string | null; data_immatricolazione: string | null; scadenza_revisione: string | null

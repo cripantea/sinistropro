@@ -5,7 +5,7 @@
         <div class="flex items-center gap-3 min-w-0">
           <TastoIndietro :href="ritorno.href">{{ ritorno.etichetta }}</TastoIndietro>
           <h2 class="text-xl font-semibold text-gray-800 leading-tight truncate">
-            Sinistro <span class="font-mono text-indigo-600">#{{ pratica.id }}</span>
+            Sinistro <span class="font-mono text-indigo-600">{{ pratica.numero ?? '#' + pratica.id }}</span>
           </h2>
         </div>
         <div class="flex items-center gap-2 shrink-0">
@@ -475,6 +475,9 @@
         </form>
       </div>
 
+      <!-- EMAIL -->
+      <EmailSinistroPanel :pratica-id="props.pratica.id" :firme="firme" />
+
       <!-- WHATSAPP -->
       <PraticaChatPanel :pratica-id="props.pratica.id" />
 
@@ -521,6 +524,8 @@ import { ritornoSinistro } from '@/ritornoSinistro'
 import ModuleFormModal from '@/Components/ModuleFormModal.vue'
 import AutomationConfirmModal, { type AutomationPlan } from '@/Components/AutomationConfirmModal.vue'
 import PraticaChatPanel from '@/Components/Whatsapp/PraticaChatPanel.vue'
+import EmailSinistroPanel from '@/Components/Pratiche/EmailSinistroPanel.vue'
+import type { StatoFirme } from '@/Components/Email/GestioneFirme.vue'
 import TagEditor from '@/Components/Pratiche/TagEditor.vue'
 import type { PageProps } from '@/types'
 
@@ -567,6 +572,7 @@ interface DictEntry { key: string; source_type: 'manual' | 'cliente' | 'pratica_
 
 interface Pratica {
   id: number
+  numero?: string
   custom_fields: Record<string, string | boolean> | null
   shared_module_values: Record<string, unknown> | null
   data_prossimo_avviso: string | null
@@ -589,6 +595,7 @@ interface Pratica {
 const props   = defineProps<{
   pratica: Pratica
   puoEliminare: boolean
+  firme: StatoFirme
   categories: DocumentCategory[]
   moduleTemplates: ModuleTemplate[]
   praticaModules: PraticaModule[]
@@ -853,7 +860,7 @@ function salvaAvviso() {
 }
 
 function eliminaSinistro() {
-  if (!confirm(`Eliminare definitivamente il sinistro #${props.pratica.id} con note, sopralluoghi e allegati? Non si può annullare.`)) return
+  if (!confirm(`Eliminare definitivamente il sinistro ${props.pratica.numero ?? '#' + props.pratica.id} con note, sopralluoghi e allegati? Non si può annullare.`)) return
   router.delete(route('pratiche.destroy', props.pratica.id))
 }
 </script>

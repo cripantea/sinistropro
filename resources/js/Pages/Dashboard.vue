@@ -30,6 +30,7 @@ interface StatusStat {
 
 interface SinistroDiOggi {
   id: number
+  numero?: string
   cliente: string | null
   targa: string | null
   compagnia: string | null
@@ -264,7 +265,7 @@ onBeforeUnmount(() => {
         <ul v-if="oggi.length" class="divide-y divide-slate-100">
           <li v-for="p in oggi" :key="p.id">
             <Link :href="route('pratiche.show', p.id)" class="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 transition">
-              <span class="font-mono text-sm font-semibold text-indigo-600 w-12 shrink-0">#{{ p.id }}</span>
+              <span class="font-mono text-sm font-semibold text-indigo-600 min-w-12 shrink-0">{{ p.numero ?? '#' + p.id }}</span>
               <div class="min-w-0 flex-1">
                 <p class="text-sm font-medium text-slate-800 truncate">
                   {{ p.cliente ?? 'Cliente non indicato' }}

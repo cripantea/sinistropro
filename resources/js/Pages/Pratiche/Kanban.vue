@@ -113,7 +113,7 @@
               @keydown.right.prevent="neighbour(col.id, 1) && moveTo(pratica.id, neighbour(col.id, 1)!.id)"
               tabindex="0"
               role="link"
-              :aria-label="`Apri il sinistro #${pratica.id}. Frecce sinistra e destra per cambiare stato.`"
+              :aria-label="`Apri il sinistro ${pratica.numero ?? '#' + pratica.id}. Frecce sinistra e destra per cambiare stato.`"
               class="group bg-white rounded-lg border p-3.5 cursor-pointer hover:shadow-md hover:border-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 transition-all select-none"
               :class="[
                 draggingId === pratica.id ? 'opacity-40 shadow-lg scale-[0.98]' : '',
@@ -122,7 +122,7 @@
             >
               <!-- Riga: numero, compagnia, data di apertura -->
               <div class="flex items-center gap-2 mb-1.5">
-                <span class="text-xs font-mono font-semibold text-gray-500">#{{ pratica.id }}</span>
+                <span class="text-xs font-mono font-semibold text-gray-500">{{ pratica.numero ?? '#' + pratica.id }}</span>
                 <span v-if="pratica.compagnia" class="text-[11px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded truncate">{{ pratica.compagnia }}</span>
                 <span class="ml-auto text-[11px] text-gray-400 tabular-nums shrink-0">aperto {{ formatDate(pratica.created_at) }}</span>
               </div>
@@ -434,6 +434,7 @@ interface PraticaKanban {
   cliente: { id: number; nome: string } | null
   veicolo: { id: number; targa: string | null; marca: string | null; modello: string | null } | null
   compagnia: string | null
+  numero?: string
   current_status_id: number | null
   data_prossimo_avviso: string | null
   tags: string[] | null

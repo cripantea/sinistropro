@@ -15,6 +15,15 @@
             <p v-if="form.errors.default_notice_days" class="text-sm text-red-600 mt-1">{{ form.errors.default_notice_days }}</p>
           </div>
         </div>
+        <div class="mt-4 sm:w-1/2 sm:pr-2">
+          <label class="field-label">Numero del sinistro</label>
+          <select v-model="form.numero_sinistro_campo" class="field-input">
+            <option :value="null">Numero interno di SinistroPro (#123)</option>
+            <option v-for="c in campiTesto" :key="c.name" :value="c.name">{{ c.label }}</option>
+          </select>
+          <p class="text-xs text-gray-500 mt-1">Scegliendo un campo (es. il numero sinistro della compagnia) quel numero si vede in Board, elenco, scheda e nei messaggi. Se nel sinistro è vuoto resta #123.</p>
+          <p v-if="form.errors.numero_sinistro_campo" class="text-sm text-red-600 mt-1">{{ form.errors.numero_sinistro_campo }}</p>
+        </div>
         <template #azioni><BottoneSalva :caricamento="form.processing" :salvato="form.recentlySuccessful" /></template>
       </Sezione>
     </form>
@@ -27,7 +36,10 @@ import ImpostazioniLayout from '@/Components/Impostazioni/Layout.vue'
 import Sezione from '@/Components/Impostazioni/Sezione.vue'
 import BottoneSalva from '@/Components/Impostazioni/BottoneSalva.vue'
 
-const props = defineProps<{ agenzia: { name: string; default_notice_days: number } }>()
+const props = defineProps<{
+  agenzia: { name: string; default_notice_days: number; numero_sinistro_campo: string | null }
+  campiTesto: { name: string; label: string }[]
+}>()
 const form = useForm({ ...props.agenzia })
 const salva = () => form.post(route('impostazioni.generale.update'), { preserveScroll: true })
 </script>

@@ -105,6 +105,44 @@ class Pratica extends Model
         return data_get($this->custom_fields, $key, $default);
     }
 
+    protected $appends = ['numero'];
+
+    /** Campo del sinistro usato come numero, per agenzia (cache per richiesta). */
+    private static array $campoNumero = [];
+
+    public static function campoNumero(?int $tenantId): ?string
+    {
+        if (! $tenantId) {
+            return null;
+        }
+
+        return self::$campoNumero[$tenantId] ??= (string) (Tenant::find($tenantId)?->getSetting('numero_sinistro_campo') ?? '');
+    }
+
+    public static function dimenticaCampoNumero(): void
+    {
+        self::$campoNumero = [];
+    }
+
+    /** Numero del sinistro della compagnia (il campo scelto in Impostazioni → Generale), se compilato. */
+    public function numeroCompagnia(): ?string
+    {
+        $campo = self::campoNumero($this->tenant_id);
+        $valore = $campo ? trim((string) ($this->custom_fields[$campo] ?? '')) : '';
+
+        return $valore !== '' ? $valore : null;
+    }
+
+    /** Come si mostra il sinistro ovunque: numero della compagnia se l'agenzia lo usa, altrimenti #id. */
+    public function getNumeroAttribute(): string
+    {
+        if (! array_key_exists('custom_fields', $this->attributes)) {
+            return '#'.$this->id;
+        }
+
+        return $this->numeroCompagnia() ?? '#'.$this->id;
+    }
+
     protected static function booted(): void
     {
         // Da quando il sinistro è nello stato attuale (solleciti "X giorni fermo in uno stato").

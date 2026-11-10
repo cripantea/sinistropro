@@ -116,6 +116,11 @@ class Tenant extends Model
      *
      * @return \Illuminate\Support\Collection<int, array{id: int, name: string, is_enabled: bool, max_file_size_mb: int}>
      */
+    protected static function booted(): void
+    {
+        static::saved(fn () => Pratica::dimenticaCampoNumero());
+    }
+
     public function categorieDocumenti(): \Illuminate\Support\Collection
     {
         $pivot = \Illuminate\Support\Facades\DB::table('tenant_document_categories')->where('tenant_id', $this->id)->get()->keyBy('document_category_id');

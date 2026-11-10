@@ -99,6 +99,7 @@ class DashboardController extends Controller
             ->get()
             ->map(fn (Pratica $p) => [
                 'id'        => $p->id,
+                'numero'    => $p->numero,
                 'cliente'   => $p->cliente?->nome,
                 'targa'     => $p->veicolo?->targa,
                 'compagnia' => $p->compagnia,

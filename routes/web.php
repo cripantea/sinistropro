@@ -157,6 +157,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/email/threads/{thread}/messages', [EmailController::class, 'messages'])->name('email.threads.messages');
     Route::post('/email/threads/{thread}/reply', [EmailController::class, 'reply'])->name('email.threads.reply');
     Route::post('/email/compose', [EmailController::class, 'compose'])->name('email.compose');
+    Route::get('/pratiche/{pratica}/email', [EmailController::class, 'perPratica'])->name('pratiche.email');
     Route::post('/email/firme', [\App\Http\Controllers\FirmaEmailController::class, 'store'])->name('email.firme.store');
     Route::put('/email/firme/{firma}', [\App\Http\Controllers\FirmaEmailController::class, 'update'])->name('email.firme.update');
     Route::delete('/email/firme/{firma}', [\App\Http\Controllers\FirmaEmailController::class, 'destroy'])->name('email.firme.destroy');

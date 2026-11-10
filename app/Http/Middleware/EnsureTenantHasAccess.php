@@ -21,7 +21,9 @@ class EnsureTenantHasAccess
         'password.*',
         'verification.*',
         'impersonate.leave',
-        'impostazioni.email.rileva',
+        // Collegare/cambiare la casella email è configurazione: si fa anche prima di attivare l'abbonamento.
+        'impostazioni.email',
+        'impostazioni.email.*',
         'impostazioni.automazioni.anteprima',
     ];
 

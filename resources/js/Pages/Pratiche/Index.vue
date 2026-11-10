@@ -140,7 +140,7 @@
               class="hover:bg-gray-50 transition-colors group cursor-pointer"
               @click="goTo(pratica.id)"
             >
-              <td class="px-5 py-3.5 text-gray-400 tabular-nums font-mono text-xs">#{{ pratica.id }}</td>
+              <td class="px-5 py-3.5 text-gray-400 tabular-nums font-mono text-xs">{{ pratica.numero ?? '#' + pratica.id }}</td>
 
               <td class="px-5 py-3.5">
                 <span
@@ -230,6 +230,7 @@ interface Status { id: number; name: string; color: string; is_closed?: boolean 
 interface CustomFieldSchema { name: string; label: string; type: 'text' | 'date' | 'number' | 'boolean' | 'select'; options?: string[] }
 interface PraticaRow {
   id: number
+  numero?: string
   current_status: Status | null
   cliente: { id: number; nome: string } | null
   custom_fields: Record<string, string | boolean> | null

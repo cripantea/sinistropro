@@ -134,7 +134,7 @@ class PraticaController extends Controller
             ->orderByRaw('data_prossimo_avviso is null')
             ->orderBy('data_prossimo_avviso')
             ->orderBy('id')
-            ->get(['id', 'cliente_id', 'veicolo_id', 'compagnia', 'current_status_id', 'data_prossimo_avviso', 'tags', 'created_at']);
+            ->get(['id', 'tenant_id', 'custom_fields', 'cliente_id', 'veicolo_id', 'compagnia', 'current_status_id', 'data_prossimo_avviso', 'tags', 'created_at']);
 
         $periti = Contatto::tag(Contatto::TAG_PERITO)->where('is_active', true)->orderBy('nome')->get(['id', 'nome']);
 
@@ -272,6 +272,7 @@ class PraticaController extends Controller
         return Inertia::render('Pratiche/Show', [
             'pratica'         => $pratica,
             'puoEliminare'    => self::puoEliminare($pratica),
+            'firme'           => FirmaEmailController::elenco(),
             'categories'      => $enabledCategories,
             'moduleTemplates' => $moduleTemplates,
             'praticaModules'  => $praticaModules,

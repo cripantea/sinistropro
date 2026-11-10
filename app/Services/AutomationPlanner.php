@@ -180,7 +180,7 @@ class AutomationPlanner
         $perizia = $ispezione?->data_appuntamento;
 
         $replacements = [
-            '{numero_pratica}' => (string) $pratica->id,
+            '{numero_pratica}' => $pratica->numeroCompagnia() ?? (string) $pratica->id,
             '{nome_cliente}'   => $recipientName ?: 'Cliente',
             '{stato_corrente}' => $statusName ?? ($pratica->currentStatus?->name ?? ''),
             '{nome_tenant}'    => $pratica->tenant?->name ?? '',
