@@ -144,6 +144,10 @@
             </div>
           </div>
         </div>
+        <div class="mt-4 pt-4 border-t border-gray-100 flex items-start gap-3">
+          <span class="text-gray-400 text-xs uppercase tracking-wide pt-0.5 shrink-0">Tag</span>
+          <TagEditor :pratica-id="pratica.id" :tags="pratica.tags ?? []" :suggeriti="tagUsati" :modificabile="puoModificareAvviso" />
+        </div>
       </div>
 
       <!-- Dati del sinistro (solo se il tenant ha campi personalizzati configurati) -->
@@ -511,6 +515,7 @@ import { ritornoSinistro } from '@/ritornoSinistro'
 import ModuleFormModal from '@/Components/ModuleFormModal.vue'
 import AutomationConfirmModal, { type AutomationPlan } from '@/Components/AutomationConfirmModal.vue'
 import PraticaChatPanel from '@/Components/Whatsapp/PraticaChatPanel.vue'
+import TagEditor from '@/Components/Pratiche/TagEditor.vue'
 import type { PageProps } from '@/types'
 
 // ----- Types -----
@@ -559,6 +564,7 @@ interface Pratica {
   custom_fields: Record<string, string | boolean> | null
   shared_module_values: Record<string, unknown> | null
   data_prossimo_avviso: string | null
+  tags: string[] | null
   created_at: string
   current_status: TenantStatus | null
   current_status_id: number | null
@@ -582,6 +588,7 @@ const props   = defineProps<{
   periti: ContattoInfo[]
   carrozzerie: ContattoInfo[]
   fieldDictionary: DictEntry[]
+  tagUsati: string[]
 }>()
 
 // Indietro: alla Board, alla tabella (con i filtri) o al cliente, a seconda di dove si era.

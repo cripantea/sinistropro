@@ -39,6 +39,15 @@
           <option v-for="s in statuses" :key="s.id" :value="String(s.id)">{{ s.name }}</option>
         </select>
 
+        <select
+          v-if="tagUsati.length"
+          v-model="selectedTag"
+          class="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+        >
+          <option value="">Tutti i tag</option>
+          <option v-for="t in tagUsati" :key="t" :value="t"># {{ t }}</option>
+        </select>
+
         <!-- Selettore campo personalizzato: aggiunge una colonna, la rende ordinabile e filtrabile -->
         <select
           v-if="customFieldsSchema.length > 0"
@@ -147,6 +156,11 @@
               <td class="px-5 py-3.5">
                 <span v-if="pratica.cliente" class="text-sm font-medium text-gray-800">{{ pratica.cliente.nome }}</span>
                 <span v-else class="text-gray-300 text-xs italic">—</span>
+                <div v-if="pratica.tags?.length" class="flex flex-wrap gap-1 mt-1">
+                  <button v-for="t in pratica.tags" :key="t" type="button" :title="`Mostra solo i sinistri con ${t}`" @click.stop="selectedTag = t">
+                    <TagSinistro :tag="t" />
+                  </button>
+                </div>
               </td>
 
               <td v-if="selectedFieldSchema" class="px-5 py-3.5 text-xs text-gray-600">
@@ -209,6 +223,7 @@ import { computed, ref, watch } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import SortIcon from '@/Components/SortIcon.vue'
+import TagSinistro from '@/Components/Pratiche/TagSinistro.vue'
 import DataItaliana from '@/Components/DataItaliana.vue'
 
 interface Status { id: number; name: string; color: string; is_closed?: boolean }
@@ -219,6 +234,7 @@ interface PraticaRow {
   cliente: { id: number; nome: string } | null
   custom_fields: Record<string, string | boolean> | null
   data_prossimo_avviso: string | null
+  tags: string[] | null
   utente_creatore: { name: string } | null
   created_at: string
 }
@@ -228,17 +244,19 @@ const props = defineProps<{
   pratiche: { data: PraticaRow[]; from: number; to: number; total: number; links: PaginationLink[] }
   statuses: Status[]
   customFieldsSchema: CustomFieldSchema[]
-  filters: { search?: string; status_id?: string; sort_field?: string; sort_dir?: string; filter_field?: string; filter_value?: string }
+  tagUsati: string[]
+  filters: { search?: string; status_id?: string; tag?: string; sort_field?: string; sort_dir?: string; filter_field?: string; filter_value?: string }
 }>()
 
 const search         = ref(props.filters.search ?? '')
 const selectedStatus = ref(props.filters.status_id ?? '')
+const selectedTag    = ref(props.filters.tag ?? '')
 const sortField       = ref(props.filters.sort_field ?? 'data_prossimo_avviso')
 const sortDir         = ref<'asc' | 'desc'>(props.filters.sort_dir === 'asc' ? 'asc' : 'desc')
 const filterField     = ref(props.filters.filter_field ?? '')
 const filterValue     = ref(props.filters.filter_value ?? '')
 
-const hasFilters = computed(() => !!search.value || !!selectedStatus.value || !!filterField.value)
+const hasFilters = computed(() => !!search.value || !!selectedStatus.value || !!selectedTag.value || !!filterField.value)
 
 const selectedFieldSchema = computed(() =>
   props.customFieldsSchema.find(f => f.name === filterField.value) ?? null
@@ -250,6 +268,7 @@ watch(search, (v) => {
   searchTimer = setTimeout(() => navigate(), v ? 350 : 0)
 })
 watch(selectedStatus, () => navigate())
+watch(selectedTag, () => navigate())
 watch(sortField, () => navigate())
 watch(sortDir, () => navigate())
 
@@ -276,6 +295,7 @@ function navigate() {
   router.get(route('pratiche.index'), {
     search:       search.value || undefined,
     status_id:    selectedStatus.value || undefined,
+    tag:          selectedTag.value || undefined,
     sort_field:   sortField.value || undefined,
     sort_dir:     sortDir.value || undefined,
     filter_field: filterField.value || undefined,
@@ -286,6 +306,7 @@ function navigate() {
 function resetFilters() {
   search.value = ''
   selectedStatus.value = ''
+  selectedTag.value = ''
   filterField.value = ''
   filterValue.value = ''
 }

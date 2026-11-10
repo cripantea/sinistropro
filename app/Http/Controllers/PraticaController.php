@@ -64,8 +64,13 @@ class PraticaController extends Controller
                     $term = '%' . $request->search . '%';
                     $q->where('id', 'like', $term)
                       ->orWhereRaw('CAST(custom_fields AS CHAR) LIKE ?', [$term])
+                      ->orWhereRaw('CAST(tags AS CHAR) LIKE ?', [$term])
                       ->orWhereHas('cliente', fn (Builder $c) => $c->where('nome', 'like', $term));
                 })
+            )
+            ->when(
+                $request->filled('tag'),
+                fn (Builder $q) => $q->whereJsonContains('tags', (string) $request->input('tag'))
             )
             ->when(
                 $request->filled('status_id'),
@@ -109,7 +114,8 @@ class PraticaController extends Controller
             'pratiche'           => $pratiche,
             'statuses'           => $statuses,
             'customFieldsSchema' => $customFieldsSchema,
-            'filters'            => $request->only(['search', 'status_id', 'sort_field', 'sort_dir', 'filter_field', 'filter_value']),
+            'filters'            => $request->only(['search', 'status_id', 'tag', 'sort_field', 'sort_dir', 'filter_field', 'filter_value']),
+            'tagUsati'           => Pratica::tagUsati((int) TenantContext::id()),
         ]);
     }
 
@@ -128,7 +134,7 @@ class PraticaController extends Controller
             ->orderByRaw('data_prossimo_avviso is null')
             ->orderBy('data_prossimo_avviso')
             ->orderBy('id')
-            ->get(['id', 'cliente_id', 'veicolo_id', 'compagnia', 'current_status_id', 'data_prossimo_avviso', 'created_at']);
+            ->get(['id', 'cliente_id', 'veicolo_id', 'compagnia', 'current_status_id', 'data_prossimo_avviso', 'tags', 'created_at']);
 
         $periti = Contatto::tag(Contatto::TAG_PERITO)->where('is_active', true)->orderBy('nome')->get(['id', 'nome']);
 
@@ -140,6 +146,7 @@ class PraticaController extends Controller
             'compagnie'     => $this->compagnie(),
             'chiediVeicolo' => $tenant->hasFeature('veicoli'),
             'nuovaPraticaId' => session('nuova_pratica_id'),
+            'tagUsati'      => Pratica::tagUsati($tenant->id),
         ]);
     }
 
@@ -270,6 +277,7 @@ class PraticaController extends Controller
             'periti'          => $periti,
             'carrozzerie'     => $carrozzerie,
             'fieldDictionary' => $fieldDictionary,
+            'tagUsati'        => Pratica::tagUsati($pratica->tenant_id),
         ]);
     }
 
@@ -339,6 +347,23 @@ class PraticaController extends Controller
      *  1. Route model binding su Pratica rispetta BelongsToTenant → 404 se pratica di altro tenant.
      *  2. La closure di validazione verifica che current_status_id appartenga allo stesso tenant.
      */
+    /** Tag del sinistro (etichette libere, max 10): li cambia chiunque dell'agenzia tranne gli esterni. */
+    public function updateTag(Request $request, Pratica $pratica): RedirectResponse
+    {
+        abort_unless((int) $pratica->tenant_id === (int) TenantContext::id(), 404);
+        abort_if($request->user()->role === 'external', 403);
+
+        $data = $request->validate([
+            'tags' => ['present', 'array', 'max:10'],
+            'tags.*' => ['nullable', 'string', 'max:30'],
+        ], ['tags.max' => 'Al massimo 10 tag per sinistro.', 'tags.*.max' => 'Ogni tag può avere al massimo 30 caratteri.']);
+
+        $tags = Pratica::pulisciTag($data['tags']);
+        $pratica->update(['tags' => $tags ?: null]);
+
+        return back();
+    }
+
     /** Data del prossimo avviso scelta a mano (es. "risentiamoci tra 10 giorni"); vuota = nessun avviso. */
     public function updateAvviso(Request $request, Pratica $pratica): RedirectResponse
     {

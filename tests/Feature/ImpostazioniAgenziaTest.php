@@ -241,3 +241,22 @@ test('le categorie mai configurate contano come attive: si vedono nell\'editor e
     $this->post('/impostazioni/automazioni', automazione(['document_category_ids' => [$foto->id]]))->assertSessionHasNoErrors();
     expect(Automation::where('tenant_id', $this->tenant->id)->sole()->documentCategories->pluck('name')->all())->toBe(['Foto danno']);
 });
+
+test('tag sui sinistri: si mettono puliti, si filtrano nell\'elenco e si suggeriscono', function () {
+    $this->actingAs($this->collaboratore)->patch("/pratiche/{$this->pratica->id}/tag", ['tags' => [' Urgente ', 'urgente', 'Legale', '']])
+        ->assertSessionHasNoErrors();
+    expect($this->pratica->fresh()->tags)->toBe(['Urgente', 'Legale']);
+
+    $altra = Pratica::create(['tenant_id' => $this->tenant->id, 'utente_creatore_id' => $this->admin->id, 'cliente_id' => $this->cliente->id, 'current_status_id' => $this->nuova->id, 'tags' => ['RCA']]);
+
+    $this->get('/pratiche?tag=Legale')->assertInertia(fn (Assert $p) => $p
+        ->where('pratiche.total', 1)->where('pratiche.data.0.id', $this->pratica->id)
+        ->where('tagUsati', ['Legale', 'RCA', 'Urgente']));
+
+    $this->patch("/pratiche/{$this->pratica->id}/tag", ['tags' => array_map(fn ($i) => "t$i", range(1, 11))])->assertSessionHasErrors('tags');
+    $this->patch("/pratiche/{$this->pratica->id}/tag", ['tags' => []])->assertSessionHasNoErrors();
+    expect($this->pratica->fresh()->tags)->toBeNull();
+
+    $esterno = User::factory()->create(['tenant_id' => $this->tenant->id, 'role' => 'external']);
+    $this->actingAs($esterno)->patch("/pratiche/{$altra->id}/tag", ['tags' => ['x']])->assertForbidden();
+});

@@ -4,6 +4,10 @@
       <div class="flex items-center justify-between w-full min-w-0">
         <h2 class="text-xl font-semibold text-gray-800 leading-tight truncate">Board Kanban</h2>
         <div class="flex items-center gap-3 shrink-0 ml-4">
+          <select v-if="tagUsati.length" v-model="filtroTag" class="text-sm border border-gray-300 rounded-lg px-2.5 py-1.5 bg-white focus:ring-2 focus:ring-indigo-500 outline-none" title="Mostra solo i sinistri con questo tag">
+            <option value="">Tutti i tag</option>
+            <option v-for="t in tagUsati" :key="t" :value="t"># {{ t }}</option>
+          </select>
           <Link
             :href="route('pratiche.index')"
             class="hidden sm:inline-flex items-center gap-2 h-10 px-4 rounded-lg border border-gray-300 bg-white text-[15px] font-semibold text-gray-800 shadow-sm hover:bg-gray-50 transition"
@@ -129,6 +133,9 @@
                 <span class="font-mono font-semibold text-gray-800">{{ pratica.veicolo.targa }}</span>
                 {{ [pratica.veicolo.marca, pratica.veicolo.modello].filter(Boolean).join(' ') }}
               </p>
+              <div v-if="pratica.tags?.length" class="flex flex-wrap gap-1 mt-1.5">
+                <TagSinistro v-for="t in pratica.tags" :key="t" :tag="t" />
+              </div>
 
               <!-- Prossimo avviso: semaforo verde/giallo/rosso in base ai giorni rimanenti -->
               <div class="flex items-center gap-1.5 mt-2.5">
@@ -407,6 +414,7 @@
 import { ref, computed, reactive, watch, onMounted, nextTick } from 'vue'
 import { Link, router, usePage } from '@inertiajs/vue3'
 import NuovoSinistroForm from '@/Components/NuovoSinistroForm.vue'
+import TagSinistro from '@/Components/Pratiche/TagSinistro.vue'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import TastoIndietro from '@/Components/TastoIndietro.vue'
@@ -428,6 +436,7 @@ interface PraticaKanban {
   compagnia: string | null
   current_status_id: number | null
   data_prossimo_avviso: string | null
+  tags: string[] | null
   created_at: string
 }
 interface Perito { id: number; nome: string }
@@ -440,7 +449,11 @@ const props = defineProps<{
   compagnie: string[]
   chiediVeicolo: boolean
   nuovaPraticaId: number | null
+  tagUsati: string[]
 }>()
+
+// Filtro per tag (solo nella pagina, nessuna ricarica).
+const filtroTag = ref('')
 
 const pannelloAperto = ref(false)
 // Scheda illuminata per un momento: appena aperta o appena spostata, così si vede dove è finita.
@@ -520,7 +533,7 @@ async function previewAutomations(praticaId: number, tenantStatusId: number, dat
 const columns = computed(() =>
   props.statuses.map(s => ({
     ...s,
-    pratiche: localPratiche.value.filter(p => p.current_status_id === s.id),
+    pratiche: localPratiche.value.filter(p => p.current_status_id === s.id && (!filtroTag.value || (p.tags ?? []).includes(filtroTag.value))),
   }))
 )
 

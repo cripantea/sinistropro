@@ -28,12 +28,14 @@ class Pratica extends Model
         'current_status_id',
         'data_prossimo_avviso',
         'custom_fields',
+        'tags',
         'shared_module_values',
     ];
 
     protected $casts = [
         'data_prossimo_avviso' => 'date',
         'custom_fields'        => 'array',
+        'tags'                 => 'array',
         'shared_module_values' => 'array',
     ];
 
@@ -99,5 +101,23 @@ class Pratica extends Model
     public function getCustomField(string $key, mixed $default = null): mixed
     {
         return data_get($this->custom_fields, $key, $default);
+    }
+
+    /** Tag puliti: senza spazi doppi, senza doppioni (anche se cambiano maiuscole), al massimo 10. */
+    public static function pulisciTag(array $tags): array
+    {
+        return collect($tags)
+            ->map(fn ($t) => trim(preg_replace('/\s+/u', ' ', (string) $t)))
+            ->filter(fn ($t) => $t !== '')
+            ->map(fn ($t) => mb_substr($t, 0, 30))
+            ->unique(fn ($t) => mb_strtolower($t))
+            ->take(10)->values()->all();
+    }
+
+    /** Tutti i tag usati nei sinistri dell'agenzia, per suggerirli e filtrare. */
+    public static function tagUsati(int $tenantId): array
+    {
+        return static::acrossAllTenants()->where('tenant_id', $tenantId)->whereNotNull('tags')->pluck('tags')
+            ->flatten()->filter()->unique(fn ($t) => mb_strtolower($t))->sort(SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
     }
 }
