@@ -69,7 +69,7 @@
                 <p class="text-[10px] font-bold uppercase tracking-wider text-gray-500">{{ etichettaCanale }}</p>
                 <p class="text-sm font-semibold text-gray-800 truncate">A {{ riassuntoDestinatari }}</p>
                 <p class="text-xs text-gray-500 line-clamp-2 mt-0.5 whitespace-pre-line">{{ form.message_template || 'Scrivi il messaggio…' }}</p>
-                <p v-if="form.document_category_ids.length && form.channel !== 'whatsapp'" class="text-xs text-gray-500 mt-1">📎 {{ form.document_category_ids.length }} categorie di documenti allegate</p>
+                <p v-if="form.document_category_ids.length && form.channel !== 'whatsapp'" class="text-xs text-gray-600 mt-1">📎 {{ nomiCategorie }}</p>
               </div>
             </div>
             <p v-if="erroriMessaggio" class="px-4 pb-2 text-xs text-red-600">{{ erroriMessaggio }}</p>
@@ -219,10 +219,12 @@
             </div>
           </div>
 
-          <div v-if="usaEmail && form.trigger_type !== 'cliente_date_field' && opzioni.categorie.length">
-            <p class="field-label">Allega i documenti del sinistro</p>
-            <p class="text-xs text-gray-500 mb-2">I file di queste categorie arrivano come link scaricabili per 7 giorni.</p>
-            <div class="space-y-1">
+          <div v-if="form.trigger_type !== 'cliente_date_field'">
+            <p class="field-label">📎 Allegati: documenti del sinistro</p>
+            <p v-if="!usaEmail" class="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1.5">Gli allegati partono solo via email: scegli "Email" o "Entrambi".</p>
+            <p v-else-if="!opzioni.categorie.length" class="text-xs text-gray-500">Nessuna categoria attiva: attivale in <Link :href="route('impostazioni.categorie')" class="underline">Categorie documenti</Link>.</p>
+            <p v-else class="text-xs text-gray-500 mb-2">Nell'email arrivano i file del sinistro di queste categorie, come link da scaricare (validi 7 giorni). In anteprima vedi quali file partirebbero.</p>
+            <div v-if="usaEmail" class="space-y-1">
               <label v-for="c in opzioni.categorie" :key="c.id" class="flex items-center gap-2 text-sm text-gray-700">
                 <input v-model="form.document_category_ids" type="checkbox" :value="c.id" class="rounded border-gray-300 text-indigo-600" /> {{ c.name }}
               </label>
@@ -411,6 +413,7 @@ const riassuntoDestinatari = computed(() => {
   return nomi.length ? nomi.join(', ') : 'nessuno — scegli i destinatari'
 })
 
+const nomiCategorie = computed(() => props.opzioni.categorie.filter((c) => form.document_category_ids.includes(c.id)).map((c) => c.name).join(', '))
 const perCliente = computed(() => form.trigger_type === 'cliente_date_field')
 const variabili = computed(() => perCliente.value ? props.opzioni.variabiliCliente : props.opzioni.variabiliPratica)
 const oggettoPredefinito = computed(() => perCliente.value ? 'Promemoria — {nome_cliente}' : 'Sinistro #{numero_pratica} — {stato_corrente}')

@@ -210,3 +210,17 @@ test('la data del prossimo avviso si cambia a mano dalla scheda (non nel passato
     $altro = User::factory()->create(['tenant_id' => Tenant::create(['name' => 'Altra2'])->id, 'role' => 'tenant-admin']);
     $this->actingAs($altro)->patch("/pratiche/{$this->pratica->id}/avviso", ['data_prossimo_avviso' => null])->assertNotFound();
 });
+
+test('le categorie mai configurate contano come attive: si vedono nell\'editor e si allegano alle automazioni', function () {
+    $foto = \App\Models\DocumentCategory::create(['name' => 'Foto danno']);
+    $spenta = \App\Models\DocumentCategory::create(['name' => 'Interna']);
+    $this->tenant->documentCategories()->attach($spenta->id, ['is_enabled' => false, 'max_file_size_mb' => 10]);
+
+    $this->actingAs($this->admin)->get('/impostazioni/automazioni/nuova')->assertInertia(fn (Assert $p) => $p
+        ->where('opzioni.categorie', fn ($c) => collect($c)->pluck('name')->contains('Foto danno') && ! collect($c)->pluck('name')->contains('Interna')));
+    $this->get('/impostazioni/categorie')->assertInertia(fn (Assert $p) => $p
+        ->where('categorie', fn ($c) => collect($c)->firstWhere('name', 'Foto danno')['is_enabled'] === true && collect($c)->firstWhere('name', 'Interna')['is_enabled'] === false));
+
+    $this->post('/impostazioni/automazioni', automazione(['document_category_ids' => [$foto->id]]))->assertSessionHasNoErrors();
+    expect(Automation::where('tenant_id', $this->tenant->id)->sole()->documentCategories->pluck('name')->all())->toBe(['Foto danno']);
+});

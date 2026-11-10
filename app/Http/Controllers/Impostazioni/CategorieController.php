@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Impostazioni;
 
 use App\Http\Controllers\Controller;
-use App\Models\DocumentCategory;
 use App\Support\AccessoImpostazioni;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,15 +15,9 @@ class CategorieController extends Controller
     public function show(): Response
     {
         $tenant = AccessoImpostazioni::tenant();
-        $scelte = $tenant->documentCategories()->get()->keyBy('id');
 
         return Inertia::render('Impostazioni/Categorie', [
-            'categorie' => DocumentCategory::orderBy('name')->get()->map(fn ($c) => [
-                'id' => $c->id,
-                'name' => $c->name,
-                'is_enabled' => (bool) ($scelte[$c->id]?->pivot->is_enabled ?? false),
-                'max_file_size_mb' => (int) ($scelte[$c->id]?->pivot->max_file_size_mb ?? 20),
-            ]),
+            'categorie' => $tenant->categorieDocumenti(),
         ]);
     }
 

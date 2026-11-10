@@ -110,6 +110,24 @@ class Tenant extends Model
         return (int) $this->getSetting('default_notice_days', 30);
     }
 
+    /**
+     * Categorie documenti con lo stato per l'agenzia. Senza riga nel pivot una categoria è ATTIVA
+     * (50 MB): è la regola usata dalla scheda sinistro per i caricamenti.
+     *
+     * @return \Illuminate\Support\Collection<int, array{id: int, name: string, is_enabled: bool, max_file_size_mb: int}>
+     */
+    public function categorieDocumenti(): \Illuminate\Support\Collection
+    {
+        $pivot = \Illuminate\Support\Facades\DB::table('tenant_document_categories')->where('tenant_id', $this->id)->get()->keyBy('document_category_id');
+
+        return DocumentCategory::orderBy('name')->get(['id', 'name'])->map(fn ($c) => [
+            'id' => $c->id,
+            'name' => $c->name,
+            'is_enabled' => ! $pivot->has($c->id) || (bool) $pivot[$c->id]->is_enabled,
+            'max_file_size_mb' => $pivot->has($c->id) ? (int) $pivot[$c->id]->max_file_size_mb : 50,
+        ])->values();
+    }
+
     /** Giorni fino al prossimo avviso per un sinistro in questo stato (impostati sullo stato o predefiniti). */
     public function noticeDaysFor(?int $statusId): int
     {

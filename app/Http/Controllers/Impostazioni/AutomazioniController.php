@@ -221,7 +221,7 @@ class AutomazioniController extends Controller
                 ? collect($tenant->getClienteCustomFieldsSchema())->where('type', 'date')->map(fn ($f) => ['name' => $f['name'], 'label' => $f['label']])->values()->all()
                 : [],
             'utenti' => $tenant->users()->where('is_active', true)->where('role', '!=', 'superadmin')->orderBy('name')->get(['id', 'name', 'email', 'role'])->toArray(),
-            'categorie' => $tenant->documentCategories()->wherePivot('is_enabled', true)->orderBy('name')->get(['document_categories.id', 'name'])->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])->all(),
+            'categorie' => $tenant->categorieDocumenti()->where('is_enabled', true)->map(fn ($c) => ['id' => $c['id'], 'name' => $c['name']])->values()->all(),
             'variabiliPratica' => collect(AutomationPlanner::VARIABILI_PRATICA)->map(fn ($l, $k) => ['codice' => $k, 'etichetta' => $l])->values()
                 ->merge(collect($tenant->getCustomFieldsSchema())->map(fn ($f) => ['codice' => '{campi_custom.'.$f['name'].'}', 'etichetta' => $f['label']]))->all(),
             'variabiliCliente' => collect(AutomationPlanner::VARIABILI_CLIENTE)->map(fn ($l, $k) => ['codice' => $k, 'etichetta' => $l])->values()
