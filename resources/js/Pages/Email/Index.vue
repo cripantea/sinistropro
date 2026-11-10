@@ -42,6 +42,7 @@
           :loading="messagesLoading"
           :sending="sending"
           :send-error="sendError"
+          :firme="firme"
           @send="sendReply"
           @download="downloadAttachment"
         />
@@ -65,6 +66,7 @@
             <label class="block text-xs font-medium text-gray-600 mb-1">Messaggio</label>
             <textarea v-model="compose.body" rows="5" required class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 resize-none" />
           </div>
+          <SceltaFirma v-model="compose.firmaId" :stato="firme" />
           <input ref="composeFileInput" type="file" multiple class="text-xs text-gray-500" />
           <p v-if="composeError" class="text-xs text-red-600">{{ composeError }}</p>
           <div class="flex justify-end gap-2 pt-2">
@@ -90,8 +92,13 @@ import type { ThreadSummary } from '@/Components/Email/ThreadList.vue'
 import EmailThread from '@/Components/Email/EmailThread.vue'
 import type { EmailMessageItem } from '@/Components/Email/EmailThread.vue'
 import type { PageProps } from '@/types'
+import SceltaFirma from '@/Components/Email/SceltaFirma.vue'
+import type { StatoFirme } from '@/Components/Email/GestioneFirme.vue'
 
-const props = defineProps<{ emailConfigured: boolean; puoCollegare?: boolean; daRicollegare?: boolean }>()
+const props = defineProps<{ emailConfigured: boolean; puoCollegare?: boolean; daRicollegare?: boolean; firme: StatoFirme }>()
+
+// Lista firme condivisa tra nuova email e risposta (la finestra "Gestisci firme" la aggiorna).
+const firme = reactive<StatoFirme>({ ...props.firme })
 
 const page = usePage<PageProps>()
 const tenantId = computed(() => page.props.auth.user.tenant_id)
@@ -138,13 +145,14 @@ async function selectThread(id: number) {
   }
 }
 
-async function sendReply(body: string, files: File[]) {
+async function sendReply(body: string, files: File[], firmaId: number | null) {
   if (!selectedThreadId.value) return
   sending.value = true
   sendError.value = null
   try {
     const formData = new FormData()
     formData.append('body', body)
+    if (firmaId) formData.append('firma_id', String(firmaId))
     files.forEach((f) => formData.append('attachments[]', f))
 
     const { data } = await axios.post(route('email.threads.reply', selectedThreadId.value), formData)
@@ -173,7 +181,7 @@ const composing = ref(false)
 const composeSending = ref(false)
 const composeError = ref<string | null>(null)
 const composeFileInput = ref<HTMLInputElement | null>(null)
-const compose = reactive({ to: '', subject: '', body: '' })
+const compose = reactive<{ to: string; subject: string; body: string; firmaId: number | null }>({ to: '', subject: '', body: '', firmaId: firme.preferita })
 
 async function submitCompose() {
   composeSending.value = true
@@ -183,6 +191,7 @@ async function submitCompose() {
     formData.append('to', compose.to)
     formData.append('subject', compose.subject)
     formData.append('body', compose.body)
+    if (compose.firmaId) formData.append('firma_id', String(compose.firmaId))
     const files = composeFileInput.value?.files ? Array.from(composeFileInput.value.files) : []
     files.forEach((f) => formData.append('attachments[]', f))
 
@@ -192,6 +201,7 @@ async function submitCompose() {
     compose.to = ''
     compose.subject = ''
     compose.body = ''
+    compose.firmaId = firme.preferita
     await selectThread(data.thread.id)
   } catch (err: unknown) {
     composeError.value = (err as { response?: { data?: { message?: string } } })?.response?.data?.message

@@ -6,6 +6,7 @@ use App\Jobs\SyncTenantMailboxJob;
 use App\Mail\OutboundEmailMessage;
 use App\Models\EmailAttachment;
 use App\Models\EmailMessage;
+use App\Models\EmailFirma;
 use App\Models\EmailThread;
 use App\Models\Tenant;
 use App\Services\TenantMailerResolver;
@@ -36,6 +37,7 @@ class EmailController extends Controller
             'emailConfigured' => (bool) ($settings && $settings->is_active && $settings->imap_host),
             'puoCollegare' => ImpostazioniEmailController::puoCollegare(),
             'daRicollegare' => (bool) $settings?->oauth_revocato_at,
+            'firme' => FirmaEmailController::elenco(),
         ]);
     }
 
@@ -92,6 +94,7 @@ class EmailController extends Controller
 
         $data = $request->validate([
             'body' => ['required', 'string'],
+            'firma_id' => ['nullable', 'integer'],
             'attachments.*' => ['file', 'max:10240'],
         ]);
 
@@ -103,7 +106,7 @@ class EmailController extends Controller
             thread: $thread,
             to: $thread->counterpart_email,
             subject: $subject,
-            bodyHtml: nl2br(e($data['body'])),
+            bodyHtml: nl2br(e($data['body'])).$this->firma($data['firma_id'] ?? null),
             inReplyTo: $lastMessage?->message_id,
             files: $request->file('attachments', []),
             userId: $authed->id,
@@ -120,6 +123,7 @@ class EmailController extends Controller
             'to' => ['required', 'email'],
             'subject' => ['required', 'string', 'max:255'],
             'body' => ['required', 'string'],
+            'firma_id' => ['nullable', 'integer'],
             'attachments.*' => ['file', 'max:10240'],
         ]);
 
@@ -133,13 +137,25 @@ class EmailController extends Controller
             thread: $thread,
             to: $data['to'],
             subject: $data['subject'],
-            bodyHtml: nl2br(e($data['body'])),
+            bodyHtml: nl2br(e($data['body'])).$this->firma($data['firma_id'] ?? null),
             inReplyTo: null,
             files: $request->file('attachments', []),
             userId: $authed->id,
         );
 
         return response()->json(['thread' => $this->threadPayload($thread->fresh()), 'message' => $message]);
+    }
+
+    /** HTML della firma scelta (solo tra quelle dell'utente o dell'agenzia). */
+    private function firma(?int $id): string
+    {
+        if (! $id) {
+            return '';
+        }
+        $firma = EmailFirma::disponibiliPer(auth()->user())->find($id);
+        abort_unless($firma, 422, 'La firma scelta non esiste più: scegline un\'altra.');
+
+        return $firma->html();
     }
 
     public function downloadAttachment(EmailAttachment $attachment): JsonResponse

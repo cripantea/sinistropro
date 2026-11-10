@@ -110,6 +110,7 @@
             placeholder="Scrivi una risposta…"
             class="text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 resize-none focus:ring-2 focus:ring-indigo-500 outline-none"
           />
+          <SceltaFirma v-if="firme" v-model="firmaId" :stato="firme" />
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-2 min-w-0">
               <input ref="fileInput" type="file" multiple class="hidden" @change="aggiornaFile" />
@@ -138,6 +139,8 @@
 
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
+import SceltaFirma from '@/Components/Email/SceltaFirma.vue'
+import type { StatoFirme } from '@/Components/Email/GestioneFirme.vue'
 import type { ThreadSummary } from './ThreadList.vue'
 import AnteprimaFoto from '@/Components/AnteprimaFoto.vue'
 import { dimensione, estensione, giorno, nuovoGiorno, ora } from '@/chat'
@@ -177,9 +180,12 @@ const props = defineProps<{
   sending: boolean
   sendError: string | null
   disabled?: boolean
+  firme?: StatoFirme
 }>()
 
-const emit = defineEmits<{ send: [body: string, files: File[]]; download: [attachmentId: number] }>()
+const emit = defineEmits<{ send: [body: string, files: File[], firmaId: number | null]; download: [attachmentId: number] }>()
+
+const firmaId = ref<number | null>(props.firme?.preferita ?? null)
 
 const draft = ref('')
 const foto = ref<{ src: string; titolo: string } | null>(null)
@@ -199,7 +205,7 @@ function submit() {
   const body = draft.value.trim()
   if (!body || props.sending) return
   const files = fileInput.value?.files ? Array.from(fileInput.value.files) : []
-  emit('send', body, files)
+  emit('send', body, files, firmaId.value)
   draft.value = ''
   if (fileInput.value) fileInput.value.value = ''
   fileScelti.value = []
