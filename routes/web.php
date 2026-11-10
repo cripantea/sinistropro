@@ -197,6 +197,12 @@ Route::middleware(['auth', 'verified'])->prefix('impostazioni')->name('impostazi
     Route::put('/automazioni/{automazione}',          [ImpAutomazioni::class, 'update'])->name('automazioni.update');
     Route::patch('/automazioni/{automazione}/attiva', [ImpAutomazioni::class, 'toggle'])->name('automazioni.toggle');
     Route::delete('/automazioni/{automazione}',       [ImpAutomazioni::class, 'destroy'])->name('automazioni.destroy');
+
+    Route::get('/whatsapp-template',                  [\App\Http\Controllers\Impostazioni\WhatsappTemplateController::class, 'index'])->name('whatsapp-template.index');
+    Route::post('/whatsapp-template/sincronizza',     [\App\Http\Controllers\Impostazioni\WhatsappTemplateController::class, 'sincronizza'])->middleware('throttle:20,1')->name('whatsapp-template.sincronizza');
+    Route::post('/whatsapp-template',                 [\App\Http\Controllers\Impostazioni\WhatsappTemplateController::class, 'store'])->middleware('throttle:20,1')->name('whatsapp-template.store');
+    Route::put('/whatsapp-template/{template}',       [\App\Http\Controllers\Impostazioni\WhatsappTemplateController::class, 'update'])->middleware('throttle:20,1')->name('whatsapp-template.update');
+    Route::delete('/whatsapp-template/{template}',    [\App\Http\Controllers\Impostazioni\WhatsappTemplateController::class, 'destroy'])->name('whatsapp-template.destroy');
 });
 
 // --- Abbonamento (la pagina la vedono tutti, pagare e gestire solo il tenant-admin) ---

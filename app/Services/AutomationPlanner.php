@@ -62,6 +62,14 @@ class AutomationPlanner
             // corrisponde, l'utente lo vede in conferma ("nessun allegato trovato").
             'document_categories' => $automation->documentCategories->pluck('name')->values()->all(),
             'message'    => $this->compilePratica($automation->message_template, $pratica, $recipients[0]['name'] ?? null, $statusName),
+            // Su WhatsApp con template parte il testo approvato da Meta, non il messaggio sopra.
+            'whatsapp'   => ($t = $automation->whatsappTemplate) && $automation->channel !== 'email'
+                ? [
+                    'template' => $t->name,
+                    'approvato' => $t->approvato(),
+                    'testo' => $t->rendi(array_map(fn ($c) => $this->compilePratica($c, $pratica, $recipients[0]['name'] ?? null, $statusName), $t->parametri($automation->whatsapp_params ?: null))),
+                ]
+                : null,
         ];
     }
 
@@ -100,6 +108,11 @@ class AutomationPlanner
             ? User::where('tenant_id', $pratica->tenant_id)->where('is_active', true)->whereIn('id', $userIds)->get(['id', 'name', 'email'])->keyBy('id')
             : collect();
 
+        $contattoIds = collect($spec)->where('type', 'contatto')->pluck('contatto_id')->filter()->map(fn ($i) => (int) $i)->all();
+        $contatti = $contattoIds
+            ? Contatto::acrossAllTenants()->where('tenant_id', $pratica->tenant_id)->where('is_active', true)->whereIn('id', $contattoIds)->get(['id', 'nome', 'email', 'telefono'])->keyBy('id')
+            : collect();
+
         $out = [];
         foreach ($spec as $r) {
             $type = $r['type'] ?? '';
@@ -109,12 +122,18 @@ class AutomationPlanner
                 'perito'      => $this->resolvePerito($pratica, $ctx),
                 'gestore'     => $this->resolveGestore($pratica),
                 'user'        => ($u = $users->get((int) ($r['user_id'] ?? 0))) ? ['email' => $u->email, 'phone' => null, 'name' => $u->name] : null,
+                'contatto'    => ($c = $contatti->get((int) ($r['contatto_id'] ?? 0))) ? ['email' => $c->email, 'phone' => $c->telefono, 'name' => $c->nome] : null,
                 default       => null,
             };
             if ($resolved === null) {
                 continue;
             }
-            $out[] = $this->recipient($type, $resolved['name'], $resolved['email'], $resolved['phone'], $type === 'user' ? 'user'.($r['user_id'] ?? '') : $type);
+            $chiave = match ($type) {
+                'user' => 'user'.($r['user_id'] ?? ''),
+                'contatto' => 'contatto'.($r['contatto_id'] ?? ''),
+                default => $type,
+            };
+            $out[] = $this->recipient($type, $resolved['name'], $resolved['email'], $resolved['phone'], $chiave);
         }
 
         // Stesso destinatario due volte (es. cliente + gestore con la stessa email): una sola.
@@ -123,15 +142,20 @@ class AutomationPlanner
 
     public function defaultCc(Automation $automation): array
     {
-        $ids = collect($automation->recipients_cc ?? [])->pluck('user_id')->filter()->map(fn ($i) => (int) $i)->all();
-        if (! $ids) {
-            return [];
-        }
+        $cc = collect($automation->recipients_cc ?? []);
+        $ids = $cc->where('type', '!=', 'contatto')->pluck('user_id')->filter()->map(fn ($i) => (int) $i)->all();
+        $contattoIds = $cc->where('type', 'contatto')->pluck('contatto_id')->filter()->map(fn ($i) => (int) $i)->all();
 
-        return User::where('tenant_id', $automation->tenant_id)->where('is_active', true)->whereIn('id', $ids)->get(['name', 'email'])
-            ->filter(fn ($u) => $u->email)
-            ->map(fn ($u) => ['name' => $u->name, 'email' => $u->email])
-            ->unique('email')->values()->all();
+        $utenti = $ids
+            ? User::where('tenant_id', $automation->tenant_id)->where('is_active', true)->whereIn('id', $ids)->get(['name', 'email'])
+                ->map(fn ($u) => ['name' => $u->name, 'email' => $u->email])
+            : collect();
+        $contatti = $contattoIds
+            ? Contatto::acrossAllTenants()->where('tenant_id', $automation->tenant_id)->where('is_active', true)->whereIn('id', $contattoIds)->get(['nome', 'email'])
+                ->map(fn ($c) => ['name' => $c->nome, 'email' => $c->email])
+            : collect();
+
+        return $utenti->concat($contatti)->filter(fn ($r) => $r['email'])->unique('email')->values()->all();
     }
 
     /** Oggetto dell'email: quello scritto nell'automazione (con le variabili) o "Sinistro #N — stato". */
@@ -142,7 +166,7 @@ class AutomationPlanner
 
         return $oggetto !== ''
             ? $this->compilePratica($oggetto, $pratica, $recipientName, $statusName)
-            : "Sinistro #{$pratica->id} — {$statusName}";
+            : "Sinistro ".($pratica->numeroCompagnia() ?? '#'.$pratica->id)." — {$statusName}";
     }
 
     /** Oggetto del promemoria al cliente: quello scritto nell'automazione o "Promemoria — nome". */

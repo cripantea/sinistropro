@@ -102,7 +102,31 @@
       </p>
       <template v-else>
         <p v-if="sendError" class="px-3 pt-2 text-xs text-red-600 bg-[#f0f0f0] shrink-0">{{ sendError }}</p>
-        <form @submit.prevent="submit" class="flex items-end gap-2 px-3 py-2 bg-[#f0f0f0] border-t border-gray-200 shrink-0">
+        <div v-if="templates" class="flex items-center gap-2 px-3 pt-2 bg-[#f0f0f0] shrink-0 text-xs">
+          <button type="button" class="rounded-full px-2.5 py-0.5 border" :class="modo === 'testo' ? 'bg-white border-gray-300 font-semibold' : 'border-transparent text-gray-500'" @click="modo = 'testo'">Testo libero</button>
+          <button type="button" class="rounded-full px-2.5 py-0.5 border" :class="modo === 'template' ? 'bg-white border-gray-300 font-semibold' : 'border-transparent text-gray-500'" @click="modo = 'template'">Template</button>
+          <span v-if="finestraAperta === false && modo === 'testo'" class="text-amber-700">Finestra di 24 ore chiusa: se il cliente non ha scritto di recente Meta rifiuterà il testo libero. Usa un template.</span>
+        </div>
+        <form v-if="templates && modo === 'template'" @submit.prevent="inviaTemplate" class="px-3 py-2 bg-[#f0f0f0] border-t border-gray-200 shrink-0 space-y-2">
+          <p v-if="!templates.length" class="text-xs text-gray-500">Nessun template approvato. <Link :href="route('impostazioni.whatsapp-template.index')" class="text-indigo-600 hover:underline">Crea un template</Link></p>
+          <template v-else>
+            <select v-model="templateId" class="w-full text-sm rounded-lg border-gray-300" @change="preparaValori">
+              <option :value="null">Scegli un template…</option>
+              <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
+            </select>
+            <template v-if="templateScelto">
+              <input v-for="(_, i) in valori" :key="i" v-model="valori[i]" type="text" class="w-full text-sm rounded-lg border-gray-300" :placeholder="`Variabile {{${i + 1}}}`" />
+              <p class="text-sm bg-white rounded-lg px-3 py-2 whitespace-pre-line text-gray-700">{{ anteprimaTemplate }}</p>
+            </template>
+            <div class="flex justify-end">
+              <button type="submit" :disabled="!templatePronto || sending" class="px-4 py-1.5 rounded-lg text-sm font-semibold"
+                :class="templatePronto && !sending ? 'bg-[#25D366] text-white hover:bg-[#20bf59]' : 'bg-gray-300 text-gray-400 cursor-not-allowed'">
+                {{ sending ? 'Invio…' : 'Invia template' }}
+              </button>
+            </div>
+          </template>
+        </form>
+        <form v-else @submit.prevent="submit" class="flex items-end gap-2 px-3 py-2 bg-[#f0f0f0] border-t border-gray-200 shrink-0">
           <textarea
             v-model="draft"
             rows="1"
@@ -129,7 +153,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import StatusTicks from './StatusTicks.vue'
 import AnteprimaFoto from '@/Components/AnteprimaFoto.vue'
@@ -157,9 +181,34 @@ const props = defineProps<{
   sending: boolean
   sendError: string | null
   disabled?: boolean
+  /** null/undefined = non noto (chat senza template) */
+  finestraAperta?: boolean | null
+  templates?: TemplateChat[] | null
 }>()
 
-const emit = defineEmits<{ send: [body: string] }>()
+export interface TemplateChat { id: number; name: string; body: string; variableCount: number; valori: string[] }
+export interface InvioChat { body?: string; templateId?: number; params?: string[] }
+
+const emit = defineEmits<{ send: [payload: InvioChat] }>()
+
+const modo = ref<'testo' | 'template'>('testo')
+const templateId = ref<number | null>(null)
+const valori = ref<string[]>([])
+const templateScelto = computed(() => props.templates?.find((t) => t.id === templateId.value) ?? null)
+const templatePronto = computed(() => !!templateScelto.value && valori.value.every((v) => v.trim() !== ''))
+const anteprimaTemplate = computed(() => templateScelto.value?.body.replace(/\{\{(\d+)\}\}/g, (m, n) => valori.value[Number(n) - 1]?.trim() || m) ?? '')
+function preparaValori() {
+  const t = templateScelto.value
+  valori.value = t ? Array.from({ length: t.variableCount }, (_, i) => t.valori[i] ?? '') : []
+}
+function inviaTemplate() {
+  if (!templatePronto.value || props.sending || !templateScelto.value) return
+  emit('send', { templateId: templateScelto.value.id, params: valori.value.map((v) => v.trim()) })
+  templateId.value = null
+  valori.value = []
+}
+// Finestra chiusa: si parte dal template; se il cliente scrive, si torna al testo libero.
+watch(() => [props.conversation?.id, props.finestraAperta], () => { modo.value = props.finestraAperta === false ? 'template' : 'testo' }, { immediate: true })
 
 const draft = ref('')
 const failed = ref<Record<number, boolean>>({})
@@ -180,7 +229,7 @@ const scrollEl = ref<HTMLElement | null>(null)
 function submit() {
   const body = draft.value.trim()
   if (!body || props.sending) return
-  emit('send', body)
+  emit('send', { body })
   draft.value = ''
 }
 

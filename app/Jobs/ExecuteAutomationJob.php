@@ -9,6 +9,7 @@ use App\Models\WhatsappSession;
 use App\Services\AutomationPlanner;
 use App\Services\TenantMailerResolver;
 use App\Services\WhatsappCloudApiClient;
+use App\Services\WhatsappInvio;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -173,34 +174,19 @@ class ExecuteAutomationJob implements ShouldQueue
             return;
         }
 
-        $session = WhatsappSession::where('tenant_id', $pratica->tenant_id)
-            ->where('status', 'connected')
-            ->first();
+        // Con un template approvato il messaggio arriva anche a chi non ha scritto nelle ultime 24 ore.
+        $template = $this->automation->whatsappTemplate;
+        $planner = app(AutomationPlanner::class);
+        $valori = $template
+            ? array_map(fn ($codice) => $planner->compilePratica($codice, $pratica, $recipient['name'] ?? null), $template->parametri($this->automation->whatsapp_params ?: null))
+            : [];
 
-        if (! $session) {
-            Log::warning('ExecuteAutomationJob: WhatsApp skip — nessuna sessione connessa', [
-                'pratica_id'    => $pratica->id,
-                'tenant_id'     => $pratica->tenant_id,
-            ]);
-            return;
-        }
+        $esito = app(WhatsappInvio::class)->invia($pratica->tenant_id, $phone, $compiledMessage, $template, $valori, $pratica->id, null, $recipient['name'] ?? null);
 
-        try {
-            $to = preg_replace('/[^\d+]/', '', $phone);
-            app(WhatsappCloudApiClient::class)->sendText($session, $to, $compiledMessage);
-
-            Log::info('ExecuteAutomationJob: WhatsApp inviato', [
-                'pratica_id'    => $pratica->id,
-                'automation_id' => $this->automation->id,
-                'to'            => $to,
-            ]);
-        } catch (\Throwable $e) {
-            Log::error('ExecuteAutomationJob: WhatsApp errore', [
-                'pratica_id'    => $pratica->id,
-                'automation_id' => $this->automation->id,
-                'errore'        => $e->getMessage(),
-            ]);
-        }
+        $contesto = ['pratica_id' => $pratica->id, 'automation_id' => $this->automation->id, 'template' => $template?->name];
+        $esito['ok']
+            ? Log::info('ExecuteAutomationJob: WhatsApp inviato', $contesto)
+            : Log::error('ExecuteAutomationJob: WhatsApp non inviato', $contesto + ['errore' => $esito['errore']]);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

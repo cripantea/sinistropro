@@ -24,7 +24,8 @@ class EnsureTenantHasAccess
         // Collegare/cambiare la casella email è configurazione: si fa anche prima di attivare l'abbonamento.
         'impostazioni.email',
         'impostazioni.email.*',
-        'whatsapp.embedded-signup.sync', // collegare il numero WhatsApp è configurazione
+        'whatsapp.embedded-signup.sync',
+        'impostazioni.whatsapp-template.*', // i template si preparano prima di partire: è configurazione // collegare il numero WhatsApp è configurazione
         'impostazioni.automazioni.anteprima',
     ];
 

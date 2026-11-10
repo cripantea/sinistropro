@@ -23,6 +23,8 @@ class Automation extends Model
         'offset_days',
         'ripeti',
         'channel',
+        'whatsapp_template_id',
+        'whatsapp_params',
         'subject',
         'recipient',
         'recipients_to',
@@ -38,6 +40,7 @@ class Automation extends Model
         'days_before'           => 'integer',
         'offset_days'           => 'integer',
         'ripeti'                => 'boolean',
+        'whatsapp_params'       => 'array',
         'recipients_to'         => 'array',
         'recipients_cc'         => 'array',
     ];
@@ -51,6 +54,11 @@ class Automation extends Model
         'status_duration'    => 'Sinistro fermo da X giorni in uno stato (sollecito)',
         'cliente_date_field' => 'Scadenza di una data del cliente',
     ];
+
+    public function whatsappTemplate(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(WhatsappTemplate::class);
+    }
 
     /** Automazioni "a stato" che scattano entrando in questo stato (vuoto = qualsiasi stato). */
     public function scopePerStato($query, int $statusId)

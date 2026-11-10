@@ -30,7 +30,9 @@
         </div>
         <div class="flex-1 min-h-0">
           <MessageThread
-            :conversation="selectedConversation"
+            :finestra-aperta="finestraAperta"
+        :templates="templatesChat"
+        :conversation="selectedConversation"
             :messages="messages"
             :loading="messagesLoading"
             :sending="sending"
@@ -91,7 +93,10 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import ConversationList from '@/Components/Whatsapp/ConversationList.vue'
 import type { ConversationSummary } from '@/Components/Whatsapp/ConversationList.vue'
 import MessageThread from '@/Components/Whatsapp/MessageThread.vue'
-import type { Message } from '@/Components/Whatsapp/MessageThread.vue'
+import type { Message, InvioChat, TemplateChat } from '@/Components/Whatsapp/MessageThread.vue'
+
+const finestraAperta = ref<boolean | null>(null)
+const templatesChat = ref<TemplateChat[] | null>(null)
 import EmbeddedSignupButton from '@/Components/Whatsapp/EmbeddedSignupButton.vue'
 import type { PageProps } from '@/types'
 
@@ -144,25 +149,29 @@ async function selectConversation(id: number) {
   try {
     const { data } = await axios.get(route('whatsapp.conversations.messages', id))
     messages.value = data.messages
+      finestraAperta.value = data.finestraAperta ?? null
+      templatesChat.value = data.templates ?? null
   } finally {
     messagesLoading.value = false
   }
 }
 
-async function sendMessage(body: string) {
+async function sendMessage(payload: InvioChat) {
+  const body = payload.body ?? ''
   if (!selectedConversationId.value) return
   sending.value = true
   sendError.value = null
   try {
-    const { data } = await axios.post(route('whatsapp.conversations.store', selectedConversationId.value), { body })
+    const { data } = await axios.post(route('whatsapp.conversations.store', selectedConversationId.value), { body: payload.body, template_id: payload.templateId, params: payload.params })
     messages.value.push(data.message)
+    if (data.errore) sendError.value = `Non inviato: ${data.errore}`
     const conv = conversations.value.find((c) => c.id === selectedConversationId.value)
     if (conv) {
       conv.lastMessagePreview = body.slice(0, 200)
       conv.lastMessageAt = data.message.createdAt
     }
-  } catch {
-    sendError.value = 'Invio non riuscito. Riprova.'
+  } catch (e: any) {
+    sendError.value = e?.response?.data?.message ?? 'Invio non riuscito. Riprova.'
   } finally {
     sending.value = false
   }

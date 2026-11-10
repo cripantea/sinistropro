@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Impostazioni;
 use App\Http\Controllers\Controller;
 use App\Mail\AutomazioneNotificaMail;
 use App\Models\Automation;
+use App\Models\Contatto;
 use App\Models\Cliente;
 use App\Models\DocumentCategory;
 use App\Models\EmailLog;
@@ -221,6 +222,8 @@ class AutomazioniController extends Controller
                 ? collect($tenant->getClienteCustomFieldsSchema())->where('type', 'date')->map(fn ($f) => ['name' => $f['name'], 'label' => $f['label']])->values()->all()
                 : [],
             'utenti' => $tenant->users()->where('is_active', true)->where('role', '!=', 'superadmin')->orderBy('name')->get(['id', 'name', 'email', 'role'])->toArray(),
+            'contatti' => Contatto::where('tenant_id', $tenant->id)->where('is_active', true)->orderBy('nome')->get(['id', 'nome', 'email', 'telefono', 'tags'])
+                ->map(fn ($c) => ['id' => $c->id, 'nome' => $c->nome, 'email' => $c->email, 'telefono' => $c->telefono, 'tags' => $c->tags ?? []])->all(),
             'categorie' => $tenant->categorieDocumenti()->where('is_enabled', true)->map(fn ($c) => ['id' => $c['id'], 'name' => $c['name']])->values()->all(),
             'variabiliPratica' => collect(AutomationPlanner::VARIABILI_PRATICA)->map(fn ($l, $k) => ['codice' => $k, 'etichetta' => $l])->values()
                 ->merge(collect($tenant->getCustomFieldsSchema())->map(fn ($f) => ['codice' => '{campi_custom.'.$f['name'].'}', 'etichetta' => $f['label']]))->all(),
@@ -233,6 +236,7 @@ class AutomazioniController extends Controller
                 : [],
             'emailCollegata' => (bool) $tenant->mailSettings?->is_active,
             'whatsappCollegato' => $whatsapp,
+            'templatesWhatsapp' => \App\Models\WhatsappTemplate::where('tenant_id', $tenant->id)->whereIn('status', ['APPROVED', 'PENDING'])->orderBy('name')->get()->map->perUi()->values()->all(),
             'inneschi' => collect(Automation::TRIGGER)
                 ->reject(fn ($l, $k) => $k === 'cliente_date_field' && ! $tenant->hasFeature('clienti'))
                 ->map(fn ($l, $k) => ['valore' => $k, 'etichetta' => $l])->values()->all(),

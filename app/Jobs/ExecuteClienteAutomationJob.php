@@ -8,6 +8,7 @@ use App\Models\Cliente;
 use App\Models\WhatsappSession;
 use App\Services\AutomationPlanner;
 use App\Services\TenantMailerResolver;
+use App\Services\WhatsappInvio;
 use App\Services\WhatsappCloudApiClient;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -104,25 +105,16 @@ class ExecuteClienteAutomationJob implements ShouldQueue
             return;
         }
 
-        $session = WhatsappSession::where('tenant_id', $cliente->tenant_id)
-            ->where('status', 'connected')
-            ->first();
+        $template = $this->automation->whatsappTemplate;
+        $planner = app(AutomationPlanner::class);
+        $valore = $cliente->custom_fields[$this->fieldName] ?? null;
+        $valori = $template
+            ? array_map(fn ($codice) => $planner->compileCliente($codice, $cliente, $valore), $template->parametri($this->automation->whatsapp_params ?: null))
+            : [];
 
-        if (! $session) {
-            Log::warning('ExecuteClienteAutomationJob: nessuna sessione WA connessa', [
-                'tenant_id' => $cliente->tenant_id,
-            ]);
-            return;
-        }
-
-        try {
-            $to = preg_replace('/[^\d+]/', '', $phone);
-            app(WhatsappCloudApiClient::class)->sendText($session, $to, $compiled);
-        } catch (\Throwable $e) {
-            Log::error('ExecuteClienteAutomationJob: WA errore', [
-                'cliente_id' => $cliente->id,
-                'errore'     => $e->getMessage(),
-            ]);
+        $esito = app(WhatsappInvio::class)->invia($cliente->tenant_id, $phone, $compiled, $template, $valori, null, null, $cliente->nome);
+        if (! $esito['ok']) {
+            Log::error('ExecuteClienteAutomationJob: WhatsApp non inviato', ['cliente_id' => $cliente->id, 'errore' => $esito['errore']]);
         }
     }
 

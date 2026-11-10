@@ -1,6 +1,6 @@
 // Modelli pronti per partire in fretta: l'agenzia sceglie, l'editor si apre già compilato.
 
-export interface DestinatarioAuto { type: string; user_id?: number }
+export interface DestinatarioAuto { type: string; user_id?: number; contatto_id?: number }
 
 export interface BozzaAutomazione {
   id?: number
@@ -12,6 +12,8 @@ export interface BozzaAutomazione {
   offset_days: number
   ripeti: boolean
   channel: 'email' | 'whatsapp' | 'both'
+  whatsapp_template_id: number | null
+  whatsapp_params: string[]
   subject: string | null
   recipients_to: DestinatarioAuto[]
   recipients_cc: DestinatarioAuto[]
@@ -29,6 +31,8 @@ export const BOZZA_VUOTA: BozzaAutomazione = {
   offset_days: -1,
   ripeti: false,
   channel: 'email',
+  whatsapp_template_id: null,
+  whatsapp_params: [],
   subject: null,
   recipients_to: [{ type: 'cliente' }],
   recipients_cc: [],

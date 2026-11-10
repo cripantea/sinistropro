@@ -52,6 +52,10 @@
                 <div>
                   <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Messaggio</p>
                   <pre class="whitespace-pre-wrap font-sans text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">{{ a.message }}</pre>
+                  <div v-if="a.whatsapp" class="mt-2">
+                    <p class="text-xs text-slate-500 mb-1">Su WhatsApp (template {{ a.whatsapp.template }}{{ a.whatsapp.approvato ? '' : ', in revisione: parte il testo sopra' }}):</p>
+                    <pre class="whitespace-pre-wrap font-sans text-sm text-slate-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">{{ a.whatsapp.testo }}</pre>
+                  </div>
                 </div>
 
                 <!-- Allegati -->
@@ -179,6 +183,7 @@ export interface AutomationPlan {
   channel: 'email' | 'whatsapp' | 'both' | string
   subject?: string
   message: string
+  whatsapp?: { template: string; approvato: boolean; testo: string } | null
   documents: { id: number; nome_file: string; categoria: string | null }[]
   document_categories: string[]
   recipients: PlanRecipient[]

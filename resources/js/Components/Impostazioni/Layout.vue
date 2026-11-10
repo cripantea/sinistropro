@@ -55,6 +55,7 @@ const voci = computed(() => {
     v('Automazioni', '⚡', 'impostazioni.automazioni.index', '/impostazioni/automazioni'),
     v('Casella email', '✉️', 'impostazioni.email', '/impostazioni/email'),
     v('WhatsApp', '💬', 'whatsapp.index', '/whatsapp'),
+    v('Template WhatsApp', '🧩', 'impostazioni.whatsapp-template.index', '/impostazioni/whatsapp-template'),
     v('Team', '👥', 'team.index', '/team'),
   ]
 })

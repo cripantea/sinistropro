@@ -97,6 +97,8 @@ class WhatsappCloudApiClient
         // (es. WhatsappConversationController legge $result['messages'][0]['id']).
         return [
             'messages' => [['id' => $data['messageId'] ?? null]],
+            // Prima un errore di FusionWA/Meta spariva: ora i chiamanti lo vedono e lo registrano.
+            'error' => $response->failed() ? (string) ($data['details']['error_user_msg'] ?? $data['error'] ?? 'errore '.$response->status()) : null,
         ];
     }
 

@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\WhatsappInvio;
+use App\Services\AutomationPlanner;
+use App\Models\WhatsappTemplate;
 use App\Models\Pratica;
 use App\Models\WhatsappConversation;
 use App\Models\WhatsappSession;
@@ -122,7 +125,29 @@ class WhatsappConversationController extends Controller
             ->get()
             ->map(fn ($m) => $this->messagePayload($m));
 
-        return response()->json(['messages' => $messages]);
+        return response()->json(['messages' => $messages] + $this->perScrivere($conversation));
+    }
+
+    /** Finestra di 24 ore e template approvati (già compilati coi dati del sinistro, se la chat ne ha uno). */
+    private function perScrivere(WhatsappConversation $conversation): array
+    {
+        $pratica = $conversation->pratica_id ? Pratica::find($conversation->pratica_id) : null;
+        $planner = app(AutomationPlanner::class);
+
+        return [
+            'finestraAperta' => WhatsappInvio::finestraAperta($conversation),
+            'templates' => WhatsappTemplate::where('tenant_id', $conversation->tenant_id)->approvati()->orderBy('name')->get()
+                ->map(fn (WhatsappTemplate $t) => [
+                    'id' => $t->id,
+                    'name' => $t->name,
+                    'body' => $t->body,
+                    'variableCount' => $t->variable_count,
+                    'valori' => array_map(
+                        fn ($codice) => $pratica && $codice !== '' ? trim($planner->compilePratica($codice, $pratica, $pratica->cliente?->nome)) : '',
+                        $t->parametri(),
+                    ),
+                ])->values(),
+        ];
     }
 
     public function store(Request $request, WhatsappConversation $conversation): JsonResponse
@@ -131,31 +156,33 @@ class WhatsappConversationController extends Controller
         abort_unless($conversation->tenant_id === $authed->tenant_id, 403);
 
         $data = $request->validate([
-            'body' => ['required', 'string', 'max:4096'],
+            'body' => ['required_without:template_id', 'nullable', 'string', 'max:4096'],
+            'template_id' => ['nullable', 'integer'],
+            'params' => ['nullable', 'array', 'max:20'],
+            'params.*' => ['nullable', 'string', 'max:500'],
         ]);
 
         $session = WhatsappSession::where('tenant_id', $authed->tenant_id)->where('status', 'active')->first();
         abort_unless($session, 409, 'Nessun numero WhatsApp collegato per questo tenant.');
 
-        $result = $this->client->sendText($session, $conversation->phone_number, $data['body']);
-        $waMessageId = $result['messages'][0]['id'] ?? null;
+        $template = null;
+        if (! empty($data['template_id'])) {
+            $template = WhatsappTemplate::where('tenant_id', $authed->tenant_id)->approvati()->find($data['template_id']);
+            abort_unless($template, 422, 'Template non trovato o non ancora approvato da Meta.');
+            $params = array_slice(array_pad($data['params'] ?? [], $template->variable_count, ''), 0, $template->variable_count);
+            foreach ($params as $i => $v) {
+                abort_if(trim((string) $v) === '', 422, 'Compila {{'.($i + 1).'}}: WhatsApp non accetta variabili vuote.');
+            }
+        }
 
-        $message = $conversation->messages()->create([
-            'tenant_id' => $authed->tenant_id,
-            'user_id' => $authed->id,
-            'direction' => 'outbound',
-            'body' => $data['body'],
-            'wa_message_id' => $waMessageId,
-            'wa_timestamp' => now(),
-            'status' => $waMessageId ? 'sent' : 'failed',
+        $esito = app(WhatsappInvio::class)->invia(
+            $authed->tenant_id, $conversation->phone_number, (string) ($data['body'] ?? ''), $template, $params ?? [], $conversation->pratica_id, $authed->id,
+        );
+
+        return response()->json([
+            'message' => $this->messagePayload($esito['messaggio']->load('user:id,name')),
+            'errore' => $esito['ok'] ? null : $esito['errore'],
         ]);
-
-        $conversation->update([
-            'last_message_at' => now(),
-            'last_message_preview' => str($data['body'])->limit(200)->toString(),
-        ]);
-
-        return response()->json(['message' => $this->messagePayload($message->load('user:id,name'))]);
     }
 
     private function conversationPayload(WhatsappConversation $c): array

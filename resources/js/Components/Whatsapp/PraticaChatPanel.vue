@@ -20,6 +20,8 @@
     <!-- Chat -->
     <div v-else-if="loaded" class="h-[520px]">
       <MessageThread
+        :finestra-aperta="finestraAperta"
+        :templates="templatesChat"
         :conversation="conversation"
         :messages="messages"
         :loading="messagesLoading"
@@ -45,7 +47,10 @@ import axios from 'axios'
 import { Link, usePage } from '@inertiajs/vue3'
 import { useEcho } from '@laravel/echo-vue'
 import MessageThread from './MessageThread.vue'
-import type { Message } from './MessageThread.vue'
+import type { Message, InvioChat, TemplateChat } from './MessageThread.vue'
+
+const finestraAperta = ref<boolean | null>(null)
+const templatesChat = ref<TemplateChat[] | null>(null)
 import type { ConversationSummary } from './ConversationList.vue'
 import type { PageProps } from '@/types'
 
@@ -75,21 +80,25 @@ async function load() {
     try {
       const res = await axios.get(route('whatsapp.conversations.messages', conversation.value.id))
       messages.value = res.data.messages
+      finestraAperta.value = res.data.finestraAperta ?? null
+      templatesChat.value = res.data.templates ?? null
     } finally {
       messagesLoading.value = false
     }
   }
 }
 
-async function sendMessage(body: string) {
+async function sendMessage(payload: InvioChat) {
+  const body = payload.body ?? ''
   if (!conversation.value) return
   sending.value = true
   sendError.value = null
   try {
-    const { data } = await axios.post(route('whatsapp.conversations.store', conversation.value.id), { body })
+    const { data } = await axios.post(route('whatsapp.conversations.store', conversation.value.id), { body: payload.body, template_id: payload.templateId, params: payload.params })
     messages.value.push(data.message)
-  } catch {
-    sendError.value = 'Invio non riuscito. Riprova.'
+    if (data.errore) sendError.value = `Non inviato: ${data.errore}`
+  } catch (e: any) {
+    sendError.value = e?.response?.data?.message ?? 'Invio non riuscito. Riprova.'
   } finally {
     sending.value = false
   }

@@ -194,8 +194,30 @@
             </p>
             <p v-if="usaWhatsapp" class="mt-2 text-xs rounded px-2 py-1.5" :class="opzioni.whatsappCollegato ? 'text-gray-600 bg-gray-50' : 'text-amber-700 bg-amber-50'">
               <template v-if="!opzioni.whatsappCollegato">WhatsApp non collegato: <Link :href="route('whatsapp.index')" class="underline font-semibold">collegalo</Link>. </template>
-              WhatsApp consegna il testo libero solo se il destinatario ti ha scritto nelle ultime 24 ore.
+              WhatsApp consegna il testo libero solo se il destinatario ti ha scritto nelle ultime 24 ore: per arrivare sempre serve un template approvato.
             </p>
+          </div>
+
+          <div v-if="usaWhatsapp && opzioni.whatsappCollegato" class="rounded-lg border border-green-200 bg-green-50/40 p-3 space-y-2">
+            <label class="field-label">Template WhatsApp</label>
+            <select v-model="form.whatsapp_template_id" class="field-input" @change="scegliTemplate">
+              <option :value="null">Nessuno: testo libero (arriva solo se il cliente ha scritto nelle ultime 24 ore)</option>
+              <option v-for="t in opzioni.templatesWhatsapp" :key="t.id" :value="t.id">{{ t.name }}{{ t.status === 'APPROVED' ? '' : ' — in revisione' }}</option>
+            </select>
+            <p v-if="!opzioni.templatesWhatsapp.length" class="text-xs text-gray-600">Nessun template: <Link :href="route('impostazioni.whatsapp-template.index')" class="underline font-semibold">creane uno</Link> (approvazione Meta di solito in pochi minuti).</p>
+            <template v-if="templateScelto">
+              <p v-if="templateScelto.status !== 'APPROVED'" class="text-xs text-amber-700">Il template è ancora in revisione: finché Meta non lo approva parte il testo libero.</p>
+              <p class="text-xs text-gray-500">Su WhatsApp parte questo testo (il messaggio qui sotto resta per l'email):</p>
+              <p class="text-sm text-gray-800 whitespace-pre-line bg-white rounded border border-gray-200 px-3 py-2">{{ templateScelto.body }}</p>
+              <div v-for="(_, i) in form.whatsapp_params" :key="i" class="flex items-center gap-2">
+                <span class="text-xs font-mono text-gray-500 w-10 shrink-0" v-text="segnaposto(i)" />
+                <select v-model="form.whatsapp_params[i]" class="field-input text-sm">
+                  <option value="">— scegli il dato —</option>
+                  <option v-for="v in variabili" :key="v.codice" :value="v.codice">{{ v.etichetta }}</option>
+                </select>
+              </div>
+              <p v-if="errore('whatsapp_template_id')" class="text-sm text-red-600">{{ errore('whatsapp_template_id') }}</p>
+            </template>
           </div>
 
           <div v-if="form.trigger_type !== 'cliente_date_field'">
@@ -211,6 +233,32 @@
                 :class="haDestinatario('user', u.id) ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'"
                 @click="toggleDestinatario({ type: 'user', user_id: u.id })">{{ u.name }}</button>
             </div>
+            <template v-if="opzioni.contatti.length">
+              <p class="text-xs text-gray-500 mt-3 mb-1">Dalla rubrica</p>
+              <div class="flex flex-wrap gap-1.5 mb-2">
+                <button type="button" class="text-xs rounded-full px-2.5 py-0.5 border" :class="!categoriaRubrica ? 'bg-gray-800 border-gray-800 text-white' : 'border-gray-300 text-gray-600'" @click="categoriaRubrica = ''">Tutti</button>
+                <button v-for="c in categorieRubrica" :key="c" type="button" class="text-xs rounded-full px-2.5 py-0.5 border capitalize"
+                  :class="categoriaRubrica === c ? 'bg-gray-800 border-gray-800 text-white' : 'border-gray-300 text-gray-600'" @click="categoriaRubrica = c">{{ c }}</button>
+              </div>
+              <input v-model="cercaRubrica" type="search" class="field-input text-sm" placeholder="Cerca nella rubrica…" />
+              <div class="mt-1.5 max-h-40 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
+                <button v-for="c in contattiFiltrati" :key="c.id" type="button" class="w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left text-sm hover:bg-gray-50"
+                  @click="toggleDestinatario({ type: 'contatto', contatto_id: c.id })">
+                  <span class="min-w-0 truncate">
+                    <span class="font-medium text-gray-800">{{ c.nome }}</span>
+                    <span class="text-xs text-gray-400 ml-1">{{ [c.tags.join(', '), c.email || c.telefono].filter(Boolean).join(' · ') }}</span>
+                  </span>
+                  <span class="shrink-0 text-xs font-semibold" :class="haDestinatario('contatto', undefined, c.id) ? 'text-indigo-600' : 'text-gray-300'">{{ haDestinatario('contatto', undefined, c.id) ? '✓ scelto' : '+ aggiungi' }}</span>
+                </button>
+                <p v-if="!contattiFiltrati.length" class="px-3 py-2 text-xs text-gray-400">Nessun contatto.</p>
+              </div>
+              <div v-if="contattiScelti.length" class="flex flex-wrap gap-1.5 mt-2">
+                <span v-for="c in contattiScelti" :key="c.id" class="inline-flex items-center gap-1 text-xs rounded-full bg-indigo-600 text-white px-2.5 py-0.5">
+                  {{ c.nome }}
+                  <button type="button" class="opacity-80 hover:opacity-100" @click="toggleDestinatario({ type: 'contatto', contatto_id: c.id })">×</button>
+                </span>
+              </div>
+            </template>
             <p v-if="form.errors.recipients_to" class="text-sm text-red-600 mt-1">{{ form.errors.recipients_to }}</p>
           </div>
           <p v-else class="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">Va sempre al cliente di cui scade la data.</p>
@@ -221,6 +269,17 @@
               <button v-for="u in opzioni.utenti" :key="u.id" type="button" class="px-3 py-1 rounded-full text-sm border transition"
                 :class="haCc(u.id) ? 'bg-gray-700 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'"
                 @click="toggleCc(u.id)">{{ u.name }}</button>
+                          </div>
+            <div v-if="contattiConEmail.length" class="mt-2">
+              <select class="field-input text-sm" :value="''" @change="aggiungiCcContatto">
+                <option value="">+ In copia un contatto della rubrica…</option>
+                <option v-for="c in contattiConEmail" :key="c.id" :value="c.id">{{ c.nome }} — {{ c.email }}</option>
+              </select>
+              <div v-if="ccContatti.length" class="flex flex-wrap gap-1.5 mt-2">
+                <span v-for="c in ccContatti" :key="c.id" class="inline-flex items-center gap-1 text-xs rounded-full bg-gray-700 text-white px-2.5 py-0.5">
+                  {{ c.nome }} <button type="button" @click="togliCcContatto(c.id)">×</button>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -290,6 +349,11 @@
               </div>
               <p v-else-if="anteprima.piano.document_categories?.length" class="px-3 pb-3 text-xs text-amber-700">Nessun documento di queste categorie in questo sinistro.</p>
             </div>
+            <div v-if="anteprima.piano.whatsapp" class="rounded-lg border border-green-200 overflow-hidden">
+              <p class="px-3 py-2 bg-green-50 border-b border-green-200 text-sm"><span class="text-gray-500">WhatsApp, template</span> <span class="font-mono font-medium">{{ anteprima.piano.whatsapp.template }}</span>
+                <span v-if="!anteprima.piano.whatsapp.approvato" class="text-amber-700"> (in revisione: per ora parte il testo libero)</span></p>
+              <p class="px-3 py-3 text-sm text-gray-800 whitespace-pre-line">{{ anteprima.piano.whatsapp.testo }}</p>
+            </div>
             <div v-if="usaEmail" class="flex items-center gap-2">
               <button type="button" :disabled="prova.invio" class="text-sm font-semibold px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50" @click="inviaProva">
                 {{ prova.invio ? 'Invio…' : 'Invia prova a me' }}
@@ -328,6 +392,8 @@ interface Opzioni {
   clienti: Voce[]
   emailCollegata: boolean
   whatsappCollegato: boolean
+  templatesWhatsapp: { id: number; name: string; status: string; body: string; variabili: string[]; variableCount: number }[]
+  contatti: { id: number; nome: string; email: string | null; telefono: string | null; tags: string[] }[]
   inneschi: { valore: string; etichetta: string }[]
 }
 
@@ -428,21 +494,56 @@ const ruoli = [
   { type: 'carrozzeria', label: 'Carrozzeria', aiuto: 'La carrozzeria del sopralluogo' },
   { type: 'gestore', label: 'Chi ha aperto il sinistro', aiuto: 'Il collega che ha aperto il sinistro' },
 ]
-const chiave = (r: DestinatarioAuto) => `${r.type}:${r.user_id ?? ''}`
-const haDestinatario = (type: string, userId?: number) => form.recipients_to.some((r) => chiave(r) === chiave({ type, user_id: userId }))
+const chiave = (r: DestinatarioAuto) => `${r.type}:${r.user_id ?? r.contatto_id ?? ''}`
+const haDestinatario = (type: string, userId?: number, contattoId?: number) => form.recipients_to.some((r) => chiave(r) === chiave({ type, user_id: userId, contatto_id: contattoId }))
 function toggleDestinatario(r: DestinatarioAuto) {
-  form.recipients_to = haDestinatario(r.type, r.user_id)
+  form.recipients_to = haDestinatario(r.type, r.user_id, r.contatto_id)
     ? form.recipients_to.filter((x) => chiave(x) !== chiave(r))
     : [...form.recipients_to, r]
 }
-const haCc = (id: number) => form.recipients_cc.some((r) => r.user_id === id)
+const haCc = (id: number) => form.recipients_cc.some((r) => r.type !== 'contatto' && r.user_id === id)
 function toggleCc(id: number) {
-  form.recipients_cc = haCc(id) ? form.recipients_cc.filter((r) => r.user_id !== id) : [...form.recipients_cc, { type: 'user', user_id: id }]
+  form.recipients_cc = haCc(id) ? form.recipients_cc.filter((r) => r.type === 'contatto' || r.user_id !== id) : [...form.recipients_cc, { type: 'user', user_id: id }]
+}
+
+// ── Rubrica ─────────────────────────────────────────────────────────────────
+const categoriaRubrica = ref('')
+const cercaRubrica = ref('')
+const categorieRubrica = computed(() => [...new Set(props.opzioni.contatti.flatMap((c) => c.tags))].sort())
+const contattiFiltrati = computed(() => {
+  const q = cercaRubrica.value.trim().toLowerCase()
+  return props.opzioni.contatti
+    .filter((c) => !categoriaRubrica.value || c.tags.includes(categoriaRubrica.value))
+    .filter((c) => !q || [c.nome, c.email, c.telefono].some((x) => x?.toLowerCase().includes(q)))
+    .slice(0, 100)
+})
+const contattiScelti = computed(() => form.recipients_to.filter((r) => r.type === 'contatto')
+  .map((r) => props.opzioni.contatti.find((c) => c.id === r.contatto_id)).filter((c): c is NonNullable<typeof c> => !!c))
+const contattiConEmail = computed(() => props.opzioni.contatti.filter((c) => c.email && !form.recipients_cc.some((r) => r.type === 'contatto' && r.contatto_id === c.id)))
+const ccContatti = computed(() => form.recipients_cc.filter((r) => r.type === 'contatto')
+  .map((r) => props.opzioni.contatti.find((c) => c.id === r.contatto_id)).filter((c): c is NonNullable<typeof c> => !!c))
+function aggiungiCcContatto(e: Event) {
+  const id = Number((e.target as HTMLSelectElement).value)
+  ;(e.target as HTMLSelectElement).value = ''
+  if (id) form.recipients_cc = [...form.recipients_cc, { type: 'contatto', contatto_id: id }]
+}
+function togliCcContatto(id: number) {
+  form.recipients_cc = form.recipients_cc.filter((r) => !(r.type === 'contatto' && r.contatto_id === id))
+}
+
+// ── Template WhatsApp ───────────────────────────────────────────────────────
+const templateScelto = computed(() => props.opzioni.templatesWhatsapp.find((t) => t.id === form.whatsapp_template_id) ?? null)
+const segnaposto = (i: number) => `{{${i + 1}}}`
+function scegliTemplate() {
+  const t = templateScelto.value
+  form.whatsapp_params = t ? Array.from({ length: t.variableCount }, (_, i) => t.variabili[i] ?? '') : []
 }
 const riassuntoDestinatari = computed(() => {
   if (form.trigger_type === 'cliente_date_field') return 'cliente'
   const nomi = form.recipients_to.map((r) => r.type === 'user'
     ? (props.opzioni.utenti.find((u) => u.id === r.user_id)?.name ?? 'collega')
+    : r.type === 'contatto'
+    ? (props.opzioni.contatti.find((c) => c.id === r.contatto_id)?.nome ?? 'contatto')
     : ruoli.find((x) => x.type === r.type)?.label.toLowerCase() ?? r.type)
   return nomi.length ? nomi.join(', ') : 'nessuno — scegli i destinatari'
 })

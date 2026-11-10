@@ -14,7 +14,7 @@ use Illuminate\Validation\ValidationException;
  */
 class RegoleAutomazione
 {
-    public const DESTINATARI = ['cliente', 'carrozzeria', 'perito', 'gestore', 'user'];
+    public const DESTINATARI = ['cliente', 'carrozzeria', 'perito', 'gestore', 'user', 'contatto'];
 
     /** Valida la richiesta e restituisce i dati già normalizzati per il trigger scelto. */
     public static function valida(Request $request, Tenant $tenant): array
@@ -23,6 +23,7 @@ class RegoleAutomazione
         $campiPratica = collect($tenant->getCustomFieldsSchema())->where('type', 'date')->pluck('name')->push('data_appuntamento')->all();
         $campiCliente = collect($tenant->getClienteCustomFieldsSchema())->where('type', 'date')->pluck('name')->all();
         $utenti = Rule::exists('users', 'id')->where('tenant_id', $tenant->id);
+        $contatti = Rule::exists('contatti', 'id')->where('tenant_id', $tenant->id);
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -37,13 +38,18 @@ class RegoleAutomazione
             'offset_days' => ['nullable', 'integer', 'min:-365', 'max:365'],
             'ripeti' => ['boolean'],
             'channel' => ['required', Rule::in(['email', 'whatsapp', 'both'])],
+            'whatsapp_template_id' => ['nullable', 'integer', Rule::exists('whatsapp_templates', 'id')->where('tenant_id', $tenant->id)],
+            'whatsapp_params' => ['nullable', 'array', 'max:20'],
+            'whatsapp_params.*' => ['nullable', 'string', 'max:200'],
             'subject' => ['nullable', 'string', 'max:200'],
             'recipients_to' => ['nullable', 'array', 'max:30'],
             'recipients_to.*.type' => ['required', Rule::in(self::DESTINATARI)],
             'recipients_to.*.user_id' => ['nullable', 'integer', $utenti],
+            'recipients_to.*.contatto_id' => ['nullable', 'integer', $contatti],
             'recipients_cc' => ['nullable', 'array', 'max:30'],
-            'recipients_cc.*.type' => ['required', Rule::in(['user'])],
-            'recipients_cc.*.user_id' => ['required', 'integer', $utenti],
+            'recipients_cc.*.type' => ['required', Rule::in(['user', 'contatto'])],
+            'recipients_cc.*.user_id' => ['required_if:recipients_cc.*.type,user', 'nullable', 'integer', $utenti],
+            'recipients_cc.*.contatto_id' => ['required_if:recipients_cc.*.type,contatto', 'nullable', 'integer', $contatti],
             'message_template' => ['required', 'string', 'max:5000'],
             'document_category_ids' => ['nullable', 'array'],
             'document_category_ids.*' => ['integer', Rule::exists('document_categories', 'id')],
@@ -54,12 +60,18 @@ class RegoleAutomazione
             'message_template.required' => 'Scrivi il messaggio.',
             'recipients_to.*.user_id.exists' => 'Uno dei colleghi scelti non fa parte dell\'agenzia.',
             'recipients_cc.*.user_id.exists' => 'Uno dei colleghi in copia non fa parte dell\'agenzia.',
+            'recipients_to.*.contatto_id.exists' => 'Uno dei contatti scelti non è nella rubrica dell\'agenzia.',
+            'recipients_cc.*.contatto_id.exists' => 'Uno dei contatti in copia non è nella rubrica dell\'agenzia.',
         ]);
 
         $destinatari = collect($data['recipients_to'] ?? [])
-            ->map(fn ($r) => $r['type'] === 'user' ? ['type' => 'user', 'user_id' => (int) ($r['user_id'] ?? 0)] : ['type' => $r['type']])
-            ->filter(fn ($r) => $r['type'] !== 'user' || $r['user_id'] > 0)
-            ->unique(fn ($r) => $r['type'].':'.($r['user_id'] ?? ''))->values()->all();
+            ->map(fn ($r) => match ($r['type']) {
+                'user' => ['type' => 'user', 'user_id' => (int) ($r['user_id'] ?? 0)],
+                'contatto' => ['type' => 'contatto', 'contatto_id' => (int) ($r['contatto_id'] ?? 0)],
+                default => ['type' => $r['type']],
+            })
+            ->filter(fn ($r) => ($r['user_id'] ?? 1) > 0 && ($r['contatto_id'] ?? 1) > 0)
+            ->unique(fn ($r) => $r['type'].':'.($r['user_id'] ?? $r['contatto_id'] ?? ''))->values()->all();
 
         if ($trigger === 'status_duration') {
             if (empty($data['tenant_status_id'])) {
@@ -84,11 +96,18 @@ class RegoleAutomazione
             'offset_days' => in_array($trigger, ['date_reminder', 'status_duration'], true) ? (int) ($data['offset_days'] ?? 0) : 0,
             'ripeti' => $trigger === 'status_duration' && ! empty($data['ripeti']),
             'channel' => $data['channel'],
+            'whatsapp_template_id' => $data['channel'] !== 'email' ? ($data['whatsapp_template_id'] ?? null) : null,
+            'whatsapp_params' => $data['channel'] !== 'email' && ! empty($data['whatsapp_template_id'])
+                ? array_values(array_map(fn ($v) => (string) $v, $data['whatsapp_params'] ?? []))
+                : null,
             'subject' => trim((string) ($data['subject'] ?? '')) ?: null,
             'recipient' => 'cliente',
             'recipients_to' => $trigger === 'cliente_date_field' ? [['type' => 'cliente']] : $destinatari,
             'recipients_cc' => $data['channel'] === 'whatsapp' ? [] : collect($data['recipients_cc'] ?? [])
-                ->map(fn ($r) => ['type' => 'user', 'user_id' => (int) $r['user_id']])->unique('user_id')->values()->all(),
+                ->map(fn ($r) => ($r['type'] ?? 'user') === 'contatto'
+                    ? ['type' => 'contatto', 'contatto_id' => (int) $r['contatto_id']]
+                    : ['type' => 'user', 'user_id' => (int) $r['user_id']])
+                ->unique(fn ($r) => $r['type'].':'.($r['user_id'] ?? $r['contatto_id']))->values()->all(),
             'message_template' => $data['message_template'],
             'is_active' => $request->has('is_active') ? (bool) $data['is_active'] : true,
             'document_category_ids' => $data['document_category_ids'] ?? [],
@@ -122,6 +141,8 @@ class RegoleAutomazione
             'offset_days' => (int) $a->offset_days,
             'ripeti' => (bool) $a->ripeti,
             'channel' => $a->channel,
+            'whatsapp_template_id' => $a->whatsapp_template_id,
+            'whatsapp_params' => $a->whatsapp_params ?? [],
             'subject' => $a->subject,
             'recipients_to' => $a->recipients_to ?: ($a->recipient ? [['type' => $a->recipient]] : []),
             'recipients_cc' => $a->recipients_cc ?? [],
