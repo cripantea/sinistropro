@@ -35,6 +35,14 @@ Schedule::command('app:process-cliente-date-reminders')
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/cliente-date-reminders.log'));
 
+// Promemoria X giorni prima/dopo una data del sinistro (es. il giorno prima della perizia) — 08:05.
+Schedule::command('app:process-pratica-date-reminders')
+    ->dailyAt('08:05')
+    ->timezone('Europe/Rome')
+    ->withoutOverlapping(10)
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/pratica-date-reminders.log'));
+
 // Promemoria 7 giorni prima della fine della prova gratuita — ogni mattina alle 09:00.
 Schedule::command('app:promemoria-fine-prova')
     ->dailyAt('09:00')

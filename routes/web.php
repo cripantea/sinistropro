@@ -14,6 +14,11 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmailController;
 use App\Http\Controllers\ImpersonateController;
 use App\Http\Controllers\ImpostazioniEmailController;
+use App\Http\Controllers\Impostazioni\AutomazioniController as ImpAutomazioni;
+use App\Http\Controllers\Impostazioni\CampiController as ImpCampi;
+use App\Http\Controllers\Impostazioni\CategorieController as ImpCategorie;
+use App\Http\Controllers\Impostazioni\GeneraleController as ImpGenerale;
+use App\Http\Controllers\Impostazioni\StatiController as ImpStati;
 use App\Http\Controllers\TenantContextController;
 use App\Http\Controllers\IspezioneController;
 use App\Http\Controllers\PdfExportController;
@@ -163,6 +168,29 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/impostazioni/email/google/callback',    [ImpostazioniEmailController::class, 'googleCallback'])->middleware('throttle:10,1')->name('impostazioni.email.google.callback');
 });
 
+// --- Impostazioni dell'agenzia (amministratore dell'agenzia o superadmin dentro l'agenzia) ---
+Route::middleware(['auth', 'verified'])->prefix('impostazioni')->name('impostazioni.')->group(function () {
+    Route::get('/', fn () => redirect()->route('impostazioni.generale'))->name('index');
+    Route::get('/generale',   [ImpGenerale::class, 'show'])->name('generale');
+    Route::post('/generale',  [ImpGenerale::class, 'update'])->name('generale.update');
+    Route::get('/stati',      [ImpStati::class, 'show'])->name('stati');
+    Route::post('/stati',     [ImpStati::class, 'update'])->name('stati.update');
+    Route::get('/campi',      [ImpCampi::class, 'show'])->name('campi');
+    Route::post('/campi',     [ImpCampi::class, 'update'])->name('campi.update');
+    Route::get('/categorie',  [ImpCategorie::class, 'show'])->name('categorie');
+    Route::post('/categorie', [ImpCategorie::class, 'update'])->name('categorie.update');
+
+    Route::get('/automazioni',                        [ImpAutomazioni::class, 'index'])->name('automazioni.index');
+    Route::get('/automazioni/nuova',                  [ImpAutomazioni::class, 'create'])->name('automazioni.create');
+    Route::post('/automazioni',                       [ImpAutomazioni::class, 'store'])->name('automazioni.store');
+    Route::post('/automazioni/anteprima',             [ImpAutomazioni::class, 'anteprima'])->middleware('throttle:60,1')->name('automazioni.anteprima');
+    Route::post('/automazioni/prova',                 [ImpAutomazioni::class, 'prova'])->middleware('throttle:10,1')->name('automazioni.prova');
+    Route::get('/automazioni/{automazione}',          [ImpAutomazioni::class, 'edit'])->name('automazioni.edit');
+    Route::put('/automazioni/{automazione}',          [ImpAutomazioni::class, 'update'])->name('automazioni.update');
+    Route::patch('/automazioni/{automazione}/attiva', [ImpAutomazioni::class, 'toggle'])->name('automazioni.toggle');
+    Route::delete('/automazioni/{automazione}',       [ImpAutomazioni::class, 'destroy'])->name('automazioni.destroy');
+});
+
 // --- Abbonamento (la pagina la vedono tutti, pagare e gestire solo il tenant-admin) ---
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/registrati/carta',      [RegistrazioneAgenziaController::class, 'carta'])->name('registrati.carta');
@@ -211,6 +239,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
 
     // Tenant context (superadmin naviga da sé senza impersonare)
     Route::post('/tenants/{tenant}/context',       [TenantContextController::class, 'set'])->name('tenants.context.set');
+    Route::get('/tenants/{tenant}/impostazioni/{sezione?}', [TenantContextController::class, 'impostazioni'])->name('tenants.impostazioni');
     Route::post('/tenant-context/clear',           [TenantContextController::class, 'clear'])->name('tenant-context.clear');
     Route::get('/tenants/list-json',               [TenantController::class, 'listJson'])->name('tenants.list-json');
 

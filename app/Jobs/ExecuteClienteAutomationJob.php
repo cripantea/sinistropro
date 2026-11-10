@@ -87,7 +87,7 @@ class ExecuteClienteAutomationJob implements ShouldQueue
             $cliente->tenant,
             $email,
             new AutomazioneNotificaMail(
-                emailSubject:  "Promemoria — {$cliente->nome}",
+                emailSubject:  app(\App\Services\AutomationPlanner::class)->oggettoCliente($this->automation, $cliente, $this->fieldName),
                 compiledBody:  $compiled,
                 tenantName:    $cliente->tenant?->name ?? '',
                 documentLinks: [],

@@ -110,6 +110,14 @@ class Tenant extends Model
         return (int) $this->getSetting('default_notice_days', 30);
     }
 
+    /** Giorni fino al prossimo avviso per un sinistro in questo stato (impostati sullo stato o predefiniti). */
+    public function noticeDaysFor(?int $statusId): int
+    {
+        $giorni = $statusId ? $this->statuses()->whereKey($statusId)->value('notice_days') : null;
+
+        return $giorni ? (int) $giorni : $this->getDefaultNoticeDays();
+    }
+
     /** @return array<int, array{name: string, label: string, type: string}> */
     public function getCustomFieldsSchema(): array
     {

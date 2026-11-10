@@ -1,16 +1,7 @@
 <template>
-  <AuthenticatedLayout>
-    <template #header>
-      <h2 class="text-xl font-semibold text-gray-800 leading-tight">Casella email</h2>
-    </template>
+  <ImpostazioniLayout>
 
-    <div class="py-6 max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
-      <div v-if="flash?.success" class="bg-green-50 border-l-4 border-green-500 px-4 py-3 text-sm text-green-800 rounded">
-        {{ flash.success }}
-      </div>
-      <div v-if="flash?.error" class="bg-red-50 border-l-4 border-red-500 px-4 py-3 text-sm text-red-800 rounded">
-        {{ flash.error }}
-      </div>
+    <div class="max-w-2xl space-y-4">
 
       <!-- ── Casella già collegata ─────────────────────────────── -->
       <div v-if="collegata && !modifica" class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
@@ -170,14 +161,14 @@
         </template>
       </form>
     </div>
-  </AuthenticatedLayout>
+  </ImpostazioniLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { Link, router, useForm, usePage } from '@inertiajs/vue3'
 import axios from 'axios'
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import ImpostazioniLayout from '@/Components/Impostazioni/Layout.vue'
 import type { PageProps } from '@/types'
 
 interface Collegata {
@@ -198,7 +189,6 @@ interface Provider {
 const props = defineProps<{ collegata: Collegata | null; nomeAgenzia: string; microsoftDisponibile: boolean; googleDisponibile: boolean }>()
 
 const page = usePage<PageProps>()
-const flash = computed(() => page.props.flash)
 
 const modifica = ref(false)
 const provider = ref<Provider | null>(null)

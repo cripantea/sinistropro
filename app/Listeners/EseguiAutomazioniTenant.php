@@ -16,9 +16,13 @@ class EseguiAutomazioniTenant
      */
     public function handle(PraticaStatoAggiornato $event): void
     {
+        // Stesso stato (es. scheda lasciata nella stessa colonna della Board): nessun cambio, niente invii.
+        if ((int) $event->oldStatusId === (int) $event->newStatusId) {
+            return;
+        }
+
         $automations = Automation::where('tenant_id', $event->pratica->tenant_id)
-            ->where('trigger_type', 'status')
-            ->where('tenant_status_id', $event->newStatusId)
+            ->perStato((int) $event->newStatusId)
             ->where('is_active', true)
             ->get();
 

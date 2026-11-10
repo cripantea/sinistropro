@@ -20,7 +20,9 @@ class Automation extends Model
         'tenant_status_id',
         'watched_field',
         'days_before',
+        'offset_days',
         'channel',
+        'subject',
         'recipient',
         'recipients_to',
         'recipients_cc',
@@ -33,9 +35,26 @@ class Automation extends Model
         'is_active'             => 'boolean',
         'requires_confirmation' => 'boolean',
         'days_before'           => 'integer',
+        'offset_days'           => 'integer',
         'recipients_to'         => 'array',
         'recipients_cc'         => 'array',
     ];
+
+    /** Inneschi supportati, con l'etichetta mostrata all'agenzia. */
+    public const TRIGGER = [
+        'status'             => 'Cambio di stato del sinistro',
+        'pratica_created'    => 'Nuovo sinistro aperto',
+        'date_field'         => 'Cambio di una data del sinistro',
+        'date_reminder'      => 'Giorni prima/dopo una data del sinistro',
+        'cliente_date_field' => 'Scadenza di una data del cliente',
+    ];
+
+    /** Automazioni "a stato" che scattano entrando in questo stato (vuoto = qualsiasi stato). */
+    public function scopePerStato($query, int $statusId)
+    {
+        return $query->where('trigger_type', 'status')
+            ->where(fn ($q) => $q->where('tenant_status_id', $statusId)->orWhereNull('tenant_status_id'));
+    }
 
     public function tenant(): BelongsTo
     {

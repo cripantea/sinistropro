@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Jobs\ExecuteClienteAutomationJob;
 use App\Models\Automation;
+use App\Models\AutomationRun;
 use App\Models\Cliente;
 use App\Models\Tenant;
 use Illuminate\Console\Command;
@@ -82,6 +83,12 @@ class ProcessClienteDateReminders extends Command
                                 if ($isDry) {
                                     $this->line("   [DRY-RUN] Cliente #{$cliente->id} ({$cliente->nome}) → automation #{$automation->id} NON accodata.");
                                     $dispatched++;
+                                    continue;
+                                }
+
+                                // Una volta sola per cliente e data, anche se il comando gira due volte.
+                                if (! AutomationRun::prima($automation, 'cliente', $cliente->id, $targetDate)) {
+                                    $skipped++;
                                     continue;
                                 }
 

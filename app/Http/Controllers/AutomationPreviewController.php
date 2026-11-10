@@ -37,8 +37,7 @@ class AutomationPreviewController extends Controller
         if (! empty($data['tenant_status_id']) && (int) $data['tenant_status_id'] !== $pratica->current_status_id) {
             $matches = $matches->merge(
                 Automation::where('tenant_id', $user->tenant_id)
-                    ->where('trigger_type', 'status')
-                    ->where('tenant_status_id', $data['tenant_status_id'])
+                    ->perStato((int) $data['tenant_status_id'])
                     ->where('is_active', true)
                     ->get()
             );

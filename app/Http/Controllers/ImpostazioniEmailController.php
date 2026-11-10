@@ -5,12 +5,11 @@ namespace App\Http\Controllers;
 use App\Jobs\SyncTenantMailboxJob;
 use App\Models\Tenant;
 use App\Models\TenantMailSettings;
-use App\Models\User;
 use App\Services\EmailConnectionTester;
 use App\Services\EmailProviders;
 use App\Services\GoogleMail;
 use App\Services\MicrosoftMail;
-use App\Support\TenantContext;
+use App\Support\AccessoImpostazioni;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -350,31 +349,13 @@ class ImpostazioniEmailController extends Controller
             : $password;
     }
 
-    /**
-     * Admin dell'agenzia, superadmin, oppure superadmin in assistenza "come" un utente qualsiasi
-     * (impersonazione: l'utente loggato è il collaboratore, ma chi agisce è il superadmin).
-     */
     public static function puoCollegare(): bool
     {
-        $user = auth()->user();
-        if (! $user) {
-            return false;
-        }
-        if ($user->isTenantAdmin() || $user->role === 'superadmin') {
-            return true;
-        }
-        $impersonatore = session('impersonator_id');
-
-        return $impersonatore && User::whereKey($impersonatore)->where('role', 'superadmin')->exists();
+        return AccessoImpostazioni::consentito();
     }
 
     private function tenant(): Tenant
     {
-        abort_unless(self::puoCollegare(), 403, 'Solo l\'amministratore dell\'agenzia può collegare la casella email.');
-
-        $tenant = TenantContext::tenant();
-        abort_unless($tenant, 404);
-
-        return $tenant;
+        return AccessoImpostazioni::tenant();
     }
 }

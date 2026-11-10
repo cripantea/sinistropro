@@ -12,12 +12,13 @@ class TenantStatus extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['tenant_id', 'name', 'color', 'order', 'is_closed', 'is_initial', 'responsible_role', 'send_email_notification'];
+    protected $fillable = ['tenant_id', 'name', 'color', 'order', 'is_closed', 'is_initial', 'notice_days', 'responsible_role', 'send_email_notification'];
 
     protected $casts = [
         'is_closed'                => 'boolean',
         'is_initial'               => 'boolean',
         'send_email_notification'  => 'boolean',
+        'notice_days'              => 'integer',
     ];
 
     public function tenant(): BelongsTo

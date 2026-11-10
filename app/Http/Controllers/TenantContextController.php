@@ -18,6 +18,15 @@ class TenantContextController extends Controller
             ->with('success', "Stai navigando il tenant \"{$tenant->name}\".");
     }
 
+    /** GET /superadmin/tenants/{tenant}/impostazioni/{sezione} — entra nel tenant e apre una sezione delle Impostazioni */
+    public function impostazioni(Tenant $tenant, string $sezione = 'generale'): RedirectResponse
+    {
+        TenantContext::set($tenant->id);
+        $rotta = in_array($sezione, ['generale', 'stati', 'campi', 'categorie', 'email'], true) ? "impostazioni.{$sezione}" : 'impostazioni.automazioni.index';
+
+        return redirect()->route($rotta);
+    }
+
     /** POST /superadmin/tenant-context/clear — torna al pannello superadmin */
     public function clear(): RedirectResponse
     {

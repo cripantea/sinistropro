@@ -54,7 +54,7 @@ class AutomationPlanner
             'id'         => $automation->id,
             'name'       => $automation->name,
             'channel'    => $automation->channel,
-            'subject'    => "Sinistro #{$pratica->id} — {$statusName}",
+            'subject'    => $this->oggettoPratica($automation, $pratica, $recipients[0]['name'] ?? null, $statusName),
             'recipients' => $recipients,
             'cc'         => $cc,
             'documents'  => $documents,
@@ -134,13 +134,58 @@ class AutomationPlanner
             ->unique('email')->values()->all();
     }
 
+    /** Oggetto dell'email: quello scritto nell'automazione (con le variabili) o "Sinistro #N — stato". */
+    public function oggettoPratica(Automation $automation, Pratica $pratica, ?string $recipientName, ?string $statusName = null): string
+    {
+        $statusName ??= $pratica->currentStatus?->name ?? '';
+        $oggetto = trim((string) $automation->subject);
+
+        return $oggetto !== ''
+            ? $this->compilePratica($oggetto, $pratica, $recipientName, $statusName)
+            : "Sinistro #{$pratica->id} — {$statusName}";
+    }
+
+    /** Oggetto del promemoria al cliente: quello scritto nell'automazione o "Promemoria — nome". */
+    public function oggettoCliente(Automation $automation, Cliente $cliente, string $field): string
+    {
+        $oggetto = trim((string) $automation->subject);
+
+        return $oggetto !== ''
+            ? $this->compileCliente($oggetto, $cliente, $cliente->custom_fields[$field] ?? null)
+            : "Promemoria — {$cliente->nome}";
+    }
+
+    /** Variabili dei promemoria su date del cliente. */
+    public const VARIABILI_CLIENTE = [
+        '{nome_cliente}'  => 'Nome del cliente',
+        '{data_scadenza}' => 'La data che scade',
+        '{nome_tenant}'   => 'Nome dell\'agenzia',
+    ];
+
+    /** Variabili utilizzabili nei messaggi dei sinistri (mostrate nell'editor delle automazioni). */
+    public const VARIABILI_PRATICA = [
+        '{nome_cliente}'   => 'Nome di chi riceve il messaggio',
+        '{numero_pratica}' => 'Numero del sinistro',
+        '{stato_corrente}' => 'Stato del sinistro',
+        '{data_perizia}'   => 'Data del sopralluogo/perizia',
+        '{compagnia}'      => 'Compagnia assicurativa',
+        '{targa}'          => 'Targa del veicolo',
+        '{nome_tenant}'    => 'Nome dell\'agenzia',
+    ];
+
     public function compilePratica(string $template, Pratica $pratica, ?string $recipientName, ?string $statusName = null): string
     {
+        $ispezione = $pratica->relationLoaded('ispezioni') ? $pratica->ispezioni->first() : $pratica->ispezioni()->latest()->first();
+        $perizia = $ispezione?->data_appuntamento;
+
         $replacements = [
             '{numero_pratica}' => (string) $pratica->id,
             '{nome_cliente}'   => $recipientName ?: 'Cliente',
             '{stato_corrente}' => $statusName ?? ($pratica->currentStatus?->name ?? ''),
             '{nome_tenant}'    => $pratica->tenant?->name ?? '',
+            '{data_perizia}'   => $perizia ? $perizia->format('d/m/Y').($perizia->format('H:i') !== '00:00' ? ' alle '.$perizia->format('H:i') : '') : '',
+            '{compagnia}'      => (string) ($pratica->compagnia ?? ''),
+            '{targa}'          => (string) ($pratica->veicolo?->targa ?? ''),
             '{link_documenti}' => '',
         ];
 
@@ -223,7 +268,7 @@ class AutomationPlanner
             'id'         => $automation->id,
             'name'       => $automation->name,
             'channel'    => $automation->channel,
-            'subject'    => "Promemoria — {$cliente->nome}",
+            'subject'    => $this->oggettoCliente($automation, $cliente, $field),
             'recipients' => $recipients,
             'cc'         => [],
             'documents'  => [],

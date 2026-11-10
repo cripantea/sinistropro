@@ -139,7 +139,7 @@ class ExecuteAutomationJob implements ShouldQueue
             return;
         }
 
-        $subject = "Sinistro #{$pratica->id} — {$pratica->currentStatus?->name}";
+        $subject = app(AutomationPlanner::class)->oggettoPratica($this->automation, $pratica, $recipient['name'] ?? null);
 
         $mailer->send(
             $pratica->tenant,

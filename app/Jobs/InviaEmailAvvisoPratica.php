@@ -50,7 +50,8 @@ class InviaEmailAvvisoPratica implements ShouldQueue
         }
 
         $tenant         = $pratica->tenant;
-        $giorni         = $tenant->getDefaultNoticeDays();
+        // Giorni impostati sullo stato del sinistro (Impostazioni → Stati), altrimenti quelli predefiniti.
+        $giorni         = $tenant->noticeDaysFor($pratica->current_status_id);
         $nuovaData      = now()->addDays($giorni)->startOfDay();
 
         // --- Invio email ---

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Superadmin;
 
+use App\Http\Controllers\Impostazioni\StatiController;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Superadmin\StoreTenantRequest;
 use App\Http\Requests\Superadmin\UpdateTenantRequest;
@@ -255,32 +256,9 @@ class TenantController extends Controller
                 ],
             ]);
 
-            // Sincronizza gli statuses: upsert per quelli con ID, crea i nuovi.
-            $incomingIds = collect($request->input('statuses', []))
-                ->filter(fn ($s) => ! empty($s['id']))
-                ->pluck('id')
-                ->all();
-
-            // Elimina gli statuses rimossi dall'utente.
-            $tenant->statuses()->whereNotIn('id', $incomingIds)->delete();
-
-            $initialAssigned = false;
-            foreach ($request->input('statuses', []) as $i => $statusData) {
-                // Solo il primo status marcato is_initial viene tenuto come tale per il tenant.
-                $isInitial = ! $initialAssigned && (bool) ($statusData['is_initial'] ?? false);
-                $initialAssigned = $initialAssigned || $isInitial;
-
-                $tenant->statuses()->updateOrCreate(
-                    ['id' => $statusData['id'] ?? null],
-                    [
-                        'name' => $statusData['name'],
-                        'color' => $statusData['color'],
-                        'is_closed' => (bool) ($statusData['is_closed'] ?? false),
-                        'is_initial' => $isInitial,
-                        'order' => $i,
-                    ]
-                );
-            }
+            // Stessa logica delle Impostazioni dell'agenzia: niente stati eliminati con sinistri dentro,
+            // e le automazioni dello stato eliminato vengono spente.
+            StatiController::sincronizza($tenant, $request->input('statuses', []));
         });
 
         // Si resta nella sezione da cui si è salvato (il form manda la tab nell'URL).

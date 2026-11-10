@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ExecuteAutomationJob;
+use App\Models\Automation;
 use App\Events\PraticaCampoDataAggiornato;
 use App\Events\PraticaStatoAggiornato;
 use App\Http\Requests\Pratica\StorePraticaRequest;
@@ -175,7 +177,7 @@ class PraticaController extends Controller
                 'conducente_nome'      => trim((string) $request->input('conducente_nome')) ?: null,
                 'conducente_telefono'  => trim((string) $request->input('conducente_telefono')) ?: null,
                 'current_status_id'    => $statoIniziale->id,
-                'data_prossimo_avviso' => now()->addDays($tenant->getDefaultNoticeDays())->toDateString(),
+                'data_prossimo_avviso' => now()->addDays($tenant->noticeDaysFor($statoIniziale->id))->toDateString(),
             ]);
 
             Ispezione::create([
@@ -187,6 +189,10 @@ class PraticaController extends Controller
 
             return $pratica;
         });
+
+        // Automazioni "Nuovo sinistro aperto": partono subito, senza finestra di conferma.
+        Automation::where('tenant_id', $tenant->id)->where('trigger_type', 'pratica_created')->where('is_active', true)->get()
+            ->each(fn (Automation $a) => ExecuteAutomationJob::dispatch($pratica, $a));
 
         // Aperto dalla Board: si resta sulla Board e la nuova scheda viene evidenziata.
         if ($request->input('da') === 'kanban') {

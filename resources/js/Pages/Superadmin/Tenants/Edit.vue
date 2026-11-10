@@ -128,6 +128,7 @@
       </FormSection>
 
       <FormSection title="Stati dei sinistri">
+        <p class="text-xs text-slate-500 -mt-2 mb-3">I giorni di avviso per stato si impostano nelle <a :href="route('superadmin.tenants.impostazioni', [tenant.id, 'stati'])" class="text-indigo-600 underline">Impostazioni dell'agenzia</a>.</p>
         <div class="space-y-2">
           <TransitionGroup name="list" tag="div" class="space-y-2">
             <div v-for="(status, i) in form.statuses" :key="status._uid" class="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
@@ -386,6 +387,10 @@
 
     <!-- ── Tab 3: Automazioni Workflow ───────────────────────────────────────── -->
     <div v-show="activeTab === 'automations'" class="p-6 max-w-5xl">
+      <div class="mb-4 rounded-lg bg-violet-50 border border-violet-200 px-4 py-3 text-sm text-violet-900 flex flex-wrap items-center gap-3">
+        <span class="flex-1 min-w-[16rem]">Le automazioni ora si creano con l'editor grafico, lo stesso che usa l'agenzia (nuovi inneschi: nuovo sinistro, giorni prima/dopo una data, oggetto email, anteprima).</span>
+        <a :href="route('superadmin.tenants.impostazioni', [tenant.id, 'automazioni'])" class="shrink-0 font-semibold bg-violet-600 text-white px-3 py-1.5 rounded-lg hover:bg-violet-700">Apri l'editor dell'agenzia →</a>
+      </div>
 
       <div class="flex items-center justify-between mb-5">
         <div>
