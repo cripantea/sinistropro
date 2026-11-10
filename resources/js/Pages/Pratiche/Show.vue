@@ -13,6 +13,12 @@
             :href="route('pratiche.edit', pratica.id)"
             class="inline-flex items-center h-10 px-4 rounded-lg border border-gray-300 bg-white text-[15px] font-semibold text-gray-800 hover:bg-gray-50 transition"
           >Modifica</Link>
+          <button
+            v-if="puoEliminare"
+            type="button"
+            @click="eliminaSinistro"
+            class="inline-flex items-center h-10 px-4 rounded-lg border border-red-200 bg-white text-[15px] font-semibold text-red-600 hover:bg-red-50 hover:border-red-400 transition"
+          >Elimina</button>
           <a
             :href="route('pratiche.export-pdf', pratica.id)"
             target="_blank"
@@ -582,6 +588,7 @@ interface Pratica {
 
 const props   = defineProps<{
   pratica: Pratica
+  puoEliminare: boolean
   categories: DocumentCategory[]
   moduleTemplates: ModuleTemplate[]
   praticaModules: PraticaModule[]
@@ -843,5 +850,10 @@ function salvaAvviso() {
   avviso.form
     .transform((d) => ({ data_prossimo_avviso: d.data_prossimo_avviso || null }))
     .patch(route('pratiche.update-avviso', props.pratica.id), { preserveScroll: true, onSuccess: () => { avviso.aperto = false } })
+}
+
+function eliminaSinistro() {
+  if (!confirm(`Eliminare definitivamente il sinistro #${props.pratica.id} con note, sopralluoghi e allegati? Non si può annullare.`)) return
+  router.delete(route('pratiche.destroy', props.pratica.id))
 }
 </script>

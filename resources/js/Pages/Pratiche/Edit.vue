@@ -133,7 +133,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
-import { Link, useForm, router, usePage } from '@inertiajs/vue3'
+import { Link, useForm, router } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import TastoIndietro from '@/Components/TastoIndietro.vue'
@@ -153,7 +153,7 @@ interface Pratica {
   custom_fields: Record<string, string | boolean> | null
 }
 
-const props = defineProps<{ pratica: Pratica; tenant: Tenant }>()
+const props = defineProps<{ pratica: Pratica; tenant: Tenant; puoEliminare: boolean }>()
 
 const schema = computed<FieldSchema[]>(() => props.tenant.settings?.custom_fields_schema ?? [])
 
@@ -236,11 +236,8 @@ function onConfirmBlockAction() {
   automationConfirm.open = false
 }
 
-const page = usePage()
-const puoEliminare = computed(() => ['tenant-admin', 'superadmin'].includes((page.props.auth as any)?.user?.role))
-
 function destroyPratica() {
-  if (!confirm('Sei sicuro di voler eliminare definitivamente questo sinistro? L\'operazione non è reversibile.')) return
+  if (!confirm('Eliminare definitivamente il sinistro #' + props.pratica.id + ' con note, sopralluoghi e allegati? Non si può annullare.')) return
   router.delete(route('pratiche.destroy', props.pratica.id))
 }
 </script>

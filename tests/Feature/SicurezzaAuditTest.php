@@ -133,7 +133,7 @@ test('il collegamento WhatsApp rifiuta un numero già collegato a un altro tenan
     expect(WhatsappSession::acrossAllTenants()->where('tenant_id', $this->tenantA->id)->exists())->toBeFalse();
 });
 
-test('solo l\'amministratore dell\'agenzia può eliminare un sinistro', function () {
+test('un collega che non l\'ha aperto e l\'esterno non possono eliminare il sinistro, l\'amministratore sì', function () {
     foreach ([$this->userA, $this->externalA] as $utente) {
         $this->actingAs($utente)->delete("/pratiche/{$this->praticaA->id}")->assertForbidden();
     }
@@ -141,4 +141,18 @@ test('solo l\'amministratore dell\'agenzia può eliminare un sinistro', function
 
     $this->actingAs($this->adminA)->delete("/pratiche/{$this->praticaA->id}")->assertRedirect('/pratiche');
     expect(Pratica::whereKey($this->praticaA->id)->exists())->toBeFalse();
+});
+
+test('chi ha aperto il sinistro può eliminarlo; con lui spariscono anche i file degli allegati', function () {
+    \Illuminate\Support\Facades\Storage::fake('s3');
+    $mio = Pratica::create(['tenant_id' => $this->tenantA->id, 'utente_creatore_id' => $this->userA->id, 'cliente_id' => $this->clienteA->id, 'current_status_id' => $this->statoA->id]);
+    \Illuminate\Support\Facades\Storage::disk('s3')->put('allegati/prova.pdf', 'x');
+    \App\Models\Allegato::create(['tenant_id' => $this->tenantA->id, 'pratica_id' => $mio->id, 'nome_file' => 'prova.pdf', 's3_key' => 'allegati/prova.pdf']);
+
+    $this->actingAs($this->userA)->get("/pratiche/{$mio->id}")->assertInertia(fn ($p) => $p->where('puoEliminare', true));
+    $this->get("/pratiche/{$this->praticaA->id}")->assertInertia(fn ($p) => $p->where('puoEliminare', false));
+
+    $this->delete("/pratiche/{$mio->id}")->assertRedirect('/pratiche');
+    expect(Pratica::whereKey($mio->id)->exists())->toBeFalse();
+    \Illuminate\Support\Facades\Storage::disk('s3')->assertMissing('allegati/prova.pdf');
 });

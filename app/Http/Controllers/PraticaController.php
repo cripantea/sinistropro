@@ -271,6 +271,7 @@ class PraticaController extends Controller
 
         return Inertia::render('Pratiche/Show', [
             'pratica'         => $pratica,
+            'puoEliminare'    => self::puoEliminare($pratica),
             'categories'      => $enabledCategories,
             'moduleTemplates' => $moduleTemplates,
             'praticaModules'  => $praticaModules,
@@ -289,6 +290,7 @@ class PraticaController extends Controller
 
         return Inertia::render('Pratiche/Edit', [
             'pratica' => $pratica,
+            'puoEliminare' => self::puoEliminare($pratica),
             'tenant'  => $tenant,
         ]);
     }
@@ -454,14 +456,28 @@ class PraticaController extends Controller
 
     public function destroy(Pratica $pratica): RedirectResponse
     {
-        // Eliminare un sinistro è irreversibile: solo l'amministratore dell'agenzia (o il superadmin).
-        abort_unless(in_array(auth()->user()->role, ['tenant-admin', 'superadmin'], true), 403, 'Solo l\'amministratore dell\'agenzia può eliminare un sinistro.');
+        abort_unless(self::puoEliminare($pratica), 403, 'Solo l\'amministratore dell\'agenzia o chi ha aperto il sinistro può eliminarlo.');
 
+        // I file degli allegati non spariscono con le righe in cascata: si tolgono dallo storage uno per uno.
+        $servizio = app(\App\Services\AllegatoService::class);
+        foreach ($pratica->allegati()->get() as $allegato) {
+            $servizio->delete($allegato);
+        }
+        $numero = $pratica->id;
         $pratica->delete();
 
         return redirect()
             ->route('pratiche.index')
-            ->with('success', 'Pratica eliminata.');
+            ->with('success', "Sinistro #{$numero} eliminato.");
+    }
+
+    /** Eliminare è irreversibile: amministratore dell'agenzia, superadmin o chi ha aperto il sinistro. */
+    public static function puoEliminare(Pratica $pratica): bool
+    {
+        $user = auth()->user();
+
+        return in_array($user?->role, ['tenant-admin', 'superadmin'], true)
+            || ($user?->role === 'user' && $pratica->utente_creatore_id === $user->id);
     }
 
     /**
