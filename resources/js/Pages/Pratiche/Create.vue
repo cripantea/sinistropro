@@ -17,7 +17,7 @@
           con lo stato e i promemoria delle scadenze. Dopo carichiamo tutti i tuoi clienti dall'Excel.
         </p>
       </div>
-      <NuovoSinistroForm :periti="periti" :compagnie="compagnie" :chiedi-veicolo="chiediVeicolo" @annulla="router.visit(route('pratiche.index'))" />
+      <NuovoSinistroForm :periti="periti" :rubrica="rubrica" :compagnie="compagnie" :chiedi-veicolo="chiediVeicolo" @annulla="router.visit(route('pratiche.index'))" />
     </div>
   </AuthenticatedLayout>
 </template>
@@ -32,5 +32,5 @@ import NuovoSinistroForm from '@/Components/NuovoSinistroForm.vue'
 
 const primiPassi = computed(() => usePage<PageProps>().props.flash?.primi_passi)
 
-defineProps<{ periti: { id: number; nome: string }[]; compagnie: string[]; chiediVeicolo: boolean }>()
+defineProps<{ periti: { id: number; nome: string }[]; rubrica: { tag: string; contatti: { id: number; label: string }[] }[]; compagnie: string[]; chiediVeicolo: boolean }>()
 </script>

@@ -143,7 +143,18 @@
         <p v-if="form.errors.compagnia" class="text-xs text-red-600 mt-1">{{ form.errors.compagnia }}</p>
       </div>
 
-      <div>
+      <!-- Rubrica: studio peritale, perito, carrozzeria… tutti facoltativi -->
+      <div v-if="rubrica?.length" class="grid sm:grid-cols-2 gap-3">
+        <div v-for="c in rubrica" :key="c.tag">
+          <label :for="`rubrica-${c.tag}`" class="block text-sm font-medium text-gray-700 mb-1">
+            <span class="capitalize">{{ c.tag }}</span> <span class="text-gray-400 font-normal">(facoltativo)</span>
+          </label>
+          <SearchableSelect :id="`rubrica-${c.tag}`" v-model="form.contatti[c.tag]" :options="c.contatti" :placeholder="`Cerca ${c.tag}…`" />
+        </div>
+        <p v-if="form.errors.perito_contatto_id || (form.errors as Record<string, string | undefined>).carrozzeria_contatto_id" class="text-xs text-red-600 sm:col-span-2">{{ form.errors.perito_contatto_id || (form.errors as Record<string, string | undefined>).carrozzeria_contatto_id }}</p>
+      </div>
+
+      <div v-else>
         <label for="perito_contatto_id" class="block text-sm font-medium text-gray-700 mb-1">
           Perito <span class="text-gray-400 font-normal">(opzionale)</span>
         </label>
@@ -215,6 +226,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { useForm } from '@inertiajs/vue3'
+import SearchableSelect from '@/Components/SearchableSelect.vue'
 import axios from 'axios'
 import ClienteNuovoForm from '@/Components/ClienteNuovoForm.vue'
 import ClienteAutocomplete, { type RisultatoCliente } from '@/Components/ClienteAutocomplete.vue'
@@ -232,6 +244,8 @@ interface Scheda {
 
 const props = defineProps<{
   periti: PeritoOption[]
+  /** Categorie della rubrica (studio peritale, perito, carrozzeria…) da scegliere in apertura: facoltative. */
+  rubrica?: { tag: string; contatti: { id: number; label: string }[] }[]
   compagnie: string[]
   chiediVeicolo: boolean
   /** Pagina su cui tornare dopo la creazione (es. 'kanban'); senza, si apre il sinistro creato. */
@@ -254,6 +268,7 @@ const form = useForm({
   veicolo_id: null as number | null,
   compagnia: null as string | null,
   perito_contatto_id: null as number | null,
+  contatti: {} as Record<string, number | null>,
   conducente_nome: '',
   conducente_telefono: '',
 })
@@ -392,6 +407,16 @@ function initials(nome: string) {
 }
 
 function submit() {
-  form.transform(data => ({ ...data, da: props.da ?? null })).post(route('pratiche.store'), { preserveScroll: true, preserveState: 'errors' })
+  form.transform(data => {
+    // Perito e carrozzeria vanno sul sopralluogo come prima; le altre categorie sul sinistro.
+    const { perito, carrozzeria, ...altri } = data.contatti
+    return {
+      ...data,
+      perito_contatto_id: props.rubrica?.length ? (perito ?? null) : data.perito_contatto_id,
+      carrozzeria_contatto_id: carrozzeria ?? null,
+      contatti: Object.fromEntries(Object.entries(altri).filter(([, v]) => v)),
+      da: props.da ?? null,
+    }
+  }).post(route('pratiche.store'), { preserveScroll: true, preserveState: 'errors' })
 }
 </script>

@@ -213,7 +213,7 @@
           </button>
         </div>
         <div class="flex-1 overflow-y-auto p-5">
-          <NuovoSinistroForm :periti="periti" :compagnie="compagnie" :chiedi-veicolo="chiediVeicolo" da="kanban" @annulla="pannelloAperto = false" />
+          <NuovoSinistroForm :periti="periti" :rubrica="rubrica" :compagnie="compagnie" :chiedi-veicolo="chiediVeicolo" da="kanban" @annulla="pannelloAperto = false" />
         </div>
       </aside>
     </Transition>
@@ -447,6 +447,7 @@ const props = defineProps<{
   statuses: TenantStatus[]
   pratiche: PraticaKanban[]
   periti: Perito[]
+  rubrica?: { tag: string; contatti: { id: number; label: string }[] }[]
   compagnie: string[]
   chiediVeicolo: boolean
   nuovaPraticaId: number | null

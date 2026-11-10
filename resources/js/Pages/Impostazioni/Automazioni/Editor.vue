@@ -222,15 +222,29 @@
 
           <div v-if="form.trigger_type !== 'cliente_date_field'">
             <p class="field-label">A chi</p>
-            <div class="flex flex-wrap gap-1.5">
-              <button v-for="r in ruoli" :key="r.type" type="button" class="px-3 py-1 rounded-full text-sm border transition"
-                :class="haDestinatario(r.type) ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'"
-                :title="r.aiuto" @click="toggleDestinatario({ type: r.type })">{{ r.label }}</button>
-              <button v-for="c in categorieExtra" :key="c" type="button" class="px-3 py-1 rounded-full text-sm border transition capitalize"
-                :class="haCategoria(c) ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'"
-                :title="`Il contatto «${c}» scelto nel sinistro dal collega`" @click="toggleDestinatario({ type: 'categoria', categoria: c })">{{ c }} del sinistro</button>
+            <div class="grid sm:grid-cols-2 gap-2">
+              <button type="button" class="rounded-lg border px-3 py-2 text-sm text-left transition"
+                :class="haDestinatario('cliente') ? 'border-indigo-500 bg-indigo-50 text-indigo-900 font-semibold' : 'border-gray-300 hover:bg-gray-50'"
+                @click="toggleDestinatario({ type: 'cliente' })">{{ haDestinatario('cliente') ? '✓ ' : '' }}👤 Cliente del sinistro</button>
+              <select class="field-input !mt-0" :value="''" @change="aggiungiCategoria">
+                <option value="">📒 Una categoria della rubrica…</option>
+                <option v-for="c in categorieTutte" :key="c" :value="c" :disabled="haCategoriaQualsiasi(c)" class="capitalize">{{ c }}{{ haCategoriaQualsiasi(c) ? ' ✓' : '' }}</option>
+              </select>
             </div>
-            <p v-if="categorieExtra.length" class="text-xs text-gray-500 mt-1">«… del sinistro» = il contatto di quella categoria che il collega sceglie nella scheda del sinistro.</p>
+            <div v-if="categorieScelte.length" class="flex flex-wrap gap-1.5 mt-2">
+              <span v-for="c in categorieScelte" :key="c" class="inline-flex items-center gap-1 text-sm rounded-full bg-indigo-600 text-white px-3 py-0.5 capitalize">
+                {{ c }} del sinistro <button type="button" class="opacity-80 hover:opacity-100" @click="togliCategoria(c)">×</button>
+              </span>
+            </div>
+            <p class="text-xs text-gray-500 mt-1.5">La categoria prende il contatto (es. lo studio peritale) che il collega ha scelto in quel sinistro, all'apertura o nella scheda.</p>
+
+            <details class="mt-3" :open="altriAperti">
+              <summary class="text-xs font-semibold text-gray-600 cursor-pointer">Altri destinatari (chi ha aperto il sinistro, colleghi, un contatto preciso)</summary>
+            <div class="flex flex-wrap gap-1.5 mt-2">
+              <button type="button" class="px-3 py-1 rounded-full text-sm border transition"
+                :class="haDestinatario('gestore') ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'"
+                @click="toggleDestinatario({ type: 'gestore' })">Chi ha aperto il sinistro</button>
+            </div>
             <p class="text-xs text-gray-500 mt-2 mb-1">Colleghi dell'agenzia</p>
             <div class="flex flex-wrap gap-1.5">
               <button v-for="u in opzioni.utenti" :key="u.id" type="button" class="px-3 py-1 rounded-full text-sm border transition"
@@ -263,6 +277,7 @@
                 </span>
               </div>
             </template>
+            </details>
             <p v-if="form.errors.recipients_to" class="text-sm text-red-600 mt-1">{{ form.errors.recipients_to }}</p>
           </div>
           <p v-else class="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">Va sempre al cliente di cui scade la data.</p>
@@ -500,6 +515,26 @@ const ruoli = [
 ]
 const chiave = (r: DestinatarioAuto) => `${r.type}:${r.user_id ?? r.contatto_id ?? r.categoria ?? ''}`
 const haDestinatario = (type: string, userId?: number, contattoId?: number) => form.recipients_to.some((r) => chiave(r) === chiave({ type, user_id: userId, contatto_id: contattoId }))
+// Categorie: perito e carrozzeria usano i loro destinatari storici (quelli del sopralluogo), le altre "categoria".
+const categorieTutte = computed(() => {
+  const ordine = ['studio peritale', 'perito', 'carrozzeria']
+  const tutte = new Set([...props.opzioni.contatti.flatMap((c) => c.tags), 'perito', 'carrozzeria'])
+  return [...tutte].sort((a, b) => ((ordine.indexOf(a) + 1 || 9) - (ordine.indexOf(b) + 1 || 9)) || a.localeCompare(b))
+})
+const tipoDi = (c: string): DestinatarioAuto => (c === 'perito' || c === 'carrozzeria') ? { type: c } : { type: 'categoria', categoria: c }
+const haCategoriaQualsiasi = (c: string) => (c === 'perito' || c === 'carrozzeria') ? haDestinatario(c) : haCategoria(c)
+const categorieScelte = computed(() => categorieTutte.value.filter(haCategoriaQualsiasi))
+function aggiungiCategoria(e: Event) {
+  const el = e.target as HTMLSelectElement
+  const c = el.value
+  el.value = ''
+  if (c && !haCategoriaQualsiasi(c)) form.recipients_to = [...form.recipients_to, tipoDi(c)]
+}
+function togliCategoria(c: string) {
+  const r = tipoDi(c)
+  form.recipients_to = form.recipients_to.filter((x) => !(x.type === r.type && (r.type !== 'categoria' || x.categoria === c)))
+}
+const altriAperti = computed(() => form.recipients_to.some((r) => ['gestore', 'user', 'contatto'].includes(r.type)))
 const haCategoria = (c: string) => form.recipients_to.some((r) => r.type === 'categoria' && r.categoria === c)
 const categorieExtra = computed(() => [...new Set(props.opzioni.contatti.flatMap((c) => c.tags))].filter((t) => !['perito', 'carrozzeria'].includes(t)).sort())
 function toggleDestinatario(r: DestinatarioAuto) {

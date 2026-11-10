@@ -18,6 +18,7 @@
           <span class="inline-block w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
           Numero collegato — {{ phoneNumber ? `+${phoneNumber}` : '—' }}
         </p>
+        <Link v-if="puoTemplate" :href="route('impostazioni.whatsapp-template.index')" class="text-xs font-semibold text-green-800 bg-white border border-green-200 rounded-lg px-3 py-1 hover:bg-green-100">🧩 Template WhatsApp</Link>
       </div>
 
       <div class="flex-1 flex min-h-0">
@@ -89,6 +90,7 @@ import { ref, computed, watch } from 'vue'
 import axios from 'axios'
 import { usePage } from '@inertiajs/vue3'
 import { useEcho } from '@laravel/echo-vue'
+import { Link } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import ConversationList from '@/Components/Whatsapp/ConversationList.vue'
 import type { ConversationSummary } from '@/Components/Whatsapp/ConversationList.vue'
@@ -215,4 +217,7 @@ if (tenantId.value) {
     if (m) m.status = e.status
   })
 }
+
+// I template li gestisce chi ha le Impostazioni (amministratore dell'agenzia o superadmin).
+const puoTemplate = computed(() => ['tenant-admin', 'superadmin'].includes((usePage().props as any).auth?.user?.role) || !!(usePage().props as any).auth?.impersonating)
 </script>

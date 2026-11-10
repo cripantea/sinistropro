@@ -142,6 +142,7 @@ class PraticaController extends Controller
             'statuses'      => $statuses,
             'pratiche'      => $pratiche,
             'periti'        => $periti,
+            'rubrica'       => self::rubricaApertura(),
             // Per aprire un sinistro direttamente dalla Board.
             'compagnie'     => $this->compagnie(),
             'chiediVeicolo' => $tenant->hasFeature('veicoli'),
@@ -161,6 +162,7 @@ class PraticaController extends Controller
             // I clienti si cercano mentre si digita (clienti.cerca): non si caricano più tutti nella pagina.
             'chiediVeicolo' => $tenant->hasFeature('veicoli'),
             'periti'  => Contatto::tag(Contatto::TAG_PERITO)->where('is_active', true)->orderBy('nome')->get(['id', 'nome']),
+            'rubrica' => self::rubricaApertura(),
             'compagnie' => $this->compagnie(),
         ]);
     }
@@ -184,12 +186,15 @@ class PraticaController extends Controller
                 'conducente_telefono'  => trim((string) $request->input('conducente_telefono')) ?: null,
                 'current_status_id'    => $statoIniziale->id,
                 'data_prossimo_avviso' => now()->addDays($tenant->noticeDaysFor($statoIniziale->id))->toDateString(),
+                // Altre categorie della rubrica scelte in apertura (es. studio peritale): facoltative.
+                'contatti'             => $this->contattiApertura($request) ?: null,
             ]);
 
             Ispezione::create([
                 'tenant_id'           => $tenant->id,
                 'pratica_id'          => $pratica->id,
                 'perito_contatto_id'  => $request->filled('perito_contatto_id') ? $request->integer('perito_contatto_id') : null,
+                'carrozzeria_contatto_id' => $request->filled('carrozzeria_contatto_id') ? $request->integer('carrozzeria_contatto_id') : null,
                 'stato'               => 'pianificata',
             ]);
 
@@ -495,6 +500,36 @@ class PraticaController extends Controller
         $pratica->update(['contatti' => $puliti ?: null]);
 
         return response()->json(['contatti' => $puliti]);
+    }
+
+    /** {categoria: contatto} scelti in apertura, solo contatti attivi davvero in quella categoria. */
+    private function contattiApertura(Request $request): array
+    {
+        $puliti = [];
+        foreach ((array) $request->input('contatti', []) as $categoria => $id) {
+            $categoria = Contatto::normalizeTag((string) $categoria);
+            if ($categoria === '' || ! $id || in_array($categoria, [Contatto::TAG_PERITO, Contatto::TAG_CARROZZERIA], true)) {
+                continue;
+            }
+            if ($c = Contatto::where('is_active', true)->tag($categoria)->find((int) $id)) {
+                $puliti[$categoria] = $c->id;
+            }
+        }
+
+        return $puliti;
+    }
+
+    /** Categorie della rubrica da proporre all'apertura (tutte: studio peritale, perito, carrozzeria…), facoltative. */
+    public static function rubricaApertura(): array
+    {
+        $ordine = ['studio peritale' => 0, Contatto::TAG_PERITO => 1, Contatto::TAG_CARROZZERIA => 2];
+
+        return Contatto::where('is_active', true)->orderBy('nome')->get(['id', 'nome', 'tags'])
+            ->flatMap(fn (Contatto $c) => collect($c->tags ?? [])->map(fn ($t) => ['tag' => $t, 'contatto' => ['id' => $c->id, 'label' => $c->nome]]))
+            ->groupBy('tag')
+            ->map(fn ($righe, $tag) => ['tag' => $tag, 'contatti' => $righe->pluck('contatto')->values()])
+            ->sortBy(fn ($c) => [$ordine[$c['tag']] ?? 9, $c['tag']])
+            ->values()->all();
     }
 
     /** Categorie della rubrica (oltre a perito e carrozzeria, che hanno già il loro posto) con i loro contatti. */

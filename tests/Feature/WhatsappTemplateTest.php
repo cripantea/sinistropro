@@ -133,3 +133,24 @@ test('destinatario "studio peritale del sinistro": l\'automazione scrive a quell
     $piano = app(\App\Services\AutomationPlanner::class)->planPratica($this->pratica->fresh(), $auto);
     expect($piano['recipients'][0]['email'])->toBe('info@magni.it')->and($piano['recipients'][0]['name'])->toBe('Studio Magni');
 });
+
+test('in apertura si scelgono (facoltativi) studio peritale, perito e carrozzeria dalla rubrica', function () {
+    $studio = Contatto::create(['tenant_id' => $this->tenant->id, 'nome' => 'Studio Magni', 'tags' => ['studio peritale'], 'is_active' => true]);
+    $perito = Contatto::create(['tenant_id' => $this->tenant->id, 'nome' => 'Perito X', 'tags' => ['perito'], 'is_active' => true]);
+    $carr = Contatto::create(['tenant_id' => $this->tenant->id, 'nome' => 'Carrozzeria Y', 'tags' => ['carrozzeria'], 'is_active' => true]);
+
+    $this->actingAs($this->admin)->get('/pratiche/create')
+        ->assertInertia(fn ($p) => $p->where('rubrica.0.tag', 'studio peritale')->where('rubrica.1.tag', 'perito')->where('rubrica.2.tag', 'carrozzeria'));
+
+    // Senza scegliere nulla si apre lo stesso.
+    $this->post('/pratiche', ['cliente_id' => $this->cliente->id])->assertSessionHasNoErrors();
+
+    $this->post('/pratiche', ['cliente_id' => $this->cliente->id, 'perito_contatto_id' => $perito->id, 'carrozzeria_contatto_id' => $carr->id,
+        'contatti' => ['studio peritale' => $studio->id]])->assertSessionHasNoErrors();
+    $p = Pratica::latest('id')->first();
+    expect($p->contatti)->toBe(['studio peritale' => $studio->id])
+        ->and($p->ispezioni()->first()->perito_contatto_id)->toBe($perito->id)
+        ->and($p->ispezioni()->first()->carrozzeria_contatto_id)->toBe($carr->id);
+
+    $this->post('/pratiche', ['cliente_id' => $this->cliente->id, 'carrozzeria_contatto_id' => $perito->id])->assertSessionHasErrors('carrozzeria_contatto_id');
+});

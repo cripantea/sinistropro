@@ -23,6 +23,13 @@ class StorePraticaRequest extends FormRequest
                 'integer',
                 Rule::exists('clienti', 'id')->where('tenant_id', $tenantId),
             ],
+            'carrozzeria_contatto_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('contatti', 'id')->where(fn ($q) => $q->where('tenant_id', $tenantId)->whereJsonContains('tags', 'carrozzeria')),
+            ],
+            'contatti' => ['nullable', 'array', 'max:20'],
+            'contatti.*' => ['nullable', 'integer'],
             'perito_contatto_id' => [
                 'nullable',
                 'integer',
