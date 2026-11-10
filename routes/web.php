@@ -59,6 +59,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/pratiche/{pratica}/edit',   [PraticaController::class, 'edit'])->name('pratiche.edit');
     Route::put('/pratiche/{pratica}',        [PraticaController::class, 'update'])->name('pratiche.update');
     Route::patch('/pratiche/{pratica}/status', [PraticaController::class, 'updateStatus'])->name('pratiche.update-status');
+    Route::patch('/pratiche/{pratica}/avviso', [PraticaController::class, 'updateAvviso'])->name('pratiche.update-avviso');
     Route::delete('/pratiche/{pratica}', [PraticaController::class, 'destroy'])->name('pratiche.destroy');
 
     // Anteprima automazioni "richiede conferma" prima di confermare cambio stato/data

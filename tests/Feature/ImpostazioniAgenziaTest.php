@@ -192,3 +192,21 @@ test('l\'anteprima segnala i dati vuoti nel sinistro di esempio', function () {
     $this->actingAs($this->admin)->postJson('/impostazioni/automazioni/anteprima', automazione(['message_template' => 'Perizia il {data_perizia}', 'pratica_id' => $this->pratica->id]))
         ->assertOk()->assertJsonPath('piano.mancanti', ['Data del sopralluogo/perizia']);
 });
+
+test('la data del prossimo avviso si cambia a mano dalla scheda (non nel passato, vuota = nessun avviso)', function () {
+    $this->actingAs($this->collaboratore)->patch("/pratiche/{$this->pratica->id}/avviso", ['data_prossimo_avviso' => today()->addDays(10)->toDateString()])
+        ->assertSessionHasNoErrors();
+    expect($this->pratica->fresh()->data_prossimo_avviso->toDateString())->toBe(today()->addDays(10)->toDateString());
+
+    $this->patch("/pratiche/{$this->pratica->id}/avviso", ['data_prossimo_avviso' => today()->subDay()->toDateString()])
+        ->assertSessionHasErrors('data_prossimo_avviso');
+
+    $this->patch("/pratiche/{$this->pratica->id}/avviso", ['data_prossimo_avviso' => null])->assertSessionHasNoErrors();
+    expect($this->pratica->fresh()->data_prossimo_avviso)->toBeNull();
+
+    $esterno = User::factory()->create(['tenant_id' => $this->tenant->id, 'role' => 'external']);
+    $this->actingAs($esterno)->patch("/pratiche/{$this->pratica->id}/avviso", ['data_prossimo_avviso' => null])->assertForbidden();
+
+    $altro = User::factory()->create(['tenant_id' => Tenant::create(['name' => 'Altra2'])->id, 'role' => 'tenant-admin']);
+    $this->actingAs($altro)->patch("/pratiche/{$this->pratica->id}/avviso", ['data_prossimo_avviso' => null])->assertNotFound();
+});

@@ -337,6 +337,26 @@ class PraticaController extends Controller
      *  1. Route model binding su Pratica rispetta BelongsToTenant → 404 se pratica di altro tenant.
      *  2. La closure di validazione verifica che current_status_id appartenga allo stesso tenant.
      */
+    /** Data del prossimo avviso scelta a mano (es. "risentiamoci tra 10 giorni"); vuota = nessun avviso. */
+    public function updateAvviso(Request $request, Pratica $pratica): RedirectResponse
+    {
+        abort_unless((int) $pratica->tenant_id === (int) TenantContext::id(), 404);
+        abort_if($request->user()->role === 'external', 403);
+
+        $data = $request->validate([
+            'data_prossimo_avviso' => ['nullable', 'date', 'after_or_equal:today', 'before:+3 years'],
+        ], [
+            'data_prossimo_avviso.after_or_equal' => 'La data del prossimo avviso non può essere nel passato.',
+            'data_prossimo_avviso.before' => 'Scegli una data entro tre anni.',
+        ]);
+
+        $pratica->update(['data_prossimo_avviso' => $data['data_prossimo_avviso'] ?? null]);
+
+        return back()->with('success', $pratica->data_prossimo_avviso
+            ? 'Prossimo avviso spostato al '.$pratica->data_prossimo_avviso->format('d/m/Y').'.'
+            : 'Avvisi sospesi per questo sinistro.');
+    }
+
     public function updateStatus(Request $request, Pratica $pratica, TenantMailerResolver $mailer): RedirectResponse|JsonResponse
     {
         $tenantId = TenantContext::id();

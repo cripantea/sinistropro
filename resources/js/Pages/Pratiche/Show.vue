@@ -105,13 +105,30 @@
           <div>
             <span class="text-gray-400 text-xs uppercase tracking-wide">Prossimo avviso</span>
             <p v-if="pratica.current_status?.is_closed" class="text-sm mt-0.5 text-gray-400">Nessuno (sinistro chiuso)</p>
-            <p
+            <form v-else-if="avviso.aperto" class="mt-1 space-y-1.5" @submit.prevent="salvaAvviso">
+              <input v-model="avviso.form.data_prossimo_avviso" type="date" :min="oggiIso" class="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm" />
+              <div class="flex flex-wrap gap-1">
+                <button v-for="g in [3, 7, 15, 30]" :key="g" type="button" class="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-700" @click="avviso.form.data_prossimo_avviso = traGiorni(g)">+{{ g }} gg</button>
+              </div>
+              <p v-if="avviso.form.errors.data_prossimo_avviso" class="text-xs text-red-600">{{ avviso.form.errors.data_prossimo_avviso }}</p>
+              <div class="flex items-center gap-2 text-xs">
+                <button type="submit" :disabled="avviso.form.processing" class="font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded px-2 py-1 disabled:opacity-50">Salva</button>
+                <button type="button" class="text-gray-500 hover:text-gray-800" @click="avviso.aperto = false">Annulla</button>
+                <button type="button" class="ml-auto text-gray-400 hover:text-red-600" title="Nessun promemoria per questo sinistro" @click="avviso.form.data_prossimo_avviso = ''; salvaAvviso()">Nessun avviso</button>
+              </div>
+            </form>
+            <button
               v-else
-              class="text-sm mt-0.5"
+              type="button"
+              class="group text-sm mt-0.5 inline-flex items-center gap-1.5"
               :class="isOverdue(pratica.data_prossimo_avviso) ? 'text-red-600 font-semibold' : 'font-medium text-gray-800'"
+              :title="puoModificareAvviso ? 'Cambia la data del prossimo avviso' : undefined"
+              :disabled="!puoModificareAvviso"
+              @click="apriAvviso"
             >
-              {{ pratica.data_prossimo_avviso ? formatDate(pratica.data_prossimo_avviso) : '—' }}
-            </p>
+              {{ pratica.data_prossimo_avviso ? formatDate(pratica.data_prossimo_avviso) : 'Nessun avviso' }}
+              <svg v-if="puoModificareAvviso" class="w-3.5 h-3.5 text-gray-400 group-hover:text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 11l6.232-6.232a2.5 2.5 0 113.536 3.536L12.536 14.5H9V11z"/></svg>
+            </button>
           </div>
           <div>
             <span class="text-gray-400 text-xs uppercase tracking-wide">Stato attuale</span>
@@ -802,5 +819,22 @@ function isOverdue(iso: string | null): boolean {
 function initials(name?: string | null): string {
   if (!name) return '?'
   return name.split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
+}
+
+// ── Prossimo avviso modificabile ────────────────────────────────────────────
+const oggiIso = new Date().toISOString().slice(0, 10)
+const traGiorni = (g: number) => { const d = new Date(); d.setDate(d.getDate() + g); return d.toISOString().slice(0, 10) }
+const puoModificareAvviso = computed(() => usePage<PageProps>().props.auth.user.role !== 'external')
+const avviso = reactive({ aperto: false, form: useForm({ data_prossimo_avviso: '' as string }) })
+function apriAvviso() {
+  if (!puoModificareAvviso.value) return
+  avviso.form.data_prossimo_avviso = props.pratica.data_prossimo_avviso?.slice(0, 10) ?? traGiorni(7)
+  avviso.form.clearErrors()
+  avviso.aperto = true
+}
+function salvaAvviso() {
+  avviso.form
+    .transform((d) => ({ data_prossimo_avviso: d.data_prossimo_avviso || null }))
+    .patch(route('pratiche.update-avviso', props.pratica.id), { preserveScroll: true, onSuccess: () => { avviso.aperto = false } })
 }
 </script>
