@@ -64,6 +64,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Anteprima automazioni "richiede conferma" prima di confermare cambio stato/data
     Route::post('/pratiche/{pratica}/automations/preview', [AutomationPreviewController::class, 'preview'])->name('pratiche.automations.preview');
+    Route::post('/pratiche/{pratica}/automations/apertura', [AutomationPreviewController::class, 'apertura'])->name('pratiche.automations.apertura');
 
     // Clienti — gestione completa + creazione rapida da modale (store mantiene JSON response)
     Route::get('/clienti',                  [ClienteController::class, 'index'])->name('clienti.index');

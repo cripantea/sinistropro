@@ -141,14 +141,31 @@ test('"Qualsiasi stato" scatta a ogni cambio di stato (non se lo stato resta ugu
     expect($log->to_address)->toBe('mario@example.com')->and($log->subject)->toBe("Aggiornamento pratica {$this->pratica->id}");
 });
 
-test('"Nuovo sinistro aperto" parte all\'apertura', function () {
+test('"Nuovo sinistro aperto" chiede conferma: parte solo ciò che si conferma, una volta sola', function () {
     Queue::fake();
-    Automation::create([...automazione(['trigger_type' => 'pratica_created']), 'tenant_id' => $this->tenant->id]);
+    $a = Automation::create([...automazione(['trigger_type' => 'pratica_created', 'name' => 'Benvenuto']), 'tenant_id' => $this->tenant->id]);
+    $b = Automation::create([...automazione(['trigger_type' => 'pratica_created', 'name' => 'Avviso interno']), 'tenant_id' => $this->tenant->id]);
 
-    $this->actingAs($this->admin)->post('/pratiche', ['cliente_id' => $this->cliente->id]);
+    $this->actingAs($this->admin)->post('/pratiche', ['cliente_id' => $this->cliente->id])->assertSessionHas('apertura_pratica_id');
+    Queue::assertNothingPushed();
+    $nuova = Pratica::latest('id')->first();
+
+    $this->postJson("/pratiche/{$nuova->id}/automations/preview", ['apertura' => true])
+        ->assertOk()->assertJsonCount(2, 'automations')->assertJsonPath('automations.0.recipients.0.email', 'mario@example.com');
+
+    // Si sceglie solo il benvenuto, con un destinatario cambiato a mano.
+    $this->postJson("/pratiche/{$nuova->id}/automations/apertura", ['automation_overrides' => [
+        $a->id => ['send' => true, 'recipients' => [['name' => 'Mario', 'email' => 'altro@example.com', 'phone' => null]], 'cc' => []],
+        $b->id => ['send' => false, 'recipients' => [], 'cc' => []],
+    ]])->assertOk()->assertJsonPath('inviate', [$a->id]);
+    Queue::assertPushed(ExecuteAutomationJob::class, 1);
+    Queue::assertPushed(ExecuteAutomationJob::class, fn ($j) => $j->automation->is($a) && $j->override['recipients'][0]['email'] === 'altro@example.com');
+
+    // Ripetere la conferma (o ricaricare la pagina) non rimanda nulla e la finestra non ricompare.
+    $this->postJson("/pratiche/{$nuova->id}/automations/apertura", [])->assertJsonPath('inviate', []);
+    $this->postJson("/pratiche/{$nuova->id}/automations/preview", ['apertura' => true])->assertJsonCount(0, 'automations');
     Queue::assertPushed(ExecuteAutomationJob::class, 1);
 });
-
 test('promemoria il giorno prima della perizia: una volta sola, solo sinistri aperti', function () {
     Queue::fake();
     $auto = Automation::create([...automazione(['trigger_type' => 'date_reminder', 'watched_field' => 'data_appuntamento', 'offset_days' => -1]), 'tenant_id' => $this->tenant->id]);

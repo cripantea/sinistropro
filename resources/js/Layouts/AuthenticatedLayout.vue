@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AutomazioniApertura from '@/Components/AutomazioniApertura.vue'
 import FusionSupport from '@/Components/Fusion/FusionSupport.vue'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
@@ -498,6 +499,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
       </div>
     </div>
     <FusionSupport :widget="$page.props.fusionWidget as any" />
+    <AutomazioniApertura />
   </div>
 
   <!-- Overlay superadmin (fisso, visibile solo in impersonazione) -->

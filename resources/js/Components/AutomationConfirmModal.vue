@@ -20,9 +20,14 @@
             </div>
             <div>
               <p class="text-sm font-semibold text-slate-800">
-                {{ automations.length === 1 ? 'Sta per partire 1 messaggio automatico' : `Stanno per partire ${automations.length} messaggi automatici` }}
+                {{ automations.length === 1 ? 'Sta per partire 1 messaggio automatico' : `Ci sono ${automations.length} messaggi automatici: quali vuoi inviare?` }}
               </p>
-              <p class="text-xs text-slate-500 mt-0.5">Controlla testo e destinatari: puoi togliere o aggiungere persone prima di inviare.</p>
+              <p v-if="automations.length > 1" class="text-xs text-slate-600 mt-0.5">
+                Spunta quelli da inviare (puoi sceglierne uno o più), poi controlla testo e destinatari.
+                <button type="button" class="ml-1 font-semibold text-indigo-600 hover:underline" @click="tutti(true)">Tutti</button> ·
+                <button type="button" class="font-semibold text-indigo-600 hover:underline" @click="tutti(false)">Nessuno</button>
+              </p>
+              <p v-else class="text-xs text-slate-500 mt-0.5">Controlla testo e destinatari: puoi togliere o aggiungere persone prima di inviare.</p>
             </div>
           </div>
 
@@ -218,7 +223,8 @@ const state = reactive<EditableAutomation[]>([])
 watch(() => [props.show, props.automations] as const, () => {
   state.splice(0, state.length, ...props.automations.map(a => ({
     ...a,
-    send: true,
+    // Con più messaggi possibili si sceglie: nessuno è spuntato in partenza.
+    send: props.automations.length === 1,
     recipients: a.recipients.map(r => ({ ...r, emailInput: '', phoneInput: '' })),
     cc: a.cc.map(c => c.email),
     addName: '', addEmail: '', addPhone: '', addCc: '', addError: '',
@@ -229,6 +235,10 @@ const usesEmail = (c: string) => c === 'email' || c === 'both'
 const usesPhone = (c: string) => c === 'whatsapp' || c === 'both'
 const channelLabel = (c: string) => ({ email: 'Email', whatsapp: 'WhatsApp', both: 'Email + WhatsApp' } as Record<string, string>)[c] ?? c
 const kindLabel = (k: string) => ({ cliente: 'cliente', perito: 'perito', carrozzeria: 'carrozzeria', gestore: 'gestore', user: 'team' } as Record<string, string>)[k] ?? k
+
+function tutti(valore: boolean) {
+  state.forEach(a => { a.send = valore })
+}
 
 const sendCount = computed(() => state.filter(a => a.send && a.recipients.length > 0).length)
 

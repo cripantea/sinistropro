@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\ExecuteAutomationJob;
 use App\Models\Automation;
 use App\Events\PraticaCampoDataAggiornato;
 use App\Events\PraticaStatoAggiornato;
@@ -190,9 +189,12 @@ class PraticaController extends Controller
             return $pratica;
         });
 
-        // Automazioni "Nuovo sinistro aperto": partono subito, senza finestra di conferma.
-        Automation::where('tenant_id', $tenant->id)->where('trigger_type', 'pratica_created')->where('is_active', true)->get()
-            ->each(fn (Automation $a) => ExecuteAutomationJob::dispatch($pratica, $a));
+        // Automazioni "Nuovo sinistro aperto": come per i cambi di stato si chiede conferma
+        // (finestra mostrata dalla pagina successiva, AutomazioniApertura nel layout).
+        $daConfermare = Automation::where('tenant_id', $tenant->id)->where('trigger_type', 'pratica_created')->where('is_active', true)->exists();
+        if ($daConfermare) {
+            session()->flash('apertura_pratica_id', $pratica->id);
+        }
 
         // Aperto dalla Board: si resta sulla Board e la nuova scheda viene evidenziata.
         if ($request->input('da') === 'kanban') {

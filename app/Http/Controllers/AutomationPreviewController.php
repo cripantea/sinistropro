@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Automation;
+use App\Jobs\ExecuteAutomationJob;
+use App\Models\AutomationRun;
 use App\Models\Contatto;
 use App\Models\Pratica;
 use App\Models\TenantStatus;
@@ -30,9 +32,18 @@ class AutomationPreviewController extends Controller
             'date_fields.*'           => ['nullable', 'string'],
             'perito_contatto_id'      => ['nullable', 'integer'],
             'carrozzeria_contatto_id' => ['nullable', 'integer'],
+            'apertura'                => ['nullable', 'boolean'],
         ]);
 
         $matches = collect();
+
+        // Sinistro appena aperto: automazioni "Nuovo sinistro aperto" ancora da confermare.
+        if (! empty($data['apertura'])) {
+            $matches = $matches->merge(
+                Automation::where('tenant_id', $user->tenant_id)->where('trigger_type', 'pratica_created')->where('is_active', true)->get()
+                    ->filter(fn (Automation $a) => ! AutomationRun::where(['automation_id' => $a->id, 'soggetto' => 'pratica', 'soggetto_id' => $pratica->id, 'chiave' => 'apertura'])->exists())
+            );
+        }
 
         if (! empty($data['tenant_status_id']) && (int) $data['tenant_status_id'] !== $pratica->current_status_id) {
             $matches = $matches->merge(
@@ -88,5 +99,29 @@ class AutomationPreviewController extends Controller
                 : Contatto::where('is_active', true)->orderBy('nome')->get(['id', 'nome', 'tags', 'telefono', 'email']),
             'automations' => $plans->values(),
         ]);
+    }
+
+    /**
+     * Conferma delle automazioni "Nuovo sinistro aperto" dalla finestra mostrata dopo l'apertura:
+     * partono solo quelle confermate, ai destinatari scelti, e una volta sola per sinistro.
+     */
+    public function apertura(Request $request, Pratica $pratica): JsonResponse
+    {
+        abort_unless($pratica->tenant_id === $request->user()->tenant_id, 403);
+        $overrides = AutomationPlanner::normalizeOverrides($request->input('automation_overrides'));
+        $nessuna = $request->boolean('skip');
+        $inviate = [];
+
+        foreach (Automation::where('tenant_id', $pratica->tenant_id)->where('trigger_type', 'pratica_created')->where('is_active', true)->get() as $automation) {
+            $override = $overrides[$automation->id] ?? null;
+            // Registrata anche se non inviata: la finestra non si ripresenta per questo sinistro.
+            if (! AutomationRun::prima($automation, 'pratica', $pratica->id, 'apertura') || $nessuna || ($override && ! $override['send'])) {
+                continue;
+            }
+            ExecuteAutomationJob::dispatch($pratica, $automation, $override ? ['recipients' => $override['recipients'], 'cc' => $override['cc']] : null);
+            $inviate[] = $automation->id;
+        }
+
+        return response()->json(['inviate' => $inviate]);
     }
 }
