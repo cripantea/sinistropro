@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Events\EmailEvent;
+use App\Support\MimeHeader;
 use App\Models\EmailAttachment;
 use App\Models\EmailMessage;
 use App\Models\EmailThread;
@@ -202,7 +203,7 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
 
         $fromAddress = $message->getFrom()->first();
         $fromEmail = $fromAddress?->mail ?? '';
-        $fromName = $fromAddress?->personal !== '' ? $fromAddress?->personal : null;
+        $fromName = MimeHeader::decode($fromAddress?->personal) ?: null;
 
         if ($fromEmail === '') {
             return false;
@@ -221,7 +222,7 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
             return false;
         }
 
-        $subject = (string) ($message->getSubject()->first() ?? '(nessun oggetto)');
+        $subject = MimeHeader::decode((string) ($message->getSubject()->first() ?? '')) ?: '(nessun oggetto)';
 
         try {
             $timestamp = $message->getDate()->toDate();
@@ -319,7 +320,7 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
     private function importAttachments(Message $message, EmailMessage $emailMessage): void
     {
         foreach ($message->getAttachments() as $attachment) {
-            $filename = $attachment->name ?: ($attachment->filename ?: 'allegato');
+            $filename = MimeHeader::decode($attachment->name ?: ($attachment->filename ?: 'allegato')) ?: 'allegato';
             $extension = pathinfo($filename, PATHINFO_EXTENSION);
             $content = $attachment->content ?? '';
 
