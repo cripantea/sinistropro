@@ -31,8 +31,15 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
     /** Margine sotto il --timeout=180 del worker: il job fallisce da solo senza far uccidere il processo. */
     public int $timeout = 150;
 
-    /** Messaggi importati al massimo per ciclo: il resto prosegue al ciclo successivo (UID crescente). */
-    private const MAX_MESSAGES_PER_RUN = 100;
+    /**
+     * Messaggi scaricati al massimo per ciclo: il resto prosegue al ciclo successivo (UID crescente).
+     * Il limite va passato alla query IMAP, non applicato dopo: altrimenti si scaricano prima tutti i
+     * messaggi completi (una Gmail con 200+ email in 7 giorni superava il timeout a ogni giro).
+     */
+    private const MAX_MESSAGES_PER_RUN = 50;
+
+    /** Al primo collegamento si prendono solo le email più recenti, non tutta la settimana. */
+    private const FIRST_SYNC_MESSAGES = 30;
 
     public int $backoff = 60;
 
@@ -139,8 +146,9 @@ class SyncTenantMailboxJob implements ShouldQueue, ShouldBeUnique
         // andando in timeout all'infinito (successo con la cartella Inviata).
         try {
             $messages = empty($lastUid)
-                ? $folder->messages()->whereSince(now()->subDays(7)->format('d-M-Y'))->get()
-                : $folder->messages()->getByUidGreater($lastUid);
+                ? $folder->messages()->whereSince(now()->subDays(7)->format('d-M-Y'))
+                    ->setFetchOrderDesc()->limit(self::FIRST_SYNC_MESSAGES)->get()
+                : $folder->messages()->setFetchOrderAsc()->limit(self::MAX_MESSAGES_PER_RUN)->getByUidGreater($lastUid);
         } catch (\Throwable $e) {
             // Il server IMAP può chiudere la connessione (es. "empty response")
             // su caselle grandi o lente. Logghiamo e usciamo senza fallire il
