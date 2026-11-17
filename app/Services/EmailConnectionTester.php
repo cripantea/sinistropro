@@ -6,6 +6,7 @@ use Illuminate\Support\Str;
 use Symfony\Component\Mailer\Transport\Dsn;
 use Symfony\Component\Mailer\Transport\Smtp\Auth\XOAuth2Authenticator;
 use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransportFactory;
+use Symfony\Component\Mailer\Transport\Smtp\Stream\SocketStream;
 use Webklex\PHPIMAP\ClientManager;
 
 /**
@@ -58,7 +59,11 @@ class EmailConnectionTester
         $transport = (new EsmtpTransportFactory())->create(
             new Dsn($scheme, $c['host'], $c['username'], $c['password'], (int) $c['port'] ?: null)
         );
-        $transport->setTimeout(20);
+        // Il timeout sta sullo stream, non sul transport (EsmtpTransport non ha setTimeout).
+        $stream = $transport->getStream();
+        if ($stream instanceof SocketStream) {
+            $stream->setTimeout(20);
+        }
         if (! empty($c['oauth'])) {
             $transport->setAuthenticators([new XOAuth2Authenticator()]);
         }
