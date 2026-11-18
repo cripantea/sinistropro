@@ -140,7 +140,7 @@ test('nel sinistro si scelgono solo i contatti col tag giusto; un contatto può 
 
 test('la rubrica si filtra per tag e l\'anteprima automazioni offre i contatti da aggiungere', function () {
     $this->actingAs($this->user)->get('/rubrica?tag=Perito')->assertOk()
-        ->assertInertia(fn ($p) => $p->where('tag', 'perito')->has('contatti', 1)->where('tags', ['carrozzeria', 'perito']));
+        ->assertInertia(fn ($p) => $p->where('tag', 'perito')->has('contatti', 1)->where('tags', ['carrozzeria', 'liquidatore', 'perito', 'studio peritale']));
 
     $res = $this->actingAs($this->user)->postJson("/pratiche/{$this->pratica->id}/automations/preview", ['tenant_status_id' => $this->inviata->id])->assertOk();
     expect($res->json('rubrica.0.nome'))->toBe('Luigi Perito');

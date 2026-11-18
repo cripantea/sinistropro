@@ -517,7 +517,7 @@ const chiave = (r: DestinatarioAuto) => `${r.type}:${r.user_id ?? r.contatto_id 
 const haDestinatario = (type: string, userId?: number, contattoId?: number) => form.recipients_to.some((r) => chiave(r) === chiave({ type, user_id: userId, contatto_id: contattoId }))
 // Categorie: perito e carrozzeria usano i loro destinatari storici (quelli del sopralluogo), le altre "categoria".
 const categorieTutte = computed(() => {
-  const ordine = ['studio peritale', 'perito', 'carrozzeria']
+  const ordine = ['studio peritale', 'perito', 'carrozzeria', 'liquidatore']
   const tutte = new Set([...props.opzioni.contatti.flatMap((c) => c.tags), 'perito', 'carrozzeria'])
   return [...tutte].sort((a, b) => ((ordine.indexOf(a) + 1 || 9) - (ordine.indexOf(b) + 1 || 9)) || a.localeCompare(b))
 })

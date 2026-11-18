@@ -527,7 +527,7 @@ class PraticaController extends Controller
     /** Categorie della rubrica da proporre all'apertura (tutte: studio peritale, perito, carrozzeria…), facoltative. */
     public static function rubricaApertura(): array
     {
-        $ordine = ['studio peritale' => 0, Contatto::TAG_PERITO => 1, Contatto::TAG_CARROZZERIA => 2];
+        $ordine = ['studio peritale' => 0, Contatto::TAG_PERITO => 1, Contatto::TAG_CARROZZERIA => 2, 'liquidatore' => 3];
 
         return Contatto::where('is_active', true)->orderBy('nome')->get(['id', 'nome', 'tags'])
             ->flatMap(fn (Contatto $c) => collect($c->tags ?? [])->map(fn ($t) => ['tag' => $t, 'contatto' => ['id' => $c->id, 'label' => $c->nome]]))

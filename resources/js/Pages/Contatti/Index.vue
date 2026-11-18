@@ -20,7 +20,7 @@
     <div class="py-6 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
       <p class="text-sm text-gray-500">
         Persone e aziende a cui assegnare i sinistri o inviare messaggi. Non serve un account: bastano nome, telefono ed email.
-        Con i <strong>tag</strong> li raggruppi: nel sinistro "Perito" propone i contatti col tag <em>perito</em>, "Carrozzeria" quelli col tag <em>carrozzeria</em>.
+        Con i <strong>tag</strong> li raggruppi: nel sinistro "Perito" propone i contatti col tag <em>perito</em>, "Carrozzeria" quelli col tag <em>carrozzeria</em>; ogni altro tag (es. <em>liquidatore</em>, <em>studio peritale</em>) diventa un campo da scegliere nel sinistro.
       </p>
 
       <!-- Ricerca + filtro per tag -->
@@ -104,7 +104,7 @@
             </div>
             <div class="flex flex-wrap gap-1.5 mt-1.5">
               <button
-                v-for="t in ['perito', 'carrozzeria']"
+                v-for="t in ['perito', 'carrozzeria', 'studio peritale', 'liquidatore']"
                 :key="t"
                 type="button"
                 @click="addTag(t)"
