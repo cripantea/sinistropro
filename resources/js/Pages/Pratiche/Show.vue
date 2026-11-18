@@ -156,6 +156,53 @@
         </div>
       </div>
 
+      <!-- NOTE: in alto, subito sotto i dati principali (richiesta Infortunistica Milano) -->
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col">
+        <h3 class="text-sm font-semibold text-gray-700 mb-4">Note</h3>
+
+        <div class="flex-1 overflow-y-auto max-h-96 space-y-4 mb-4 pr-1">
+          <p v-if="pratica.note.length === 0" class="text-sm text-gray-400 italic text-center py-6">
+            Nessuna nota ancora.
+          </p>
+          <div v-for="nota in pratica.note" :key="nota.id" class="flex gap-3">
+            <div class="flex-shrink-0 w-8 h-8 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-bold">
+              {{ initials(nota.user?.name) }}
+            </div>
+            <div class="flex-1 bg-gray-50 rounded-xl px-3.5 py-2.5">
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <span class="text-xs font-semibold text-gray-700">{{ nota.user?.name ?? 'Utente eliminato' }}</span>
+                <span class="text-xs text-gray-400">{{ formatDatetime(nota.created_at) }}</span>
+              </div>
+              <p class="text-sm text-gray-700 whitespace-pre-line">{{ nota.nota }}</p>
+              <div class="mt-1.5 text-right">
+                <button
+                  v-if="canDeleteNota(nota)"
+                  @click="deleteNota(nota.id)"
+                  class="text-xs text-red-400 hover:text-red-600 transition"
+                >Elimina</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <form @submit.prevent="submitNota" class="border-t border-gray-100 pt-4">
+          <textarea
+            v-model="notaForm.nota"
+            rows="3"
+            placeholder="Scrivi una nota…"
+            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 resize-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+          />
+          <p v-if="notaForm.errors.nota" class="text-xs text-red-600 mt-1">{{ notaForm.errors.nota }}</p>
+          <button
+            type="submit"
+            :disabled="notaForm.processing || !notaForm.nota.trim()"
+            class="mt-2 w-full bg-indigo-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+          >
+            Aggiungi nota
+          </button>
+        </form>
+      </div>
+
       <!-- Dati del sinistro (solo se il tenant ha campi personalizzati configurati) -->
       <div v-if="schema.length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
         <h3 class="text-sm font-semibold text-gray-700 mb-3">Dati del sinistro</h3>
@@ -441,53 +488,6 @@
           </div>
 
         </div>
-      </div>
-
-      <!-- NOTE -->
-      <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col">
-        <h3 class="text-sm font-semibold text-gray-700 mb-4">Note</h3>
-
-        <div class="flex-1 overflow-y-auto max-h-96 space-y-4 mb-4 pr-1">
-          <p v-if="pratica.note.length === 0" class="text-sm text-gray-400 italic text-center py-6">
-            Nessuna nota ancora.
-          </p>
-          <div v-for="nota in pratica.note" :key="nota.id" class="flex gap-3">
-            <div class="flex-shrink-0 w-8 h-8 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-bold">
-              {{ initials(nota.user?.name) }}
-            </div>
-            <div class="flex-1 bg-gray-50 rounded-xl px-3.5 py-2.5">
-              <div class="flex items-center justify-between gap-2 mb-1">
-                <span class="text-xs font-semibold text-gray-700">{{ nota.user?.name ?? 'Utente eliminato' }}</span>
-                <span class="text-xs text-gray-400">{{ formatDatetime(nota.created_at) }}</span>
-              </div>
-              <p class="text-sm text-gray-700 whitespace-pre-line">{{ nota.nota }}</p>
-              <div class="mt-1.5 text-right">
-                <button
-                  v-if="canDeleteNota(nota)"
-                  @click="deleteNota(nota.id)"
-                  class="text-xs text-red-400 hover:text-red-600 transition"
-                >Elimina</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <form @submit.prevent="submitNota" class="border-t border-gray-100 pt-4">
-          <textarea
-            v-model="notaForm.nota"
-            rows="3"
-            placeholder="Scrivi una nota…"
-            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 resize-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-          />
-          <p v-if="notaForm.errors.nota" class="text-xs text-red-600 mt-1">{{ notaForm.errors.nota }}</p>
-          <button
-            type="submit"
-            :disabled="notaForm.processing || !notaForm.nota.trim()"
-            class="mt-2 w-full bg-indigo-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
-          >
-            Aggiungi nota
-          </button>
-        </form>
       </div>
 
       <!-- EMAIL -->

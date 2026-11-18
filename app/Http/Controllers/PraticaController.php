@@ -65,7 +65,12 @@ class PraticaController extends Controller
                     $q->where('id', 'like', $term)
                       ->orWhereRaw('CAST(custom_fields AS CHAR) LIKE ?', [$term])
                       ->orWhereRaw('CAST(tags AS CHAR) LIKE ?', [$term])
-                      ->orWhereHas('cliente', fn (Builder $c) => $c->where('nome', 'like', $term));
+                      ->orWhereHas('cliente', fn (Builder $c) => $c->where('nome', 'like', $term))
+                      // Targa scritta con o senza spazi/trattini ("AB 123 CD" trova "AB123CD").
+                      ->orWhereHas('veicolo', fn (Builder $v) => $v->whereRaw(
+                          "REPLACE(REPLACE(UPPER(targa), ' ', ''), '-', '') LIKE ?",
+                          ['%' . str_replace([' ', '-'], '', mb_strtoupper((string) $request->search)) . '%']
+                      ));
                 })
             )
             ->when(

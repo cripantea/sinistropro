@@ -172,3 +172,14 @@ test('agenzia in prova: dopo il primo sinistro la guida porta a importare i clie
     $this->actingAs($this->user)->post('/pratiche', ['cliente_id' => $this->rossi->id])->assertSessionHas('primi_passi', 'importa_clienti');
     $this->post('/pratiche', ['cliente_id' => $this->rossi->id])->assertSessionMissing('primi_passi');
 });
+
+test('nella lista sinistri si cerca anche per targa, con o senza spazi', function () {
+    $stato = TenantStatus::where('tenant_id', $this->tenant->id)->first();
+    $sx = Pratica::create(['tenant_id' => $this->tenant->id, 'cliente_id' => $this->rossi->id, 'veicolo_id' => $this->auto->id, 'utente_creatore_id' => $this->user->id, 'current_status_id' => $stato->id]);
+    Pratica::create(['tenant_id' => $this->tenant->id, 'utente_creatore_id' => $this->user->id, 'current_status_id' => $stato->id]);
+
+    foreach (['GT066RR', 'gt 066', 'GT-066-RR'] as $q) {
+        $this->actingAs($this->user)->get('/pratiche?search='.urlencode($q))
+            ->assertInertia(fn ($page) => $page->has('pratiche.data', 1)->where('pratiche.data.0.id', $sx->id));
+    }
+});
