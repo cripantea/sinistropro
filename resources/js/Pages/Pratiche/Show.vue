@@ -60,9 +60,33 @@
           <span class="text-gray-400 text-xs uppercase tracking-wide">Cliente</span>
           <p class="text-base font-semibold text-gray-900 mt-0.5">{{ pratica.cliente.nome }}</p>
         </div>
-        <div v-if="pratica.compagnia" class="ml-6">
+        <!-- Compagnia: sempre visibile e modificabile qui (i sinistri vecchi l'avevano vuota e non si poteva più aggiungere) -->
+        <div v-if="pratica.compagnia || compagnieScelta.length > 0" class="ml-6">
           <span class="text-gray-400 text-xs uppercase tracking-wide">Compagnia</span>
-          <p class="text-sm font-medium text-gray-800 mt-0.5">{{ pratica.compagnia }}</p>
+          <select
+            v-if="compagniaAperta"
+            :value="pratica.compagnia ?? ''"
+            class="block mt-0.5 rounded-lg border border-gray-300 px-2 py-1 text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+            autofocus
+            @change="salvaCompagnia(($event.target as HTMLSelectElement).value)"
+            @blur="compagniaAperta = false"
+            @keydown.esc="compagniaAperta = false"
+          >
+            <option value="">— Nessuna —</option>
+            <option v-for="c in compagnieScelta" :key="c" :value="c">{{ c }}</option>
+          </select>
+          <button
+            v-else
+            type="button"
+            class="group text-sm mt-0.5 flex items-center gap-1.5"
+            :class="pratica.compagnia ? 'font-medium text-gray-800' : 'text-indigo-600 hover:underline'"
+            :disabled="!puoModificareAvviso"
+            :title="puoModificareAvviso ? 'Cambia la compagnia' : undefined"
+            @click="compagniaAperta = true"
+          >
+            {{ pratica.compagnia ?? (puoModificareAvviso ? '+ Aggiungi' : '—') }}
+            <svg v-if="pratica.compagnia && puoModificareAvviso" class="w-3.5 h-3.5 text-gray-400 group-hover:text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 11l6.232-6.232a2.5 2.5 0 113.536 3.536L12.536 14.5H9V11z"/></svg>
+          </button>
         </div>
         <div v-if="pratica.veicolo" class="ml-6">
           <span class="text-gray-400 text-xs uppercase tracking-wide">Veicolo</span>
@@ -126,7 +150,7 @@
             <button
               v-else
               type="button"
-              class="group text-sm mt-0.5 inline-flex items-center gap-1.5"
+              class="group text-sm mt-0.5 flex items-center gap-1.5"
               :class="isOverdue(pratica.data_prossimo_avviso) ? 'text-red-600 font-semibold' : 'font-medium text-gray-800'"
               :title="puoModificareAvviso ? 'Cambia la data del prossimo avviso' : undefined"
               :disabled="!puoModificareAvviso"
@@ -619,6 +643,7 @@ const props   = defineProps<{
   carrozzerie: ContattoInfo[]
   fieldDictionary: DictEntry[]
   tagUsati: string[]
+  compagnie: string[]
 }>()
 
 // Indietro: alla Board, alla tabella (con i filtri) o al cliente, a seconda di dove si era.
@@ -873,6 +898,19 @@ function salvaAvviso() {
   avviso.form
     .transform((d) => ({ data_prossimo_avviso: d.data_prossimo_avviso || null }))
     .patch(route('pratiche.update-avviso', props.pratica.id), { preserveScroll: true, onSuccess: () => { avviso.aperto = false } })
+}
+
+// ----- Compagnia -----
+const compagniaAperta = ref(false)
+// La lista dell'agenzia, più la compagnia già scritta sul sinistro se non c'è (così non si perde).
+const compagnieScelta = computed(() => {
+  const lista = props.compagnie ?? []
+  const attuale = props.pratica.compagnia
+  return attuale && !lista.includes(attuale) ? [attuale, ...lista] : lista
+})
+function salvaCompagnia(valore: string) {
+  compagniaAperta.value = false
+  router.patch(route('pratiche.update-compagnia', props.pratica.id), { compagnia: valore || null }, { preserveScroll: true })
 }
 
 function eliminaSinistro() {

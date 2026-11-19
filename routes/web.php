@@ -60,6 +60,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/pratiche/{pratica}',        [PraticaController::class, 'update'])->name('pratiche.update');
     Route::patch('/pratiche/{pratica}/status', [PraticaController::class, 'updateStatus'])->name('pratiche.update-status');
     Route::patch('/pratiche/{pratica}/avviso', [PraticaController::class, 'updateAvviso'])->name('pratiche.update-avviso');
+    Route::patch('/pratiche/{pratica}/compagnia', [PraticaController::class, 'updateCompagnia'])->name('pratiche.update-compagnia');
     Route::patch('/pratiche/{pratica}/tag',    [PraticaController::class, 'updateTag'])->name('pratiche.update-tag');
     Route::patch('/pratiche/{pratica}/contatti', [PraticaController::class, 'updateContatti'])->name('pratiche.update-contatti');
     Route::delete('/pratiche/{pratica}', [PraticaController::class, 'destroy'])->name('pratiche.destroy');

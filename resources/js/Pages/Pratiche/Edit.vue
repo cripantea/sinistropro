@@ -36,6 +36,20 @@
         </p>
       </div>
 
+      <!-- Compagnia -->
+      <div v-if="compagnieScelta.length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <label for="compagnia" class="block text-sm font-semibold text-gray-700 mb-2">Compagnia</label>
+        <select
+          id="compagnia"
+          v-model="form.compagnia"
+          class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+        >
+          <option value="">— Nessuna —</option>
+          <option v-for="c in compagnieScelta" :key="c" :value="c">{{ c }}</option>
+        </select>
+        <p v-if="form.errors.compagnia" class="text-xs text-red-600 mt-1">{{ form.errors.compagnia }}</p>
+      </div>
+
       <!-- Campi personalizzati (solo se il tenant ne ha configurati) -->
       <div v-if="schema.length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
         <h3 class="text-sm font-semibold text-gray-700 mb-4">Dati del sinistro</h3>
@@ -151,10 +165,18 @@ interface Pratica {
   id: number
   numero?: string
   current_status_id: number | null
+  compagnia: string | null
   custom_fields: Record<string, string | boolean> | null
 }
 
-const props = defineProps<{ pratica: Pratica; tenant: Tenant; puoEliminare: boolean }>()
+const props = defineProps<{ pratica: Pratica; tenant: Tenant; puoEliminare: boolean; compagnie: string[] }>()
+
+// Lista dell'agenzia, più la compagnia già scritta sul sinistro se non è in lista.
+const compagnieScelta = computed(() => {
+  const lista = props.compagnie ?? []
+  const attuale = props.pratica.compagnia
+  return attuale && !lista.includes(attuale) ? [attuale, ...lista] : lista
+})
 
 const schema = computed<FieldSchema[]>(() => props.tenant.settings?.custom_fields_schema ?? [])
 
@@ -167,6 +189,7 @@ schema.value.forEach(f => {
 
 const form = useForm({
   current_status_id: props.pratica.current_status_id,
+  compagnia:         props.pratica.compagnia ?? '',
   custom_fields:     initialCustomFields,
 })
 

@@ -29,6 +29,7 @@ class UpdatePraticaRequest extends FormRequest
                 },
             ],
             'custom_fields' => ['nullable', 'array'],
+            'compagnia'     => ['nullable', 'string', 'max:255'],
         ];
 
         foreach (auth()->user()->tenant?->getCustomFieldsSchema() ?? [] as $field) {

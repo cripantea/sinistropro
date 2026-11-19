@@ -291,6 +291,7 @@ class PraticaController extends Controller
             'carrozzerie'     => $carrozzerie,
             'fieldDictionary' => $fieldDictionary,
             'tagUsati'        => Pratica::tagUsati($pratica->tenant_id),
+            'compagnie'       => $this->compagnie(),
         ]);
     }
 
@@ -304,6 +305,7 @@ class PraticaController extends Controller
             'pratica' => $pratica,
             'puoEliminare' => self::puoEliminare($pratica),
             'tenant'  => $tenant,
+            'compagnie' => $this->compagnie(),
         ]);
     }
 
@@ -328,7 +330,7 @@ class PraticaController extends Controller
         $pratica->update([
             'current_status_id' => $newStatusId,
             'custom_fields'     => $customFields ?: null,
-        ]);
+        ] + ($request->has('compagnia') ? ['compagnia' => trim((string) $request->input('compagnia')) ?: null] : []));
 
         // Event-driven: lancia il sistema Automazioni se lo stato è cambiato.
         if ($newStatusId && $newStatusId != $oldStatusId) {
@@ -361,6 +363,21 @@ class PraticaController extends Controller
      *  1. Route model binding su Pratica rispetta BelongsToTenant → 404 se pratica di altro tenant.
      *  2. La closure di validazione verifica che current_status_id appartenga allo stesso tenant.
      */
+    /**
+     * Compagnia del sinistro, cambiata dalla scheda: serve soprattutto per i sinistri
+     * aperti prima che l'agenzia avesse la lista compagnie (prima restava vuota per sempre).
+     */
+    public function updateCompagnia(Request $request, Pratica $pratica): RedirectResponse
+    {
+        abort_unless((int) $pratica->tenant_id === (int) TenantContext::id(), 404);
+        abort_if($request->user()->role === 'external', 403);
+
+        $data = $request->validate(['compagnia' => ['nullable', 'string', 'max:255']]);
+        $pratica->update(['compagnia' => trim((string) ($data['compagnia'] ?? '')) ?: null]);
+
+        return back();
+    }
+
     /** Tag del sinistro (etichette libere, max 10): li cambia chiunque dell'agenzia tranne gli esterni. */
     public function updateTag(Request $request, Pratica $pratica): RedirectResponse
     {
