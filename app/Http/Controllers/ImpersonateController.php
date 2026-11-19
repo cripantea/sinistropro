@@ -64,8 +64,12 @@ class ImpersonateController extends Controller
     {
         $impersonatorId = session('impersonator_id');
 
+        // Assistenza già chiusa (doppio clic, o "Esci" premuto in un'altra scheda con la
+        // pagina vecchia ancora aperta): niente errore, si torna dove si è davvero.
         if (! $impersonatorId) {
-            abort(403, 'Nessuna sessione di impersonazione attiva.');
+            return $request->user()->role === 'superadmin'
+                ? redirect()->route('superadmin.dashboard')
+                : redirect()->route('dashboard');
         }
 
         $impersonator = User::findOrFail($impersonatorId);

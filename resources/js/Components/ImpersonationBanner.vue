@@ -29,6 +29,7 @@
           ⚙ Configura tenant
         </a>
         <button
+          :disabled="uscendo"
           @click="leaveImpersonation"
           class="text-xs font-semibold bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full border border-white/40 transition"
         >
@@ -40,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
 import type { PageProps } from '@/types'
 
@@ -49,9 +50,14 @@ const isImpersonating = computed(() => page.props.auth.isImpersonating)
 const impersonating   = computed(() => page.props.impersonating)
 const user            = computed(() => page.props.auth.user)
 
+// Un solo invio: con il doppio clic la seconda richiesta arrivava ad assistenza già chiusa.
+const uscendo = ref(false)
 function leaveImpersonation() {
+  if (uscendo.value) return
+  uscendo.value = true
   router.post(route('impersonate.leave'), {}, {
     onSuccess: () => { window.location.href = '/superadmin' },
+    onFinish: () => { uscendo.value = false },
   })
 }
 </script>
