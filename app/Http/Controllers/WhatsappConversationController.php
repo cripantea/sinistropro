@@ -8,6 +8,8 @@ use App\Models\WhatsappTemplate;
 use App\Models\Pratica;
 use App\Models\WhatsappConversation;
 use App\Models\WhatsappSession;
+use App\Support\NumeroWhatsapp;
+use App\Support\TenantContext;
 use App\Services\WhatsappCloudApiClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,13 +30,17 @@ class WhatsappConversationController extends Controller
      */
     public function forPratica(Pratica $pratica): JsonResponse
     {
-        $authed = auth()->user();
-        abort_unless($pratica->tenant_id === $authed->tenant_id, 403);
+        // Tenant del contesto (anche per il superadmin in assistenza), non quello dell'utente.
+        $tenantId = (int) TenantContext::id();
+        abort_unless((int) $pratica->tenant_id === $tenantId, 403);
 
         $fields = $pratica->custom_fields ?? [];
-        $phoneNumber = $this->extractDigits($fields, self::PHONE_KEYS);
+        // Numero: prima un campo telefono del sinistro, poi il telefono del cliente
+        // (le automazioni scrivono al cliente: prima qui risultava "nessun numero").
+        $phoneNumber = $this->extractDigits($fields, self::PHONE_KEYS)
+            ?? NumeroWhatsapp::normalizza($pratica->cliente?->telefono);
 
-        $session = WhatsappSession::where('tenant_id', $authed->tenant_id)->first();
+        $session = WhatsappSession::where('tenant_id', $tenantId)->first();
         $sessionConnected = $session?->status === 'active';
 
         if (! $phoneNumber) {
@@ -42,14 +48,15 @@ class WhatsappConversationController extends Controller
                 'phoneNumber' => null,
                 'sessionConnected' => $sessionConnected,
                 'conversation' => null,
+                'clienteId' => $pratica->cliente_id,
             ]);
         }
 
         $conversation = WhatsappConversation::firstOrCreate(
-            ['tenant_id' => $authed->tenant_id, 'phone_number' => $phoneNumber],
+            ['tenant_id' => $tenantId, 'phone_number' => $phoneNumber],
             [
                 'pratica_id' => $pratica->id,
-                'contact_name' => $this->extractValue($fields, self::NAME_KEYS),
+                'contact_name' => $this->extractValue($fields, self::NAME_KEYS) ?? $pratica->cliente?->nome,
             ]
         );
 

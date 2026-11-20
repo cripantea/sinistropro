@@ -92,6 +92,15 @@ class TenantMailerResolver
         } catch (\Throwable) {
         }
 
+        // Testo dell'email, per vederla poi dentro al sinistro (solo se legata a un sinistro).
+        $body = null;
+        if (! empty($logContext['pratica_id'])) {
+            try {
+                $body = mb_substr((string) $mailable->render(), 0, 500000);
+            } catch (\Throwable) {
+            }
+        }
+
         EmailLog::registra([
             'tenant_id'     => $tenant->id,
             'pratica_id'    => $logContext['pratica_id'] ?? null,
@@ -100,6 +109,7 @@ class TenantMailerResolver
             'to_address'    => $to,
             'cc_addresses'  => $cc ?: null,
             'subject'       => $subject,
+            'body_html'     => $body,
             'status'        => $status,
             'error'         => $error ? mb_substr($error, 0, 2000) : null,
         ]);

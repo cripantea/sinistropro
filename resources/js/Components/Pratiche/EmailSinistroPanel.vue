@@ -47,7 +47,7 @@
       <p v-if="!configurata" class="px-5 pt-4 text-xs text-gray-500">Nessuna casella email collegata: le email si vedono qui, ma per scriverne serve collegare la casella in Impostazioni → Casella email.</p>
 
       <p v-if="!messaggi.length" class="p-6 text-sm text-gray-400 italic text-center">
-        Nessuna email per questo sinistro. Qui compaiono quelle scritte dal sinistro (con le risposte), quelle con il cliente e quelle che citano il numero del sinistro nell'oggetto.
+        Nessuna email per questo sinistro. Qui compaiono quelle scritte dal sinistro (con le risposte), quelle inviate dalle automazioni, quelle con il cliente e quelle che citano il numero del sinistro nell'oggetto.
       </p>
 
       <ul v-else class="divide-y divide-gray-100 max-h-[560px] overflow-y-auto">
@@ -62,7 +62,9 @@
                 <span class="text-xs text-gray-400 shrink-0">{{ data(m.createdAt) }}</span>
               </span>
               <span class="block text-sm text-gray-600 truncate">{{ m.subject || '(senza oggetto)' }}</span>
-              <span v-if="m.status === 'failed'" class="text-xs text-red-600">Invio non riuscito</span>
+              <span v-if="m.automatica" class="text-xs text-gray-500">⚡ {{ m.automatica }}</span>
+              <span v-if="m.status === 'failed'" class="text-xs text-red-600 ml-2">Invio non riuscito</span>
+              <span v-else-if="m.status === 'skipped'" class="text-xs text-amber-600 ml-2">Non inviata</span>
               <span v-if="m.attachments.some((a) => !a.inline)" class="text-xs text-gray-400">📎 {{ m.attachments.filter((a) => !a.inline).length }} allegati</span>
             </span>
           </button>
@@ -97,7 +99,7 @@ const props = defineProps<{ praticaId: number; firme: StatoFirme }>()
 const firme = reactive<StatoFirme>({ ...props.firme })
 const caricato = ref(false)
 const configurata = ref(false)
-const messaggi = ref<EmailMessageItem[]>([])
+const messaggi = ref<(EmailMessageItem & { automatica?: string })[]>([])
 const destinatari = ref<{ label: string; email: string }[]>([])
 const oggettoPredefinito = ref('')
 const aperto = ref<number | null>(null)

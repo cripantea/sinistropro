@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\SyncTenantMailboxJob;
 use App\Mail\OutboundEmailMessage;
 use App\Models\EmailAttachment;
+use App\Models\EmailLog;
 use App\Models\EmailMessage;
 use App\Models\EmailFirma;
 use App\Models\EmailThread;
@@ -187,8 +188,35 @@ class EmailController extends Controller
             ['label' => 'Carrozzeria', 'email' => $ispezione?->carrozzeriaContatto?->email],
         ])->filter(fn ($d) => filled($d['email']))->values();
 
+        // Email partite dalle automazioni (benvenuto, avvisi…): prima si vedevano solo nel Registro email.
+        $automatiche = EmailLog::where('pratica_id', $pratica->id)->with('automation:id,name')->latest('id')->limit(100)->get()
+            ->map(fn (EmailLog $l) => [
+                'id' => -$l->id, // negativo: non si confonde con le email della casella
+                'direction' => 'outbound',
+                'fromAddress' => '',
+                'fromName' => null,
+                'toAddresses' => array_values(array_filter([$l->to_address])),
+                'ccAddresses' => $l->cc_addresses,
+                'subject' => $l->subject,
+                'bodyHtml' => $l->body_html,
+                'bodyText' => $l->body_html ? null : match ($l->status) {
+                    'skipped' => 'Non inviata: '.($l->error ?: 'motivo non indicato').'.',
+                    'failed'  => 'Invio non riuscito: '.($l->error ?: 'errore sconosciuto').'.',
+                    default   => 'Email inviata in automatico. Il testo delle email partite prima del 20/11/2026 non è stato salvato.',
+                },
+                'status' => $l->status,
+                'automatica' => $l->automation?->name ?? 'Email automatica',
+                'createdAt' => $l->created_at?->toIso8601String(),
+                'attachments' => [],
+            ]);
+
+        $tutte = $messaggi->map(fn (EmailMessage $m) => $this->messagePayload($m))
+            ->concat($automatiche)
+            ->sortByDesc('createdAt')
+            ->values();
+
         return response()->json([
-            'messages' => $messaggi->map(fn (EmailMessage $m) => $this->messagePayload($m))->values(),
+            'messages' => $tutte,
             'destinatari' => $destinatari,
             'oggetto' => 'Sinistro '.ltrim($pratica->numero, '#').($pratica->cliente?->nome ? ' — '.$pratica->cliente->nome : ''),
             'emailConfigured' => (bool) ($settings && $settings->is_active && $settings->host),

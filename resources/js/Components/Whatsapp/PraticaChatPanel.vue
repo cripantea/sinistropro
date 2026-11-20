@@ -10,9 +10,9 @@
     <!-- Nessun numero configurato -->
     <div v-if="loaded && !phoneNumber" class="p-6 text-center">
       <p class="text-sm text-gray-500">
-        Nessun numero di telefono configurato per questo sinistro.
+        Il cliente di questo sinistro non ha un numero di cellulare: senza, i messaggi WhatsApp non partono.
       </p>
-      <Link :href="route('pratiche.edit', praticaId)" class="text-sm text-indigo-600 hover:underline mt-1 inline-block">
+      <Link v-if="clienteId" :href="route('clienti.edit', { cliente: clienteId, ritorno: $page.url })" class="text-sm text-indigo-600 hover:underline mt-1 inline-block">
         Aggiungi il numero del cliente →
       </Link>
     </div>
@@ -61,6 +61,7 @@ const tenantId = page.props.auth.user.tenant_id
 
 const loaded            = ref(false)
 const phoneNumber        = ref<string | null>(null)
+const clienteId          = ref<number | null>(null)
 const sessionConnected    = ref(false)
 const conversation        = ref<ConversationSummary | null>(null)
 const messages             = ref<Message[]>([])
@@ -71,6 +72,7 @@ const sendError              = ref<string | null>(null)
 async function load() {
   const { data } = await axios.get(route('pratiche.whatsapp', props.praticaId))
   phoneNumber.value = data.phoneNumber
+  clienteId.value = data.clienteId ?? null
   sessionConnected.value = data.sessionConnected
   conversation.value = data.conversation
   loaded.value = true

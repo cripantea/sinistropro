@@ -14,10 +14,15 @@ class EmailLog extends Model
 
     protected $fillable = [
         'tenant_id', 'pratica_id', 'automation_id', 'tipo',
-        'to_address', 'cc_addresses', 'subject', 'status', 'error',
+        'to_address', 'cc_addresses', 'subject', 'body_html', 'status', 'error',
     ];
 
     protected $casts = ['cc_addresses' => 'array'];
+
+    public function automation(): BelongsTo
+    {
+        return $this->belongsTo(Automation::class);
+    }
 
     public function pratica(): BelongsTo
     {
