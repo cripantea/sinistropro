@@ -31,7 +31,8 @@ class WhatsappConversationController extends Controller
     public function forPratica(Pratica $pratica): JsonResponse
     {
         // Tenant del contesto (anche per il superadmin in assistenza), non quello dell'utente.
-        $tenantId = (int) TenantContext::id();
+        // Tenant del contesto; il superadmin vede il sinistro aperto anche senza aver scelto l'agenzia.
+        $tenantId = auth()->user()->role === 'superadmin' ? (int) $pratica->tenant_id : (int) TenantContext::id();
         abort_unless((int) $pratica->tenant_id === $tenantId, 403);
 
         $fields = $pratica->custom_fields ?? [];
@@ -71,6 +72,12 @@ class WhatsappConversationController extends Controller
         ]);
     }
 
+    /** Utente dell'agenzia, o superadmin (che può aprire la chat di qualsiasi sinistro). */
+    private static function puoVedere(WhatsappConversation $conversation): bool
+    {
+        return auth()->user()->role === 'superadmin' || (int) $conversation->tenant_id === (int) TenantContext::id();
+    }
+
     private function extractValue(array $fields, array $keys): ?string
     {
         foreach ($fields as $key => $value) {
@@ -108,7 +115,7 @@ class WhatsappConversationController extends Controller
 
     public function index(): JsonResponse
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = TenantContext::id();
 
         $conversations = WhatsappConversation::where('tenant_id', $tenantId)
             ->orderByRaw('last_message_at IS NULL, last_message_at DESC')
@@ -120,7 +127,7 @@ class WhatsappConversationController extends Controller
 
     public function messages(WhatsappConversation $conversation): JsonResponse
     {
-        abort_unless($conversation->tenant_id === auth()->user()->tenant_id, 403);
+        abort_unless(self::puoVedere($conversation), 403);
 
         $conversation->update(['unread_count' => 0]);
 

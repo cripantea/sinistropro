@@ -67,3 +67,11 @@ test('il testo delle email automatiche viene salvato nel registro', function () 
 
     expect(EmailLog::acrossAllTenants()->first()->body_html)->toContain('Testo salvato');
 });
+
+test('il superadmin vede la chat WhatsApp del sinistro anche senza aver scelto l\'agenzia', function () {
+    $conv  = WhatsappConversation::create(['tenant_id' => $this->tenant->id, 'phone_number' => '393331112222', 'pratica_id' => $this->pratica->id]);
+    $super = User::factory()->create(['role' => 'superadmin', 'tenant_id' => null]);
+
+    $this->actingAs($super)->getJson("/pratiche/{$this->pratica->id}/whatsapp")->assertOk()->assertJsonPath('conversation.id', $conv->id);
+    $this->actingAs($super)->getJson("/whatsapp/conversations/{$conv->id}/messages")->assertOk();
+});
