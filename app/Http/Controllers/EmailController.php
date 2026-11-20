@@ -76,7 +76,7 @@ class EmailController extends Controller
 
     public function messages(EmailThread $thread): JsonResponse
     {
-        abort_unless($thread->tenant_id === auth()->user()->tenant_id, 403);
+        abort_unless(self::dellAgenzia($thread->tenant_id), 403);
 
         $thread->update(['unread_count' => 0]);
 
@@ -164,6 +164,8 @@ class EmailController extends Controller
         $numeri = collect([$pratica->numeroCompagnia()])->filter(fn ($n) => mb_strlen((string) $n) >= 5)->values();
 
         $messaggi = EmailMessage::query()
+            // Sempre e solo l'agenzia del sinistro (anche per il superadmin senza agenzia scelta).
+            ->where('email_messages.tenant_id', $pratica->tenant_id)
             ->where(function ($q) use ($pratica, $clienteEmail, $numeri) {
                 $q->where('pratica_id', $pratica->id);
                 if ($clienteEmail !== '') {
@@ -180,7 +182,7 @@ class EmailController extends Controller
             ->limit(200)
             ->get();
 
-        $settings = TenantContext::tenant()?->mailSettings;
+        $settings = $pratica->tenant?->mailSettings;
         $ispezione = $pratica->ispezioni()->latest()->with(['peritoContatto', 'carrozzeriaContatto'])->first();
         $destinatari = collect([
             ['label' => 'Cliente', 'email' => $pratica->cliente?->email],
@@ -189,7 +191,7 @@ class EmailController extends Controller
         ])->filter(fn ($d) => filled($d['email']))->values();
 
         // Email partite dalle automazioni (benvenuto, avvisi…): prima si vedevano solo nel Registro email.
-        $automatiche = EmailLog::where('pratica_id', $pratica->id)->with('automation:id,name')->latest('id')->limit(100)->get()
+        $automatiche = EmailLog::acrossAllTenants()->where('tenant_id', $pratica->tenant_id)->where('pratica_id', $pratica->id)->with('automation:id,name')->latest('id')->limit(100)->get()
             ->map(fn (EmailLog $l) => [
                 'id' => -$l->id, // negativo: non si confonde con le email della casella
                 'direction' => 'outbound',
@@ -223,6 +225,12 @@ class EmailController extends Controller
         ]);
     }
 
+    /** Dati dell'agenzia in cui si lavora; il superadmin può solo leggere quelli di tutte. */
+    private static function dellAgenzia(?int $tenantId): bool
+    {
+        return auth()->user()->role === 'superadmin' || (int) $tenantId === (int) TenantContext::id();
+    }
+
     private function praticaDelTenant(?int $id): ?int
     {
         if (! $id) {
@@ -247,7 +255,7 @@ class EmailController extends Controller
 
     public function downloadAttachment(EmailAttachment $attachment): JsonResponse
     {
-        abort_unless($attachment->tenant_id === auth()->user()->tenant_id, 403);
+        abort_unless(self::dellAgenzia($attachment->tenant_id), 403);
 
         $s3Client = Storage::disk('s3')->getClient();
         $command = $s3Client->getCommand('GetObject', [

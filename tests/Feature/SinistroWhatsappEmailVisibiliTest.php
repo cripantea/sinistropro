@@ -75,3 +75,19 @@ test('il superadmin vede la chat WhatsApp del sinistro anche senza aver scelto l
     $this->actingAs($super)->getJson("/pratiche/{$this->pratica->id}/whatsapp")->assertOk()->assertJsonPath('conversation.id', $conv->id);
     $this->actingAs($super)->getJson("/whatsapp/conversations/{$conv->id}/messages")->assertOk();
 });
+
+test('le email nel sinistro sono solo della sua agenzia, anche per il superadmin senza agenzia scelta', function () {
+    $altra = Tenant::create(['name' => 'Altra agenzia']);
+    $mio   = \App\Models\EmailThread::acrossAllTenants()->create(['tenant_id' => $this->tenant->id, 'counterpart_email' => 'mario@example.com', 'subject' => 'Mia']);
+    $suo   = \App\Models\EmailThread::acrossAllTenants()->create(['tenant_id' => $altra->id, 'counterpart_email' => 'mario@example.com', 'subject' => 'Sua']);
+    foreach ([[$mio, 'Mia'], [$suo, 'Sua']] as [$t, $ogg]) {
+        \App\Models\EmailMessage::acrossAllTenants()->create(['tenant_id' => $t->tenant_id, 'email_thread_id' => $t->id, 'direction' => 'inbound', 'folder' => 'inbox',
+            'from_address' => 'mario@example.com', 'to_addresses' => ['agenzia@example.com'], 'subject' => $ogg, 'body_text' => 'testo', 'email_timestamp' => now()]);
+    }
+    $super = User::factory()->create(['role' => 'superadmin', 'tenant_id' => null]);
+
+    foreach ([$this->user, $super] as $u) {
+        $msgs = $this->actingAs($u)->getJson("/pratiche/{$this->pratica->id}/email")->assertOk()->json('messages');
+        expect(collect($msgs)->pluck('subject')->all())->toBe(['Mia']);
+    }
+});
