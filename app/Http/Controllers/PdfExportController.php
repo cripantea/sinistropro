@@ -34,11 +34,9 @@ class PdfExportController extends Controller
                 'dpi'           => 150,
             ]);
 
-        $filename = sprintf(
-            'pratica-%d-%s.pdf',
-            $pratica->id,
-            now()->format('Y-m-d')
-        );
+        // Nel nome file il numero sinistro dell'agenzia (se impostato), altrimenti l'id.
+        $numero = preg_replace('/[^A-Za-z0-9._-]+/', '-', ltrim($pratica->numero, '#'));
+        $filename = sprintf('sinistro-%s-%s.pdf', trim($numero, '-') ?: $pratica->id, now()->format('Y-m-d'));
 
         return $pdf->download($filename);
     }
