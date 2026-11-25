@@ -230,6 +230,24 @@
     <div class="section-title">&#9312; Dati Principali</div>
     <table class="data-grid">
       <tr>
+        <td class="label">Cliente</td>
+        <td>
+          @if($pratica->cliente?->nome)
+            {{ $pratica->cliente->nome }}
+          @else
+            <span style="color: #9ca3af;">—</span>
+          @endif
+        </td>
+        <td class="label">Compagnia</td>
+        <td>
+          @if($pratica->compagnia)
+            {{ $pratica->compagnia }}
+          @else
+            <span style="color: #9ca3af;">—</span>
+          @endif
+        </td>
+      </tr>
+      <tr>
         <td class="label">N. sinistro</td>
         <td>{{ $pratica->numero }}</td>
         <td class="label">Stato</td>

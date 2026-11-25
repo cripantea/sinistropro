@@ -19,6 +19,7 @@ class PdfExportController extends Controller
         // Unica query con tutti i dati necessari: zero N+1.
         $pratica->loadMissing([
             'tenant',
+            'cliente:id,nome',
             'utenteCreatore:id,name,email',
             'currentStatus:id,name,color,is_closed',
             'note.user:id,name',
