@@ -149,6 +149,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/whatsapp/conversations', [WhatsappConversationController::class, 'index'])->name('whatsapp.conversations.index');
     Route::get('/whatsapp/conversations/{conversation}/messages', [WhatsappConversationController::class, 'messages'])->name('whatsapp.conversations.messages');
     Route::post('/whatsapp/conversations/{conversation}/messages', [WhatsappConversationController::class, 'store'])->name('whatsapp.conversations.store');
+    Route::delete('/whatsapp/messaggi/{id}', [\App\Http\Controllers\EliminaMessaggiController::class, 'whatsapp'])->whereNumber('id')->name('whatsapp.messaggi.destroy');
 });
 
 // --- Email ---
@@ -158,6 +159,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/email/sync', [EmailController::class, 'sync'])->name('email.sync');
     Route::get('/email/threads/{thread}/messages', [EmailController::class, 'messages'])->name('email.threads.messages');
     Route::post('/email/threads/{thread}/reply', [EmailController::class, 'reply'])->name('email.threads.reply');
+    Route::delete('/email/messaggi/{id}', [\App\Http\Controllers\EliminaMessaggiController::class, 'email'])->whereNumber('id')->name('email.messaggi.destroy');
+    Route::delete('/email/automatiche/{id}', [\App\Http\Controllers\EliminaMessaggiController::class, 'emailAutomatica'])->whereNumber('id')->name('email.automatiche.destroy');
     Route::post('/email/compose', [EmailController::class, 'compose'])->name('email.compose');
     Route::get('/pratiche/{pratica}/email', [EmailController::class, 'perPratica'])->name('pratiche.email');
     Route::post('/email/firme', [\App\Http\Controllers\FirmaEmailController::class, 'store'])->name('email.firme.store');

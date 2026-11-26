@@ -54,6 +54,7 @@
               <div class="text-right shrink-0">
                 <p class="text-xs text-gray-500">{{ ora(m.createdAt) }}</p>
                 <p v-if="m.status === 'failed'" class="text-[11px] text-red-600 font-medium">invio fallito</p>
+                <button type="button" class="text-[11px] text-gray-400 hover:text-red-600 hover:underline" @click="$emit('delete', m.id)">Elimina</button>
               </div>
             </header>
 
@@ -183,7 +184,7 @@ const props = defineProps<{
   firme?: StatoFirme
 }>()
 
-const emit = defineEmits<{ send: [body: string, files: File[], firmaId: number | null]; download: [attachmentId: number] }>()
+const emit = defineEmits<{ send: [body: string, files: File[], firmaId: number | null]; download: [attachmentId: number]; delete: [messageId: number] }>()
 
 const firmaId = ref<number | null>(props.firme?.preferita ?? null)
 

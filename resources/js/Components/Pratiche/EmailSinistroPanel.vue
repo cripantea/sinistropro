@@ -78,6 +78,7 @@
             <div class="mt-3 flex gap-3 text-xs">
               <button v-if="configurata" type="button" @click="rispondi(m)" class="text-indigo-600 font-semibold hover:underline">Rispondi</button>
               <Link :href="route('email.index')" class="text-gray-500 hover:underline">Apri in Email</Link>
+              <button type="button" @click="elimina(m)" class="ml-auto text-red-600 hover:underline">Elimina</button>
             </div>
           </div>
         </li>
@@ -119,6 +120,17 @@ async function carica() {
   caricato.value = true
 }
 onMounted(carica)
+
+async function elimina(m: EmailMessageItem) {
+  if (!window.confirm('Eliminare questa email da SinistroPro? Chi l\'ha ricevuta la tiene comunque.')) return
+  try {
+    await axios.delete(m.id < 0 ? route('email.automatiche.destroy', -m.id) : route('email.messaggi.destroy', m.id))
+    messaggi.value = messaggi.value.filter((x) => x.id !== m.id)
+    aperto.value = null
+  } catch {
+    window.alert('Non sono riuscito a eliminarla, riprova.')
+  }
+}
 
 function apriNuova() {
   Object.assign(bozza, { to: destinatari.value[0]?.email ?? '', subject: oggettoPredefinito.value, body: '', firmaId: firme.preferita })

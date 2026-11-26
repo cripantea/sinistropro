@@ -45,6 +45,7 @@
           :firme="firme"
           @send="sendReply"
           @download="downloadAttachment"
+          @delete="deleteMessage"
         />
       </div>
     </div>
@@ -167,6 +168,17 @@ async function sendReply(body: string, files: File[], firmaId: number | null) {
     sendError.value = 'Invio non riuscito. Riprova.'
   } finally {
     sending.value = false
+  }
+}
+
+async function deleteMessage(messageId: number) {
+  if (!window.confirm('Eliminare questa email da SinistroPro? Chi l\'ha ricevuta la tiene comunque.')) return
+  try {
+    await axios.delete(route('email.messaggi.destroy', messageId))
+    messages.value = messages.value.filter((m) => m.id !== messageId)
+    await loadThreads()
+  } catch {
+    window.alert('Non sono riuscito a eliminarla, riprova.')
   }
 }
 

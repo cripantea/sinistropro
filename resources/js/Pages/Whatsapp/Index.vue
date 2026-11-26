@@ -39,6 +39,7 @@
             :sending="sending"
             :send-error="sendError"
             @send="sendMessage"
+            @deleted="(id: number) => { messages = messages.filter((x) => x.id !== id) }"
           />
         </div>
       </div>

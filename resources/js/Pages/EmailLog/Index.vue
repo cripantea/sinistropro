@@ -32,6 +32,7 @@
               <th class="text-left px-4 py-2.5">Oggetto</th>
               <th class="text-left px-4 py-2.5">Sinistro</th>
               <th class="text-left px-4 py-2.5">Dettaglio</th>
+              <th class="px-4 py-2.5"></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
@@ -48,9 +49,10 @@
                 <span v-else class="text-gray-400">—</span>
               </td>
               <td class="px-4 py-2.5 text-xs text-red-600 max-w-sm">{{ log.error }}</td>
+              <td class="px-4 py-2.5 text-right"><button type="button" class="text-xs text-gray-400 hover:text-red-600 hover:underline" @click="elimina(log.id)">Elimina</button></td>
             </tr>
             <tr v-if="logs.data.length === 0">
-              <td colspan="7" class="px-4 py-12 text-center text-gray-400">Nessuna email registrata.</td>
+              <td colspan="8" class="px-4 py-12 text-center text-gray-400">Nessuna email registrata.</td>
             </tr>
           </tbody>
         </table>
@@ -68,6 +70,7 @@
 </template>
 
 <script setup lang="ts">
+import axios from 'axios'
 import { Link, router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 
@@ -113,5 +116,15 @@ function setFilter(status: string | null) {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })
+}
+
+async function elimina(id: number) {
+  if (!window.confirm('Eliminare questa email dal registro? Chi l\'ha ricevuta la tiene comunque.')) return
+  try {
+    await axios.delete(route('email.automatiche.destroy', id))
+    router.reload({ only: ['logs'] })
+  } catch {
+    window.alert('Non sono riuscito a eliminarla, riprova.')
+  }
 }
 </script>

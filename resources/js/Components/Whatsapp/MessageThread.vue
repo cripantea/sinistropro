@@ -90,6 +90,7 @@
                 <span v-if="m.source === 'echo'" class="text-[10px] text-gray-500 italic">inviato da telefono</span>
                 <span class="text-[10px] text-gray-400">{{ ora(m.createdAt) }}</span>
                 <StatusTicks v-if="m.direction === 'outbound'" :status="m.status" />
+                <button type="button" title="Elimina da SinistroPro" class="ml-1 text-[10px] text-gray-400 hover:text-red-600 hover:underline" @click="elimina(m)">Elimina</button>
               </div>
             </div>
           </div>
@@ -153,6 +154,7 @@
 </template>
 
 <script setup lang="ts">
+import axios from 'axios'
 import { computed, nextTick, ref, watch } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import StatusTicks from './StatusTicks.vue'
@@ -189,7 +191,17 @@ const props = defineProps<{
 export interface TemplateChat { id: number; name: string; body: string; variableCount: number; valori: string[] }
 export interface InvioChat { body?: string; templateId?: number; params?: string[] }
 
-const emit = defineEmits<{ send: [payload: InvioChat] }>()
+const emit = defineEmits<{ send: [payload: InvioChat]; deleted: [messageId: number] }>()
+
+async function elimina(m: Message) {
+  if (!window.confirm('Eliminare questo messaggio da SinistroPro? Chi l\'ha ricevuto su WhatsApp lo tiene comunque.')) return
+  try {
+    await axios.delete(route('whatsapp.messaggi.destroy', m.id))
+    emit('deleted', m.id)
+  } catch {
+    window.alert('Non sono riuscito a eliminarlo, riprova.')
+  }
+}
 
 const modo = ref<'testo' | 'template'>('testo')
 const templateId = ref<number | null>(null)
