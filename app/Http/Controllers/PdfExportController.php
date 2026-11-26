@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Contatto;
 use App\Models\Pratica;
+use App\Support\Formato;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
 
@@ -51,10 +52,30 @@ class PdfExportController extends Controller
 
         return [
             'pratica'           => $pratica,
+            'dataSinistro'      => self::dataSinistro($pratica),
             'mostraLiquidatore' => $mostra,
             'liquidatore'       => $mostra && $id
                 ? Contatto::withoutGlobalScopes()->where('tenant_id', $pratica->tenant_id)->find($id)
                 : null,
         ];
+    }
+
+    /**
+     * Data del sinistro (data dell'evento, non di apertura) per le agenzie che la vogliono nel PDF.
+     * null = riga non mostrata; '' = riga mostrata ma campo vuoto.
+     */
+    private static function dataSinistro(Pratica $pratica): ?string
+    {
+        $nome = config('agenzie.'.$pratica->tenant_id.'.pdf_data_sinistro');
+        if (! $nome) {
+            return null;
+        }
+
+        $date = collect($pratica->tenant?->getCustomFieldsSchema() ?? [])->where('type', 'date');
+        $campo = $date->firstWhere('name', $nome)
+            ?? $date->first(fn ($c) => str_contains(mb_strtolower((string) ($c['label'] ?? '')), 'sinistro'));
+        $valore = $campo ? trim((string) ($pratica->custom_fields[$campo['name']] ?? '')) : '';
+
+        return $valore !== '' ? Formato::valore($valore) : '';
     }
 }

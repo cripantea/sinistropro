@@ -64,3 +64,60 @@ test('solo le agenzie abilitate vedono il liquidatore nel pacchetto PDF', functi
 
     $this->get("/pratiche/{$pratica->id}/export-pdf")->assertOk();
 });
+
+test('Infortunistica Milano: data del sinistro compilata nella scheda e mostrata nei Dati Principali del PDF', function () {
+    // Tenant con l'id di Infortunistica Milano, così vale la config/agenzie.php reale.
+    $tenant = Tenant::forceCreate(['id' => 11, 'name' => 'Infortunistica Milano', 'settings' => ['custom_fields_schema' => [
+        ['name' => 'numero_sinistro_compagnia', 'label' => 'Numero sinistro compagnia', 'type' => 'text'],
+        ['name' => 'data_accadimento_sinistro', 'label' => 'Data Sinistro', 'type' => 'date'],
+    ]]]);
+    $stato = TenantStatus::create(['tenant_id' => $tenant->id, 'name' => 'Aperto', 'color' => '#000000', 'order' => 0, 'is_initial' => true]);
+    $admin = User::factory()->create(['tenant_id' => $tenant->id, 'role' => 'tenant-admin']);
+    $cliente = Cliente::create(['tenant_id' => $tenant->id, 'nome' => 'Mario Rossi']);
+    $pratica = Pratica::create(['tenant_id' => $tenant->id, 'utente_creatore_id' => $admin->id, 'cliente_id' => $cliente->id, 'current_status_id' => $stato->id]);
+
+    $this->actingAs($admin);
+    $html = fn () => view('pdf.pratica', \App\Http\Controllers\PdfExportController::datiVista(Pratica::find($pratica->id)->load('tenant')))->render();
+
+    // Senza data: la riga c'è, con il trattino.
+    expect($html())->toContain('Data del sinistro')->not->toContain('14/03/2026');
+
+    // L'utente compila la data nella scheda del sinistro.
+    $this->put("/pratiche/{$pratica->id}", ['custom_fields' => ['data_accadimento_sinistro' => '2026-03-14']])->assertSessionHasNoErrors();
+    expect(Pratica::find($pratica->id)->custom_fields['data_accadimento_sinistro'])->toBe('2026-03-14');
+
+    expect($html())->toContain('Data del sinistro')->toContain('14/03/2026');
+    $this->get("/pratiche/{$pratica->id}/export-pdf")->assertOk();
+});
+
+test('Infortunistica Milano: se il campo data ha un altro nome, vale il primo campo data con "sinistro" nell\'etichetta', function () {
+    $tenant = Tenant::forceCreate(['id' => 11, 'name' => 'Infortunistica Milano', 'settings' => ['custom_fields_schema' => [
+        ['name' => 'data_perizia', 'label' => 'Data perizia', 'type' => 'date'],
+        ['name' => 'data_del_sinistro', 'label' => 'Data del sinistro', 'type' => 'date'],
+    ]]]);
+    $stato = TenantStatus::create(['tenant_id' => $tenant->id, 'name' => 'Aperto', 'color' => '#000000', 'order' => 0, 'is_initial' => true]);
+    $admin = User::factory()->create(['tenant_id' => $tenant->id, 'role' => 'tenant-admin']);
+    $pratica = Pratica::create(['tenant_id' => $tenant->id, 'utente_creatore_id' => $admin->id, 'current_status_id' => $stato->id,
+        'custom_fields' => ['data_perizia' => '2026-05-01', 'data_del_sinistro' => '2026-04-02']]);
+
+    $this->actingAs($admin);
+    $dati = \App\Http\Controllers\PdfExportController::datiVista(Pratica::find($pratica->id)->load('tenant'));
+
+    expect($dati['dataSinistro'])->toBe('02/04/2026');
+});
+
+test('le altre agenzie non hanno la riga data del sinistro nel PDF, anche con un campo data sinistro', function () {
+    $tenant = Tenant::create(['name' => 'Altra Agenzia', 'settings' => ['custom_fields_schema' => [
+        ['name' => 'data_accadimento_sinistro', 'label' => 'Data Sinistro', 'type' => 'date'],
+    ]]]);
+    $stato = TenantStatus::create(['tenant_id' => $tenant->id, 'name' => 'Aperto', 'color' => '#000000', 'order' => 0, 'is_initial' => true]);
+    $admin = User::factory()->create(['tenant_id' => $tenant->id, 'role' => 'tenant-admin']);
+    $pratica = Pratica::create(['tenant_id' => $tenant->id, 'utente_creatore_id' => $admin->id, 'current_status_id' => $stato->id,
+        'custom_fields' => ['data_accadimento_sinistro' => '2026-03-14']]);
+
+    $this->actingAs($admin);
+    $dati = \App\Http\Controllers\PdfExportController::datiVista(Pratica::find($pratica->id)->load('tenant'));
+
+    expect($dati['dataSinistro'])->toBeNull();
+    expect(view('pdf.pratica', $dati)->render())->not->toContain('Data del sinistro');
+});

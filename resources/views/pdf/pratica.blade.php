@@ -247,6 +247,18 @@
           @endif
         </td>
       </tr>
+      @if(isset($dataSinistro))
+        <tr>
+          <td class="label">Data del sinistro</td>
+          <td colspan="3" style="font-weight: bold;">
+            @if($dataSinistro !== '')
+              {{ $dataSinistro }}
+            @else
+              <span style="color: #9ca3af; font-weight: normal;">—</span>
+            @endif
+          </td>
+        </tr>
+      @endif
       @if(!empty($mostraLiquidatore))
         <tr>
           <td class="label">Liquidatore</td>
