@@ -43,3 +43,24 @@ test('il pacchetto PDF mostra il nome del cliente e la compagnia', function () {
 
     $this->get("/pratiche/{$pratica->id}/export-pdf")->assertOk();
 });
+
+test('solo le agenzie abilitate vedono il liquidatore nel pacchetto PDF', function () {
+    $tenant = Tenant::create(['name' => 'Agenzia Prova']);
+    $stato = TenantStatus::create(['tenant_id' => $tenant->id, 'name' => 'Aperto', 'color' => '#000000', 'order' => 0, 'is_initial' => true]);
+    $admin = User::factory()->create(['tenant_id' => $tenant->id, 'role' => 'tenant-admin']);
+    $cliente = Cliente::create(['tenant_id' => $tenant->id, 'nome' => 'Mario Rossi']);
+    $liq = \App\Models\Contatto::create(['tenant_id' => $tenant->id, 'nome' => 'Paolo Verdi', 'tags' => ['liquidatore'], 'telefono' => '3331112222', 'email' => 'paolo@compagnia.it', 'is_active' => true]);
+    $pratica = Pratica::create(['tenant_id' => $tenant->id, 'utente_creatore_id' => $admin->id, 'cliente_id' => $cliente->id, 'current_status_id' => $stato->id, 'compagnia' => 'Generali', 'contatti' => ['liquidatore' => $liq->id]]);
+
+    $this->actingAs($admin);
+    $html = fn () => view('pdf.pratica', \App\Http\Controllers\PdfExportController::datiVista(Pratica::find($pratica->id)->load('tenant')))->render();
+
+    expect($html())->toContain('Mario Rossi')->not->toContain('Liquidatore')->not->toContain('Paolo Verdi');
+
+    config(['agenzie.'.$tenant->id => ['pdf_liquidatore' => true]]);
+
+    expect($html())->toContain('Liquidatore')->toContain('Paolo Verdi')
+        ->toContain('3331112222')->toContain('paolo@compagnia.it');
+
+    $this->get("/pratiche/{$pratica->id}/export-pdf")->assertOk();
+});

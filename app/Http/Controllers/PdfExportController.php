@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Contatto;
 use App\Models\Pratica;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
@@ -26,7 +27,7 @@ class PdfExportController extends Controller
             'allegati',
         ]);
 
-        $pdf = Pdf::loadView('pdf.pratica', ['pratica' => $pratica])
+        $pdf = Pdf::loadView('pdf.pratica', self::datiVista($pratica))
             ->setPaper('a4', 'portrait')
             ->setOptions([
                 'defaultFont'   => 'DejaVu Sans',
@@ -40,5 +41,20 @@ class PdfExportController extends Controller
         $filename = sprintf('sinistro-%s-%s.pdf', trim($numero, '-') ?: $pratica->id, now()->format('Y-m-d'));
 
         return $pdf->download($filename);
+    }
+
+    /** Dati per la vista; la riga del liquidatore solo per le agenzie che l'hanno chiesta (config/agenzie.php). */
+    public static function datiVista(Pratica $pratica): array
+    {
+        $mostra = (bool) config('agenzie.'.$pratica->tenant_id.'.pdf_liquidatore');
+        $id = $pratica->contatti['liquidatore'] ?? null;
+
+        return [
+            'pratica'           => $pratica,
+            'mostraLiquidatore' => $mostra,
+            'liquidatore'       => $mostra && $id
+                ? Contatto::withoutGlobalScopes()->where('tenant_id', $pratica->tenant_id)->find($id)
+                : null,
+        ];
     }
 }

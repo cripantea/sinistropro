@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Contatto;
+use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -23,7 +24,8 @@ class ContattoController extends Controller
         return Inertia::render('Contatti/Index', [
             'contatti' => $contatti,
             // Tag in uso (per filtro e suggerimenti): perito e carrozzeria sempre disponibili.
-            'tags'     => $contatti->pluck('tags')->flatten()->merge([Contatto::TAG_PERITO, Contatto::TAG_CARROZZERIA, 'studio peritale', 'liquidatore'])->unique()->sort()->values(),
+            'tags'     => $contatti->pluck('tags')->flatten()->merge([Contatto::TAG_PERITO, Contatto::TAG_CARROZZERIA, 'studio peritale', 'liquidatore'])
+                ->merge(config('agenzie.'.TenantContext::id().'.categorie_rubrica', []))->unique()->sort()->values(),
             'tag'      => $request->filled('tag') ? Contatto::normalizeTag((string) $request->input('tag')) : null,
         ]);
     }

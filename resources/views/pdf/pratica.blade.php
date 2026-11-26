@@ -247,6 +247,17 @@
           @endif
         </td>
       </tr>
+      @if(!empty($mostraLiquidatore))
+        <tr>
+          <td class="label">Liquidatore</td>
+          <td>{{ $liquidatore?->nome ?: '—' }}</td>
+          <td class="label">Tel. / Email</td>
+          <td>
+            {{ $liquidatore?->telefono ?: '—' }}<br>
+            {{ $liquidatore?->email ?: '—' }}
+          </td>
+        </tr>
+      @endif
       <tr>
         <td class="label">N. sinistro</td>
         <td>{{ $pratica->numero }}</td>
