@@ -4,7 +4,7 @@
 SinistroPro
 @endcomponent
 @endslot
-# Sinistro #{{ $pratica->id }} — Avviso Scadenza
+# Sinistro {{ $pratica->numero }} — Avviso Scadenza
 
 Gentile **{{ $destinatario->name }}**,
 
@@ -15,7 +15,7 @@ ti informiamo che il seguente sinistro è ancora **aperto** e richiede attenzion
 @component('mail::panel')
 | | |
 |---|---|
-| **Sinistro** | #{{ $pratica->id }} |
+| **Sinistro** | {{ $pratica->numero }} |
 | **Cliente** | {{ $pratica->cliente?->nome ?? '—' }} |
 @if($pratica->veicolo)
 | **Veicolo** | {{ trim($pratica->veicolo->targa . ' ' . $pratica->veicolo->marca . ' ' . $pratica->veicolo->modello) }} |

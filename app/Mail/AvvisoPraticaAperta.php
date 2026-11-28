@@ -23,8 +23,11 @@ class AvvisoPraticaAperta extends Mailable
 
     public function envelope(): Envelope
     {
+        // Numero sinistro dell'agenzia (es. quello della compagnia) e cliente: si riconosce subito dall'oggetto.
+        $cliente = trim((string) $this->pratica->cliente?->nome);
+
         return new Envelope(
-            subject: "[{$this->pratica->tenant->name}] Avviso sinistro #{$this->pratica->id} ancora aperto",
+            subject: "[{$this->pratica->tenant->name}] Sinistro {$this->pratica->numero}".($cliente !== '' ? " - {$cliente}" : '').' ancora aperto',
         );
     }
 

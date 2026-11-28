@@ -188,3 +188,19 @@ test('gli avvisi arretrati si scaglionano su più giorni lavorativi, senza invia
         ->and($futura->fresh()->data_prossimo_avviso->toDateString())->toBe('2026-10-30');
     Bus::assertNothingDispatched();
 });
+
+test('il promemoria ha nell\'oggetto e nel testo il numero sinistro dell\'agenzia e il cliente; senza numero resta #id', function () {
+    $this->tenant->update(['settings' => ['numero_sinistro_campo' => 'numero_sinistro_compagnia']]);
+    Pratica::dimenticaCampoNumero();
+    $this->cliente->update(['nome' => 'SONCINI FABIO']);
+
+    $conNumero = nuovaPratica(['custom_fields' => ['numero_sinistro_compagnia' => '0840/99/000590']]);
+    $mail = new \App\Mail\AvvisoPraticaAperta($conNumero->fresh(), $this->admin1, today()->addDay());
+    expect($mail->envelope()->subject)->toBe('[Studio Test] Sinistro 0840/99/000590 - SONCINI FABIO ancora aperto');
+    $html = $mail->render();
+    expect($html)->toContain('0840/99/000590')->not->toContain('#'.$conNumero->id.' ');
+
+    $senza = nuovaPratica();
+    $mail = new \App\Mail\AvvisoPraticaAperta($senza->fresh(), $this->admin1, today()->addDay());
+    expect($mail->envelope()->subject)->toBe("[Studio Test] Sinistro #{$senza->id} - SONCINI FABIO ancora aperto");
+});
